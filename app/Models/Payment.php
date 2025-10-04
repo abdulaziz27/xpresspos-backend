@@ -1,0 +1,150 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Concerns\BelongsToStore;
+
+class Payment extends Model
+{
+    use HasFactory, HasUuids, BelongsToStore;
+
+    protected $fillable = [
+        'store_id',
+        'order_id',
+        'payment_method',
+        'amount',
+        'reference_number',
+        'status',
+        'processed_at',
+        'processed_by',
+        'notes',
+        'gateway',
+        'gateway_transaction_id',
+        'payment_method_id',
+        'invoice_id',
+        'gateway_fee',
+        'gateway_response',
+    ];
+
+    protected $casts = [
+        'amount' => 'decimal:2',
+        'gateway_fee' => 'decimal:2',
+        'processed_at' => 'datetime',
+        'gateway_response' => 'array',
+    ];
+
+
+
+    /**
+     * Get the order that owns the payment.
+     */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    /**
+     * Get the refunds for the payment.
+     */
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
+
+    /**
+     * Get the payment method used for this payment.
+     */
+    public function paymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class);
+    }
+
+    /**
+     * Get the invoice this payment is for.
+     */
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
+    }
+
+    /**
+     * Mark payment as processed.
+     */
+    public function markAsProcessed(): void
+    {
+        $this->update([
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+    }
+
+    /**
+     * Check if payment can be refunded.
+     */
+    public function canBeRefunded(): bool
+    {
+        return $this->status === 'completed' && 
+               $this->refunds()->sum('amount') < $this->amount;
+    }
+
+    /**
+     * Get remaining refundable amount.
+     */
+    public function getRefundableAmount(): float
+    {
+        return $this->amount - $this->refunds()->sum('amount');
+    }
+
+    /**
+     * Scope to get payments by method.
+     */
+    public function scopeByMethod($query, string $method)
+    {
+        return $query->where('payment_method', $method);
+    }
+
+    /**
+     * Scope to get completed payments.
+     */
+    public function scopeCompleted($query)
+    {
+        return $query->where('status', 'completed');
+    }
+
+    /**
+     * Get net amount after gateway fees.
+     */
+    public function getNetAmountAttribute(): float
+    {
+        return $this->amount - $this->gateway_fee;
+    }
+
+    /**
+     * Check if payment was processed through a gateway.
+     */
+    public function hasGateway(): bool
+    {
+        return !empty($this->gateway);
+    }
+
+    /**
+     * Scope to filter by gateway.
+     */
+    public function scopeByGateway($query, string $gateway)
+    {
+        return $query->where('gateway', $gateway);
+    }
+
+    /**
+     * Scope to get payments with gateway fees.
+     */
+    public function scopeWithGatewayFees($query)
+    {
+        return $query->where('gateway_fee', '>', 0);
+    }
+}

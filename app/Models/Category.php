@@ -1,0 +1,54 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Concerns\BelongsToStore;
+
+class Category extends Model
+{
+    use HasFactory, BelongsToStore;
+
+    protected $fillable = [
+        'store_id',
+        'name',
+        'slug',
+        'description',
+        'image',
+        'is_active',
+        'sort_order',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+
+
+
+    /**
+     * Get the products for the category.
+     */
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
+    }
+
+    /**
+     * Scope to get active categories.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope to order by sort order.
+     */
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('sort_order');
+    }
+}
