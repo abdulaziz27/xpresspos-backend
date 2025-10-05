@@ -35,6 +35,14 @@ class Store extends Model
     }
 
     /**
+     * Get the subscription for the store (alias for activeSubscription).
+     */
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class)->where('status', 'active');
+    }
+
+    /**
      * Get the active subscription for the store.
      */
     public function activeSubscription(): HasOne
@@ -130,49 +138,49 @@ class Store extends Model
             default => 0,
         };
     }
-    
+
     /**
      * Get current product usage, bypassing scope if no authenticated user.
      */
     private function getCurrentProductUsage(): int
     {
         $user = auth()->user();
-        
+
         if (!$user) {
             // In testing or no auth context, use direct query
             return \App\Models\Product::withoutStoreScope()->where('store_id', $this->id)->count();
         }
-        
+
         return $this->products()->count();
     }
-    
+
     /**
      * Get current user usage, bypassing scope if no authenticated user.
      */
     private function getCurrentUserUsage(): int
     {
         $user = auth()->user();
-        
+
         if (!$user) {
             // In testing or no auth context, use direct query (User doesn't have store scope)
             return \App\Models\User::where('store_id', $this->id)->count();
         }
-        
+
         return $this->users()->count();
     }
-    
+
     /**
      * Get current category usage, bypassing scope if no authenticated user.
      */
     private function getCurrentCategoryUsage(): int
     {
         $user = auth()->user();
-        
+
         if (!$user) {
             // In testing or no auth context, use direct query
             return \App\Models\Category::withoutStoreScope()->where('store_id', $this->id)->count();
         }
-        
+
         return $this->categories()->count();
     }
 
