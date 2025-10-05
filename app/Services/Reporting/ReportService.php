@@ -34,7 +34,7 @@ class ReportService
         if (!empty($filters['outlet_id'])) {
             $query->where('outlet_id', $filters['outlet_id']);
         }
-        
+
         if (!empty($filters['user_id'])) {
             $query->where('user_id', $filters['user_id']);
         }
@@ -49,13 +49,13 @@ class ReportService
 
         // Group data by specified period
         $groupedData = $this->groupOrdersByPeriod($orders, $groupBy);
-        
+
         // Calculate summary metrics
         $summary = $this->calculateSalesSummary($orders);
-        
+
         // Get payment method breakdown
         $paymentBreakdown = $this->getPaymentMethodBreakdown($orders);
-        
+
         // Get top products
         $topProducts = $this->getTopProducts($orders, 10);
 
@@ -229,14 +229,18 @@ class ReportService
                 DB::raw('AVG(order_items.unit_price) as average_price'),
             ])
             ->groupBy([
-                'products.id', 'products.name', 'products.sku', 
-                'products.price', 'products.cost_price', 'categories.name'
+                'products.id',
+                'products.name',
+                'products.sku',
+                'products.price',
+                'products.cost_price',
+                'categories.name'
             ])
             ->get()
             ->map(function ($item) {
                 $profit = $item->total_revenue - ($item->total_quantity * $item->cost_price);
                 $profitMargin = $item->total_revenue > 0 ? ($profit / $item->total_revenue) * 100 : 0;
-                
+
                 return [
                     'id' => $item->id,
                     'name' => $item->name,
@@ -331,8 +335,8 @@ class ReportService
                 'unique_customers' => (int) $customerStats->unique_customers,
                 'guest_orders' => (int) $customerStats->guest_orders,
                 'member_orders' => (int) $customerStats->member_orders,
-                'member_percentage' => $customerStats->total_orders > 0 
-                    ? round(($customerStats->member_orders / $customerStats->total_orders) * 100, 2) 
+                'member_percentage' => $customerStats->total_orders > 0
+                    ? round(($customerStats->member_orders / $customerStats->total_orders) * 100, 2)
                     : 0,
                 'total_revenue' => (float) $customerStats->total_revenue,
                 'average_order_value' => (float) $customerStats->average_order_value,
@@ -418,16 +422,16 @@ class ReportService
 
         // Group sales by period
         $salesData = $this->groupOrdersByPeriod($orders, $groupBy);
-        
+
         // Calculate trends
         $trends = $this->calculateTrends($salesData);
-        
+
         // Generate forecast for next periods
         $forecast = $this->generateForecast($salesData, 7); // Next 7 periods
-        
+
         // Calculate seasonality patterns
         $seasonality = $this->analyzeSeasonality($orders, $groupBy);
-        
+
         return [
             'historical_data' => $salesData,
             'trends' => $trends,
@@ -445,19 +449,19 @@ class ReportService
         Carbon $endDate
     ): array {
         $productStats = $this->getProductPerformanceData($startDate, $endDate);
-        
+
         // ABC Analysis (80/20 rule)
         $abcAnalysis = $this->performAbcAnalysis($productStats);
-        
+
         // Product lifecycle analysis
         $lifecycleAnalysis = $this->analyzeProductLifecycle($productStats);
-        
+
         // Cross-selling analysis
         $crossSellingData = $this->analyzeCrossSelling($startDate, $endDate);
-        
+
         // Price elasticity analysis
         $priceElasticity = $this->analyzePriceElasticity($startDate, $endDate);
-        
+
         return [
             'abc_analysis' => $abcAnalysis,
             'lifecycle_analysis' => $lifecycleAnalysis,
@@ -476,19 +480,19 @@ class ReportService
     ): array {
         // RFM Analysis (Recency, Frequency, Monetary)
         $rfmAnalysis = $this->performRfmAnalysis($startDate, $endDate);
-        
+
         // Customer lifetime value
         $clvAnalysis = $this->calculateCustomerLifetimeValue($startDate, $endDate);
-        
+
         // Churn prediction
         $churnAnalysis = $this->analyzeCustomerChurn($startDate, $endDate);
-        
+
         // Purchase patterns
         $purchasePatterns = $this->analyzePurchasePatterns($startDate, $endDate);
-        
+
         // Customer journey analysis
         $journeyAnalysis = $this->analyzeCustomerJourney($startDate, $endDate);
-        
+
         return [
             'rfm_analysis' => $rfmAnalysis,
             'customer_lifetime_value' => $clvAnalysis,
@@ -508,16 +512,16 @@ class ReportService
     ): array {
         // Gross margin analysis
         $grossMarginAnalysis = $this->analyzeGrossMargins($startDate, $endDate);
-        
+
         // Cost analysis
         $costAnalysis = $this->analyzeCosts($startDate, $endDate);
-        
+
         // Profit center analysis
         $profitCenterAnalysis = $this->analyzeProfitCenters($startDate, $endDate);
-        
+
         // Break-even analysis
         $breakEvenAnalysis = $this->calculateBreakEvenPoints($startDate, $endDate);
-        
+
         return [
             'gross_margins' => $grossMarginAnalysis,
             'cost_analysis' => $costAnalysis,
@@ -536,16 +540,16 @@ class ReportService
     ): array {
         // Staff performance metrics
         $staffPerformance = $this->analyzeStaffPerformance($startDate, $endDate);
-        
+
         // Peak hours analysis
         $peakHoursAnalysis = $this->analyzePeakHours($startDate, $endDate);
-        
+
         // Table turnover analysis
         $tableTurnover = $this->analyzeTableTurnover($startDate, $endDate);
-        
+
         // Service efficiency metrics
         $serviceEfficiency = $this->analyzeServiceEfficiency($startDate, $endDate);
-        
+
         return [
             'staff_performance' => $staffPerformance,
             'peak_hours' => $peakHoursAnalysis,
@@ -602,7 +606,7 @@ class ReportService
     private function getPaymentMethodBreakdown(Collection $orders): array
     {
         $payments = $orders->flatMap->payments;
-        
+
         return $payments->groupBy('payment_method')->map(function ($methodPayments) {
             return [
                 'count' => $methodPayments->count(),
@@ -615,7 +619,7 @@ class ReportService
     private function getTopProducts(Collection $orders, int $limit): array
     {
         $items = $orders->flatMap->items;
-        
+
         return $items->groupBy('product_id')
             ->map(function ($productItems) {
                 $product = $productItems->first()->product;
@@ -637,11 +641,11 @@ class ReportService
         if ($product->isOutOfStock()) {
             return 'out_of_stock';
         }
-        
+
         if ($product->isLowStock()) {
             return 'low_stock';
         }
-        
+
         return 'in_stock';
     }
 
@@ -672,25 +676,25 @@ class ReportService
     ): array {
         $dailyFlow = [];
         $current = $startDate->copy();
-        
+
         while ($current <= $endDate) {
             $dayPayments = $payments->filter(function ($payment) use ($current) {
                 return Carbon::parse($payment->created_at)->isSameDay($current);
             });
-            
+
             $dayExpenses = $expenses->filter(function ($expense) use ($current) {
                 return Carbon::parse($expense->expense_date)->isSameDay($current);
             });
-            
+
             $dailyFlow[$current->toDateString()] = [
                 'revenue' => $dayPayments->sum('amount'),
                 'expenses' => $dayExpenses->sum('amount'),
                 'net_flow' => $dayPayments->sum('amount') - $dayExpenses->sum('amount'),
             ];
-            
+
             $current->addDay();
         }
-        
+
         return $dailyFlow;
     }
 
@@ -773,7 +777,7 @@ class ReportService
         if ($previous == 0) {
             return $current > 0 ? 100 : 0;
         }
-        
+
         return round((($current - $previous) / $previous) * 100, 2);
     }
 
@@ -783,8 +787,8 @@ class ReportService
     {
         if (empty($salesData)) {
             return [
-                'trend' => 'insufficient_data', 
-                'slope' => 0, 
+                'trend' => 'insufficient_data',
+                'slope' => 0,
                 'correlation' => 0,
                 'intercept' => 0,
                 'strength' => 'none'
@@ -793,38 +797,38 @@ class ReportService
 
         $values = array_values(array_map(fn($data) => $data['revenue'], $salesData));
         $count = count($values);
-        
+
         if ($count < 2) {
             return [
-                'trend' => 'insufficient_data', 
-                'slope' => 0, 
+                'trend' => 'insufficient_data',
+                'slope' => 0,
                 'correlation' => 0,
                 'intercept' => 0,
                 'strength' => 'none'
             ];
         }
-        
+
         // Calculate linear regression
         $x = range(1, $count);
         $sumX = array_sum($x);
         $sumY = array_sum($values);
         $sumXY = array_sum(array_map(fn($i) => $x[$i] * $values[$i], range(0, $count - 1)));
         $sumX2 = array_sum(array_map(fn($val) => $val * $val, $x));
-        
+
         $denominator = ($count * $sumX2 - $sumX * $sumX);
         $slope = $denominator != 0 ? ($count * $sumXY - $sumX * $sumY) / $denominator : 0;
         $intercept = $count > 0 ? ($sumY - $slope * $sumX) / $count : 0;
-        
+
         // Calculate correlation coefficient
         $meanX = $sumX / $count;
         $meanY = $sumY / $count;
-        
+
         $numerator = array_sum(array_map(fn($i) => ($x[$i] - $meanX) * ($values[$i] - $meanY), range(0, $count - 1)));
         $denomX = sqrt(array_sum(array_map(fn($val) => pow($val - $meanX, 2), $x)));
         $denomY = sqrt(array_sum(array_map(fn($val) => pow($val - $meanY, 2), $values)));
-        
+
         $correlation = ($denomX * $denomY != 0) ? $numerator / ($denomX * $denomY) : 0;
-        
+
         return [
             'trend' => $slope > 0 ? 'increasing' : ($slope < 0 ? 'decreasing' : 'stable'),
             'slope' => round($slope, 2),
@@ -838,19 +842,19 @@ class ReportService
     {
         $values = array_values(array_map(fn($data) => $data['revenue'], $salesData));
         $count = count($values);
-        
+
         if ($count < 3) {
             return [];
         }
-        
+
         // Simple moving average forecast
         $windowSize = min(3, $count);
         $recentValues = array_slice($values, -$windowSize);
         $average = array_sum($recentValues) / $windowSize;
-        
+
         // Calculate trend from recent data
         $recentTrend = $this->calculateTrends(array_slice($salesData, -$windowSize, null, true));
-        
+
         $forecast = [];
         for ($i = 1; $i <= $periods; $i++) {
             $forecastValue = $average + ($recentTrend['slope'] * $i);
@@ -860,14 +864,14 @@ class ReportService
                 'confidence' => max(0.1, 1 - ($i * 0.1)), // Decreasing confidence
             ];
         }
-        
+
         return $forecast;
     }
 
     private function analyzeSeasonality(Collection $orders, string $groupBy): array
     {
         $seasonalData = [];
-        
+
         foreach ($orders as $order) {
             $date = Carbon::parse($order->completed_at);
             $key = match ($groupBy) {
@@ -876,46 +880,46 @@ class ReportService
                 'month' => $date->format('j'), // Day of month
                 default => $date->format('H'),
             };
-            
+
             if (!isset($seasonalData[$key])) {
                 $seasonalData[$key] = ['count' => 0, 'revenue' => 0];
             }
-            
+
             $seasonalData[$key]['count']++;
             $seasonalData[$key]['revenue'] += $order->total_amount;
         }
-        
+
         // Calculate averages and identify patterns
         $totalRevenue = array_sum(array_column($seasonalData, 'revenue'));
         $avgRevenue = $totalRevenue / count($seasonalData);
-        
+
         foreach ($seasonalData as $key => &$data) {
             $data['avg_revenue'] = $data['count'] > 0 ? $data['revenue'] / $data['count'] : 0;
             $data['variance_from_avg'] = (($data['revenue'] - $avgRevenue) / $avgRevenue) * 100;
         }
-        
+
         return $seasonalData;
     }
 
     private function generateTrendInsights(array $trends, array $salesData): array
     {
         $insights = [];
-        
+
         if ($trends['trend'] === 'increasing' && $trends['strength'] === 'strong') {
             $insights[] = 'Strong upward sales trend detected. Consider increasing inventory and staff during peak periods.';
         } elseif ($trends['trend'] === 'decreasing' && $trends['strength'] === 'strong') {
             $insights[] = 'Declining sales trend detected. Review marketing strategies and customer feedback.';
         }
-        
+
         $recentRevenue = end($salesData)['revenue'];
         $avgRevenue = array_sum(array_column($salesData, 'revenue')) / count($salesData);
-        
+
         if ($recentRevenue > $avgRevenue * 1.2) {
             $insights[] = 'Recent performance is significantly above average. Analyze successful factors for replication.';
         } elseif ($recentRevenue < $avgRevenue * 0.8) {
             $insights[] = 'Recent performance is below average. Consider promotional activities or operational improvements.';
         }
-        
+
         return $insights;
     }
 
@@ -943,14 +947,14 @@ class ReportService
     {
         $sortedProducts = $productStats->sortByDesc('total_revenue');
         $totalRevenue = $sortedProducts->sum('total_revenue');
-        
+
         $cumulativeRevenue = 0;
         $categories = ['A' => [], 'B' => [], 'C' => []];
-        
+
         foreach ($sortedProducts as $product) {
             $cumulativeRevenue += $product->total_revenue;
             $cumulativePercentage = ($cumulativeRevenue / $totalRevenue) * 100;
-            
+
             if ($cumulativePercentage <= 80) {
                 $categories['A'][] = $product;
             } elseif ($cumulativePercentage <= 95) {
@@ -959,7 +963,7 @@ class ReportService
                 $categories['C'][] = $product;
             }
         }
-        
+
         return [
             'categories' => $categories,
             'summary' => [
@@ -976,12 +980,12 @@ class ReportService
     private function analyzeProductLifecycle(Collection $productStats): array
     {
         $lifecycle = [];
-        
+
         foreach ($productStats as $product) {
             $revenuePerOrder = $product->order_frequency > 0 ? $product->total_revenue / $product->order_frequency : 0;
             $profit = $product->total_revenue - ($product->total_quantity * $product->cost_price);
             $profitMargin = $product->total_revenue > 0 ? ($profit / $product->total_revenue) * 100 : 0;
-            
+
             // Classify product lifecycle stage
             $stage = 'mature';
             if ($product->order_frequency < 5) {
@@ -991,7 +995,7 @@ class ReportService
             } elseif ($profitMargin < 10) {
                 $stage = 'decline';
             }
-            
+
             $lifecycle[] = [
                 'product_id' => $product->id,
                 'product_name' => $product->name,
@@ -1001,7 +1005,7 @@ class ReportService
                 'order_frequency' => $product->order_frequency,
             ];
         }
-        
+
         return $lifecycle;
     }
 
@@ -1010,9 +1014,9 @@ class ReportService
         // Get orders with multiple items
         $crossSellingData = DB::table('orders')
             ->join('order_items as oi1', 'orders.id', '=', 'oi1.order_id')
-            ->join('order_items as oi2', function($join) {
+            ->join('order_items as oi2', function ($join) {
                 $join->on('orders.id', '=', 'oi2.order_id')
-                     ->where('oi1.product_id', '!=', DB::raw('oi2.product_id'));
+                    ->where('oi1.product_id', '!=', DB::raw('oi2.product_id'));
             })
             ->join('products as p1', 'oi1.product_id', '=', 'p1.id')
             ->join('products as p2', 'oi2.product_id', '=', 'p2.id')
@@ -1028,7 +1032,7 @@ class ReportService
             ->orderByDesc('frequency')
             ->limit(20)
             ->get();
-        
+
         return $crossSellingData->toArray();
     }
 
@@ -1045,28 +1049,28 @@ class ReportService
     private function generateProductRecommendations(array $abcAnalysis, array $lifecycleAnalysis): array
     {
         $recommendations = [];
-        
+
         // ABC Analysis recommendations
         if (count($abcAnalysis['categories']['A']) > 0) {
             $recommendations[] = 'Focus inventory management on Category A products (80% of revenue)';
         }
-        
+
         if (count($abcAnalysis['categories']['C']) > count($abcAnalysis['categories']['A']) * 2) {
             $recommendations[] = 'Consider discontinuing some Category C products to reduce complexity';
         }
-        
+
         // Lifecycle recommendations
         $introductionProducts = array_filter($lifecycleAnalysis, fn($p) => $p['stage'] === 'introduction');
         $declineProducts = array_filter($lifecycleAnalysis, fn($p) => $p['stage'] === 'decline');
-        
+
         if (count($introductionProducts) > 0) {
             $recommendations[] = 'Increase marketing for ' . count($introductionProducts) . ' products in introduction stage';
         }
-        
+
         if (count($declineProducts) > 0) {
             $recommendations[] = 'Review pricing or consider phasing out ' . count($declineProducts) . ' declining products';
         }
-        
+
         return $recommendations;
     }
 
@@ -1086,20 +1090,20 @@ class ReportService
             ])
             ->groupBy(['members.id', 'members.name'])
             ->get();
-        
+
         $rfmScores = [];
         $now = now();
-        
+
         foreach ($customerData as $customer) {
             $recency = $now->diffInDays(Carbon::parse($customer->last_order_date));
-            
+
             // Score calculation (1-5 scale)
             $recencyScore = $recency <= 30 ? 5 : ($recency <= 60 ? 4 : ($recency <= 90 ? 3 : ($recency <= 180 ? 2 : 1)));
             $frequencyScore = $customer->frequency >= 10 ? 5 : ($customer->frequency >= 5 ? 4 : ($customer->frequency >= 3 ? 3 : ($customer->frequency >= 2 ? 2 : 1)));
             $monetaryScore = $customer->monetary >= 1000 ? 5 : ($customer->monetary >= 500 ? 4 : ($customer->monetary >= 200 ? 3 : ($customer->monetary >= 100 ? 2 : 1)));
-            
+
             $segment = $this->determineRfmSegment($recencyScore, $frequencyScore, $monetaryScore);
-            
+
             $rfmScores[] = [
                 'customer_id' => $customer->id,
                 'customer_name' => $customer->name,
@@ -1113,7 +1117,7 @@ class ReportService
                 'segment' => $segment,
             ];
         }
-        
+
         return $rfmScores;
     }
 
@@ -1128,7 +1132,7 @@ class ReportService
         if ($r <= 2 && $f <= 2 && $m >= 4) return 'About to Sleep';
         if ($r <= 2 && $f >= 3 && $m <= 2) return 'At Risk';
         if ($r <= 1 && $f <= 2 && $m <= 2) return 'Lost';
-        
+
         return 'Others';
     }
 
@@ -1144,20 +1148,20 @@ class ReportService
                 'members.name',
                 DB::raw('AVG(orders.total_amount) as avg_order_value'),
                 DB::raw('COUNT(orders.id) as total_orders'),
-                DB::raw('DATEDIFF(MAX(orders.completed_at), MIN(orders.completed_at)) as customer_lifespan_days'),
+                DB::raw('(julianday(MAX(orders.completed_at)) - julianday(MIN(orders.completed_at))) as customer_lifespan_days'),
                 DB::raw('SUM(orders.total_amount) as total_spent'),
             ])
             ->groupBy(['members.id', 'members.name'])
             ->having('total_orders', '>', 1)
             ->get();
-        
+
         $clvData = [];
         foreach ($customerMetrics as $customer) {
-            $purchaseFrequency = $customer->customer_lifespan_days > 0 ? 
+            $purchaseFrequency = $customer->customer_lifespan_days > 0 ?
                 $customer->total_orders / ($customer->customer_lifespan_days / 365) : 0;
-            
+
             $clv = $customer->avg_order_value * $purchaseFrequency * 2; // Assuming 2-year lifespan
-            
+
             $clvData[] = [
                 'customer_id' => $customer->id,
                 'customer_name' => $customer->name,
@@ -1168,7 +1172,7 @@ class ReportService
                 'total_spent' => $customer->total_spent,
             ];
         }
-        
+
         return $clvData;
     }
 
@@ -1176,11 +1180,11 @@ class ReportService
     {
         // Simple churn analysis based on last order date
         $churnThreshold = 90; // days
-        
+
         $customerActivity = DB::table('members')
-            ->leftJoin('orders', function($join) {
+            ->leftJoin('orders', function ($join) {
                 $join->on('members.id', '=', 'orders.member_id')
-                     ->where('orders.status', 'completed');
+                    ->where('orders.status', 'completed');
             })
             ->where('members.store_id', auth()->user()->store_id)
             ->select([
@@ -1192,20 +1196,20 @@ class ReportService
             ])
             ->groupBy(['members.id', 'members.name', 'members.created_at'])
             ->get();
-        
+
         $churnAnalysis = [
             'active' => 0,
             'at_risk' => 0,
             'churned' => 0,
             'customers' => [],
         ];
-        
+
         $now = now();
         foreach ($customerActivity as $customer) {
-            $daysSinceLastOrder = $customer->last_order_date ? 
-                $now->diffInDays(Carbon::parse($customer->last_order_date)) : 
+            $daysSinceLastOrder = $customer->last_order_date ?
+                $now->diffInDays(Carbon::parse($customer->last_order_date)) :
                 $now->diffInDays(Carbon::parse($customer->registration_date));
-            
+
             $status = 'active';
             if ($daysSinceLastOrder > $churnThreshold * 2) {
                 $status = 'churned';
@@ -1216,7 +1220,7 @@ class ReportService
             } else {
                 $churnAnalysis['active']++;
             }
-            
+
             $churnAnalysis['customers'][] = [
                 'customer_id' => $customer->id,
                 'customer_name' => $customer->name,
@@ -1225,7 +1229,7 @@ class ReportService
                 'status' => $status,
             ];
         }
-        
+
         return $churnAnalysis;
     }
 
@@ -1237,27 +1241,27 @@ class ReportService
             ->where('store_id', auth()->user()->store_id)
             ->whereBetween('completed_at', [$startDate, $endDate])
             ->select([
-                DB::raw('HOUR(completed_at) as hour'),
+                DB::raw('CAST(strftime("%H", completed_at) AS INTEGER) as hour'),
                 DB::raw('COUNT(*) as order_count'),
                 DB::raw('AVG(total_amount) as avg_order_value'),
             ])
             ->groupBy('hour')
             ->orderBy('hour')
             ->get();
-        
+
         $dailyPatterns = DB::table('orders')
             ->where('status', 'completed')
             ->where('store_id', auth()->user()->store_id)
             ->whereBetween('completed_at', [$startDate, $endDate])
             ->select([
-                DB::raw('DAYOFWEEK(completed_at) as day_of_week'),
+                DB::raw('CAST(strftime("%w", completed_at) AS INTEGER) + 1 as day_of_week'),
                 DB::raw('COUNT(*) as order_count'),
                 DB::raw('AVG(total_amount) as avg_order_value'),
             ])
             ->groupBy('day_of_week')
             ->orderBy('day_of_week')
             ->get();
-        
+
         return [
             'hourly_patterns' => $hourlyPatterns->toArray(),
             'daily_patterns' => $dailyPatterns->toArray(),
@@ -1286,19 +1290,19 @@ class ReportService
                     'customers' => [],
                 ];
             }
-            
+
             $segments[$segment]['count']++;
             $segments[$segment]['total_monetary'] += $customer['monetary'];
             $segments[$segment]['avg_frequency'] += $customer['frequency'];
             $segments[$segment]['customers'][] = $customer;
         }
-        
+
         // Calculate averages
         foreach ($segments as $segment => &$data) {
             $data['avg_monetary'] = $data['count'] > 0 ? $data['total_monetary'] / $data['count'] : 0;
             $data['avg_frequency'] = $data['count'] > 0 ? $data['avg_frequency'] / $data['count'] : 0;
         }
-        
+
         return $segments;
     }
 
