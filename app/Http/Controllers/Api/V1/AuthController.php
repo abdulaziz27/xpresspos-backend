@@ -40,7 +40,7 @@ class AuthController extends Controller
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             RateLimiter::hit($key, 300); // 5 minutes lockout
-
+            
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
@@ -100,10 +100,8 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
-        // Revoke current token if user is authenticated
-        if ($request->user() && $request->user()->currentAccessToken()) {
-            $request->user()->currentAccessToken()->delete();
-        }
+        // Revoke current token
+        $request->user()->currentAccessToken()->delete();
 
         return response()->json([
             'success' => true,
@@ -197,7 +195,7 @@ class AuthController extends Controller
 
         if ($status === Password::RESET_LINK_SENT) {
             RateLimiter::hit($key, 3600); // 1 hour lockout
-
+            
             return response()->json([
                 'success' => true,
                 'data' => null,
