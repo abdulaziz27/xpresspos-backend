@@ -13,14 +13,14 @@ use App\Models\Expense;
 use App\Models\CashSession;
 use App\Models\Plan;
 use App\Models\Subscription;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Carbon\Carbon;
 
 class ReportingSystemTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     private User $user;
     private Store $store;
@@ -28,20 +28,23 @@ class ReportingSystemTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
+        // Run migrations and seeders
+        $this->artisan('migrate:fresh --seed');
+
         // Create test store and user
         $this->store = Store::factory()->create();
         $this->user = User::factory()->create([
             'store_id' => $this->store->id,
         ]);
-        
+
         // Create subscription with Pro plan
         $plan = Plan::factory()->create([
             'name' => 'Pro Test',
             'slug' => 'pro-test',
             'features' => ['inventory_tracking', 'advanced_reports', 'report_export'],
         ]);
-        
+
         Subscription::factory()->create([
             'store_id' => $this->store->id,
             'plan_id' => $plan->id,
@@ -267,9 +270,9 @@ class ReportingSystemTest extends TestCase
             'slug' => 'basic-test',
             'features' => [],
         ]);
-        
+
         $this->store->activeSubscription->update(['plan_id' => $basicPlan->id]);
-        
+
         // Create subscription usage that exceeds quota
         \App\Models\SubscriptionUsage::factory()->create([
             'subscription_id' => $this->store->activeSubscription->id,
@@ -297,7 +300,7 @@ class ReportingSystemTest extends TestCase
     public function test_reports_are_cached()
     {
         Cache::flush();
-        
+
         // Create test data
         $this->createTestOrders();
 
@@ -332,7 +335,7 @@ class ReportingSystemTest extends TestCase
         // Create another store with data
         $otherStore = Store::factory()->create();
         $otherUser = User::factory()->create(['store_id' => $otherStore->id]);
-        
+
         // Create orders for other store
         Order::factory()->create([
             'store_id' => $otherStore->id,
@@ -350,7 +353,7 @@ class ReportingSystemTest extends TestCase
         ]));
 
         $response->assertOk();
-        
+
         // Should only include current store's data
         $data = $response->json('data');
         $this->assertGreaterThan(0, $data['summary']['total_orders']);
@@ -360,7 +363,7 @@ class ReportingSystemTest extends TestCase
     {
         $this->createTestOrders();
 
-        $response = $this->getJson('/api/v1/reports/sales-trends?' . http_build_query([
+        $response = $this->getJson('/api/v1/reports/sales-trend?' . http_build_query([
             'start_date' => now()->subDays(7)->toDateString(),
             'end_date' => now()->toDateString(),
             'group_by' => 'day',
@@ -439,7 +442,7 @@ class ReportingSystemTest extends TestCase
     {
         $this->createTestOrders();
 
-        $response = $this->getJson('/api/v1/reports/profitability-analysis?' . http_build_query([
+        $response = $this->getJson('/api/v1/reports/profitability?' . http_build_query([
             'start_date' => now()->subDays(7)->toDateString(),
             'end_date' => now()->toDateString(),
         ]));
