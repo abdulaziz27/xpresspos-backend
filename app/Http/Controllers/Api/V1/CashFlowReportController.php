@@ -46,7 +46,8 @@ class CashFlowReportController extends Controller
             ->get();
 
         // Get expenses for the period
-        $expenses = Expense::whereBetween('expense_date', [$startDate, $endDate])
+        $expenses = Expense::whereDate('expense_date', '>=', $startDate)
+            ->whereDate('expense_date', '<=', $endDate)
             ->select('category', DB::raw('COUNT(*) as count'), DB::raw('SUM(amount) as total'))
             ->groupBy('category')
             ->get();
@@ -104,17 +105,18 @@ class CashFlowReportController extends Controller
         $endDate = $request->end_date ?? now()->toDateString();
         $groupBy = $request->group_by ?? 'day';
 
+        // Use SQLite-compatible date formatting
         $dateFormat = match ($groupBy) {
-            'week' => '%Y-%u',
-            'month' => '%Y-%m',
-            default => '%Y-%m-%d',
+            'week' => "strftime('%Y-%W', created_at)",
+            'month' => "strftime('%Y-%m', created_at)",
+            default => "strftime('%Y-%m-%d', created_at)",
         };
 
         $payments = Payment::where('status', 'completed')
             ->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59'])
             ->select(
                 'payment_method',
-                DB::raw("DATE_FORMAT(created_at, '$dateFormat') as period"),
+                DB::raw("$dateFormat as period"),
                 DB::raw('COUNT(*) as count'),
                 DB::raw('SUM(amount) as total')
             )
@@ -283,7 +285,7 @@ class CashFlowReportController extends Controller
                     'status' => $session->status,
                     'opened_at' => $session->opened_at,
                     'closed_at' => $session->closed_at,
-                    'duration_hours' => $session->closed_at 
+                    'duration_hours' => $session->closed_at
                         ? $session->opened_at->diffInHours($session->closed_at)
                         : $session->opened_at->diffInHours(now()),
                 ],
@@ -311,8 +313,8 @@ class CashFlowReportController extends Controller
                     'total_revenue' => $sessionPayments->sum('total'),
                     'net_cash_flow' => $sessionPayments->sum('total') - $session->expenses->sum('amount'),
                     'transactions_count' => $sessionPayments->sum('count'),
-                    'average_transaction' => $sessionPayments->sum('count') > 0 
-                        ? $sessionPayments->sum('total') / $sessionPayments->sum('count') 
+                    'average_transaction' => $sessionPayments->sum('count') > 0
+                        ? $sessionPayments->sum('total') / $sessionPayments->sum('count')
                         : 0,
                 ]
             ];

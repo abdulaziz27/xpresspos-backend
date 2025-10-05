@@ -19,6 +19,7 @@ use Illuminate\Foundation\Http\Middleware\ValidatePostSize;
 use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
@@ -29,6 +30,16 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__ . '/../routes/api.php',
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
+        then: function () {
+            // Load domain-specific routes
+            Route::middleware(['web', 'auth'])->group(function () {
+                require base_path('routes/owner.php');
+            });
+
+            Route::middleware('web')->group(function () {
+                require base_path('routes/admin.php');
+            });
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->use([
@@ -50,6 +61,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'tenant.scope' => \App\Http\Middleware\TenantScopeMiddleware::class,
+            'domain.routing' => \App\Http\Middleware\DomainRoutingMiddleware::class,
         ]);
 
         $middleware->web([

@@ -15,7 +15,7 @@ class PlanLimitValidationService
     public function canPerformAction(Store $store, string $feature, int $increment = 1): array
     {
         $subscription = $store->activeSubscription;
-        
+
         if (!$subscription) {
             return [
                 'allowed' => false,
@@ -23,7 +23,7 @@ class PlanLimitValidationService
                 'message' => 'Store has no active subscription',
             ];
         }
-        
+
         if ($subscription->hasExpired()) {
             return [
                 'allowed' => false,
@@ -31,10 +31,11 @@ class PlanLimitValidationService
                 'message' => 'Subscription has expired',
             ];
         }
-        
+
         $plan = $subscription->plan;
-        
+
         // Check feature access
+
         if (!$plan->hasFeature($feature)) {
             return [
                 'allowed' => false,
@@ -43,12 +44,18 @@ class PlanLimitValidationService
                 'required_plan' => $plan->getRequiredPlanFor($feature),
             ];
         }
-        
-        // Check hard limits
+
+        // Check transaction quota (soft cap) - always allow transactions
+        if ($feature === 'transactions') {
+            $quotaCheck = $this->checkTransactionQuota($store, $increment);
+            return $quotaCheck; // Always return the quota check result for transactions
+        }
+
+        // Check hard limits for other features
         $limit = $plan->getLimit($feature);
         if ($limit !== null) {
             $currentUsage = $store->getCurrentUsage($feature);
-            
+
             if ($currentUsage + $increment > $limit) {
                 return [
                     'allowed' => false,
@@ -60,48 +67,40 @@ class PlanLimitValidationService
                 ];
             }
         }
-        
-        // Check transaction quota (soft cap)
-        if ($feature === 'transactions') {
-            $quotaCheck = $this->checkTransactionQuota($store, $increment);
-            if (!$quotaCheck['allowed']) {
-                return $quotaCheck;
-            }
-        }
-        
+
         return [
             'allowed' => true,
             'reason' => 'within_limits',
             'message' => 'Action is allowed',
         ];
     }
-    
+
     /**
      * Increment usage for a feature.
      */
     public function incrementUsage(Store $store, string $feature, int $increment = 1): array
     {
         $subscription = $store->activeSubscription;
-        
+
         if (!$subscription) {
             return [
                 'success' => false,
                 'message' => 'No active subscription',
             ];
         }
-        
+
         // For transaction tracking, update the usage record
         if ($feature === 'transactions') {
             return $this->incrementTransactionUsage($subscription, $increment);
         }
-        
+
         // For other features, the usage is calculated dynamically
         return [
             'success' => true,
             'message' => 'Usage tracked (calculated dynamically)',
         ];
     }
-    
+
     /**
      * Check transaction quota with soft cap logic.
      */
@@ -109,7 +108,7 @@ class PlanLimitValidationService
     {
         $subscription = $store->activeSubscription;
         $usage = $subscription->usage()->where('feature_type', 'transactions')->first();
-        
+
         if (!$usage || !$usage->annual_quota) {
             return [
                 'allowed' => true,
@@ -117,10 +116,10 @@ class PlanLimitValidationService
                 'message' => 'Unlimited transactions allowed',
             ];
         }
-        
+
         $newUsage = $usage->current_usage + $increment;
         $usagePercentage = ($newUsage / $usage->annual_quota) * 100;
-        
+
         // Always allow transactions (soft cap), but trigger warnings
         $result = [
             'allowed' => true,
@@ -129,7 +128,7 @@ class PlanLimitValidationService
             'new_usage' => $newUsage,
             'usage_percentage' => $usagePercentage,
         ];
-        
+
         if ($newUsage >= $usage->annual_quota) {
             $result['reason'] = 'quota_exceeded_soft_cap';
             $result['message'] = 'Transaction quota exceeded but processing continues (soft cap)';
@@ -142,36 +141,36 @@ class PlanLimitValidationService
             $result['reason'] = 'within_quota';
             $result['message'] = 'Transaction within quota limits';
         }
-        
+
         return $result;
     }
-    
+
     /**
      * Increment transaction usage and handle notifications.
      */
     private function incrementTransactionUsage(Subscription $subscription, int $increment = 1): array
     {
         $usage = $subscription->usage()->where('feature_type', 'transactions')->first();
-        
+
         if (!$usage) {
             return [
                 'success' => false,
                 'message' => 'Transaction usage tracking not initialized',
             ];
         }
-        
+
         $oldUsage = $usage->current_usage;
         $oldPercentage = $usage->getUsagePercentage();
-        
+
         // Increment usage
         $usage->incrementUsage($increment);
-        
+
         $newUsage = $usage->current_usage;
         $newPercentage = $usage->getUsagePercentage();
-        
+
         // Check if we need to trigger notifications
         $this->checkAndTriggerNotifications($subscription->store, $usage, $oldPercentage, $newPercentage);
-        
+
         return [
             'success' => true,
             'message' => 'Transaction usage incremented',
@@ -182,7 +181,7 @@ class PlanLimitValidationService
             'soft_cap_triggered' => $usage->soft_cap_triggered,
         ];
     }
-    
+
     /**
      * Check and trigger notifications based on usage thresholds.
      */
@@ -192,50 +191,50 @@ class PlanLimitValidationService
         if ($oldPercentage < 80 && $newPercentage >= 80) {
             dispatch(new SendQuotaWarningNotification($store));
         }
-        
+
         // Trigger quota exceeded notification at 100%
         if ($oldPercentage < 100 && $newPercentage >= 100) {
             dispatch(new SendUpgradeRecommendationNotification($store));
         }
-        
+
         // Trigger additional warnings at 90% and 95%
         if ($oldPercentage < 90 && $newPercentage >= 90) {
             dispatch(new SendQuotaWarningNotification($store));
         }
-        
+
         if ($oldPercentage < 95 && $newPercentage >= 95) {
             dispatch(new SendQuotaWarningNotification($store));
         }
     }
-    
+
     /**
      * Get usage summary for a store.
      */
     public function getUsageSummary(Store $store): array
     {
         $subscription = $store->activeSubscription;
-        
+
         if (!$subscription) {
             return [
                 'status' => 'no_subscription',
                 'message' => 'Store has no active subscription',
             ];
         }
-        
+
         $plan = $subscription->plan;
         $summary = [
             'subscription_status' => $subscription->status,
             'plan_name' => $plan->name,
             'features' => [],
         ];
-        
+
         // Check each feature
         $features = ['products', 'users', 'outlets', 'transactions'];
-        
+
         foreach ($features as $feature) {
             $limit = $plan->getLimit($feature);
             $currentUsage = $store->getCurrentUsage($feature);
-            
+
             $featureSummary = [
                 'current_usage' => $currentUsage,
                 'limit' => $limit,
@@ -243,13 +242,13 @@ class PlanLimitValidationService
                 'usage_percentage' => $limit ? ($currentUsage / $limit) * 100 : 0,
                 'status' => 'within_limits',
             ];
-            
+
             if ($limit && $currentUsage >= $limit) {
                 $featureSummary['status'] = 'limit_exceeded';
             } elseif ($limit && ($currentUsage / $limit) >= 0.8) {
                 $featureSummary['status'] = 'approaching_limit';
             }
-            
+
             // Special handling for transactions (soft cap)
             if ($feature === 'transactions') {
                 $usage = $subscription->usage()->where('feature_type', 'transactions')->first();
@@ -259,13 +258,13 @@ class PlanLimitValidationService
                     $featureSummary['quota_exceeded'] = $usage->hasExceededQuota();
                 }
             }
-            
+
             $summary['features'][$feature] = $featureSummary;
         }
-        
+
         return $summary;
     }
-    
+
     /**
      * Reset usage for new subscription year.
      */
@@ -273,7 +272,7 @@ class PlanLimitValidationService
     {
         $resetCount = 0;
         $errors = [];
-        
+
         foreach ($subscription->usage as $usage) {
             try {
                 if ($usage->feature_type === 'transactions') {
@@ -287,43 +286,43 @@ class PlanLimitValidationService
                 ];
             }
         }
-        
+
         return [
             'success' => empty($errors),
             'reset_count' => $resetCount,
             'errors' => $errors,
         ];
     }
-    
+
     /**
      * Get stores that need attention (approaching limits or exceeded).
      */
     public function getStoresNeedingAttention(): array
     {
         $stores = Store::whereHas('activeSubscription')->with(['activeSubscription.plan', 'activeSubscription.usage'])->get();
-        
+
         $needingAttention = [];
-        
+
         foreach ($stores as $store) {
             $issues = [];
             $subscription = $store->activeSubscription;
-            
+
             if (!$subscription) {
                 continue;
             }
-            
+
             $plan = $subscription->plan;
-            
+
             // Check each feature for issues
             $features = ['products', 'users', 'outlets'];
-            
+
             foreach ($features as $feature) {
                 $limit = $plan->getLimit($feature);
                 if (!$limit) continue;
-                
+
                 $currentUsage = $store->getCurrentUsage($feature);
                 $usagePercentage = ($currentUsage / $limit) * 100;
-                
+
                 if ($currentUsage >= $limit) {
                     $issues[] = [
                         'type' => 'limit_exceeded',
@@ -342,12 +341,12 @@ class PlanLimitValidationService
                     ];
                 }
             }
-            
+
             // Check transaction quota
             $transactionUsage = $subscription->usage()->where('feature_type', 'transactions')->first();
             if ($transactionUsage && $transactionUsage->annual_quota) {
                 $percentage = $transactionUsage->getUsagePercentage();
-                
+
                 if ($transactionUsage->hasExceededQuota()) {
                     $issues[] = [
                         'type' => 'quota_exceeded',
@@ -366,7 +365,7 @@ class PlanLimitValidationService
                     ];
                 }
             }
-            
+
             if (!empty($issues)) {
                 $needingAttention[] = [
                     'store' => $store,
@@ -375,7 +374,7 @@ class PlanLimitValidationService
                 ];
             }
         }
-        
+
         return $needingAttention;
     }
 }

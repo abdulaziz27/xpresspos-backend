@@ -164,4 +164,36 @@ class StoreSwitchController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get available stores for switching (alias for index).
+     */
+    public function getAvailableStores(): JsonResponse
+    {
+        return $this->index();
+    }
+
+    /**
+     * Switch to a specific store context (alias for switch).
+     */
+    public function switchStore(Request $request): JsonResponse
+    {
+        return $this->switch($request);
+    }
+
+    /**
+     * Clear store context and return to global admin view (alias for clear).
+     */
+    public function clearContext(): JsonResponse
+    {
+        return $this->clear();
+    }
+
+    /**
+     * Get current store context information (alias for current).
+     */
+    public function getCurrentContext(): JsonResponse
+    {
+        return $this->current();
+    }
 }

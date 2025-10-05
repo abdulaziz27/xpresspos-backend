@@ -65,6 +65,7 @@ class Plan extends Model
             'cogs_calculation' => 'Pro',
             'multi_outlet' => 'Enterprise',
             'advanced_reports' => 'Pro',
+            'report_export' => 'Pro',
             'monthly_email_reports' => 'Pro',
         ];
 
