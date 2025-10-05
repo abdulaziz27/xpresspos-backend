@@ -6,14 +6,14 @@ use App\Models\Order;
 use App\Models\Store;
 use App\Models\Table;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Foundation\Testing\WithFaker;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class TableManagementTest extends TestCase
 {
-    use RefreshDatabase, WithFaker;
+    use DatabaseTransactions, WithFaker;
 
     private User $user;
     private Store $store;
@@ -22,13 +22,13 @@ class TableManagementTest extends TestCase
     {
         parent::setUp();
 
-        // Seed permissions and roles
-        $this->seed(\Database\Seeders\RolePermissionSeeder::class);
+        // Run migrations and seeders
+        $this->artisan('migrate:fresh --seed');
 
         $this->store = Store::factory()->create();
         $this->user = User::factory()->create(['store_id' => $this->store->id]);
         $this->user->assignRole('owner');
-        
+
         Sanctum::actingAs($this->user);
     }
 
@@ -173,7 +173,7 @@ class TableManagementTest extends TestCase
     public function test_can_get_occupancy_history()
     {
         $table = Table::factory()->create(['store_id' => $this->store->id]);
-        
+
         // Create some occupancy history
         $table->occupancyHistories()->create([
             'store_id' => $this->store->id,

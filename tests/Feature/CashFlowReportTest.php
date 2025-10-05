@@ -34,11 +34,11 @@ class CashFlowReportTest extends TestCase
         // Create store and user
         $this->store = Store::factory()->create();
         $this->user = User::factory()->create(['store_id' => $this->store->id]);
-        
+
         // Create and assign manager role
         $managerRole = Role::create(['name' => 'manager']);
         $this->user->assignRole($managerRole);
-        
+
         // Give necessary permissions
         $this->user->givePermissionTo($permissions);
 
@@ -326,7 +326,7 @@ class CashFlowReportTest extends TestCase
         $this->assertEquals(1, $data['summary']['total_shifts']);
         $this->assertEquals(0, $data['summary']['open_shifts']);
         $this->assertEquals(1, $data['summary']['closed_shifts']);
-        
+
         $shift = $data['shifts'][0];
         $this->assertEquals(8, $shift['session']['duration_hours']);
         $this->assertEquals(30.00, $shift['expenses']['total_expenses']);
@@ -360,7 +360,7 @@ class CashFlowReportTest extends TestCase
     public function test_filters_by_user_id()
     {
         $otherUser = User::factory()->create(['store_id' => $this->store->id]);
-        
+
         // Create sessions for different users
         CashSession::factory()->create([
             'store_id' => $this->store->id,
@@ -378,11 +378,11 @@ class CashFlowReportTest extends TestCase
 
         // Debug the user ID format
         $userId = $this->user->id;
-        
+
         $response = $this->getJson("/api/v1/reports/cash-flow/variance-analysis?user_id=" . $userId);
 
         $response->assertStatus(200);
-        
+
         $data = $response->json('data');
         $this->assertEquals(1, $data['summary']['total_sessions']);
         $this->assertEquals(5.00, $data['summary']['total_variance']);
@@ -401,7 +401,7 @@ class CashFlowReportTest extends TestCase
     public function test_respects_tenant_scoping()
     {
         $otherStore = Store::factory()->create();
-        
+
         // Create session in other store
         CashSession::factory()->create([
             'store_id' => $otherStore->id,
@@ -412,7 +412,7 @@ class CashFlowReportTest extends TestCase
         $response = $this->getJson('/api/v1/reports/cash-flow/variance-analysis');
 
         $response->assertStatus(200);
-        
+
         $data = $response->json('data');
         $this->assertEquals(0, $data['summary']['total_sessions']);
     }

@@ -39,11 +39,11 @@ class CashSessionManagementTest extends TestCase
         // Create store and user
         $this->store = Store::factory()->create();
         $this->user = User::factory()->create(['store_id' => $this->store->id]);
-        
+
         // Create and assign cashier role
         $cashierRole = Role::create(['name' => 'cashier']);
         $this->user->assignRole($cashierRole);
-        
+
         // Give necessary permissions
         $this->user->givePermissionTo($permissions);
 
@@ -375,7 +375,7 @@ class CashSessionManagementTest extends TestCase
     public function test_cannot_delete_open_session()
     {
         $this->user->givePermissionTo('cash_sessions.manage');
-        
+
         $session = CashSession::factory()->create([
             'store_id' => $this->store->id,
             'user_id' => $this->user->id,

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\InventoryReportController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MemberController;
 use App\Http\Controllers\Api\V1\MidtransWebhookController;
+use App\Http\Controllers\Api\V1\SubscriptionPaymentController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PaymentMethodController;
@@ -58,6 +59,9 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
     // Public endpoints
     Route::get('plans', [PlanController::class, 'index'])->name('api.v1.plans.index');
     Route::get('public/plans', [PlanController::class, 'index'])->name('api.v1.public.plans.index');
+
+    // Public invitation routes (no auth required)
+    Route::post('invitations/{token}/accept', [InvitationController::class, 'accept'])->name('api.v1.invitations.accept');
 
     // Authentication routes
     Route::prefix('auth')->group(function (): void {
@@ -185,8 +189,11 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::post('{table}/make-available', [TableController::class, 'makeAvailable'])->name('api.v1.tables.make-available');
             Route::get('{table}/occupancy-stats', [TableController::class, 'occupancyStats'])->name('api.v1.tables.occupancy-stats');
             Route::get('{table}/occupancy-history', [TableController::class, 'occupancyHistory'])->name('api.v1.tables.occupancy-history');
-            Route::get('table-occupancy-report', [TableController::class, 'occupancyReport'])->name('api.v1.tables.occupancy-report');
         });
+
+        // Table reports endpoints
+        Route::get('table-occupancy-report', [TableController::class, 'occupancyReport'])->name('api.v1.table-occupancy-report');
+        Route::get('tables-available', [TableController::class, 'available'])->name('api.v1.tables-available');
 
         // Members
         Route::prefix('members')->group(function (): void {
@@ -200,6 +207,10 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
         Route::prefix('staff')->group(function (): void {
             Route::get('/', [StaffController::class, 'index'])->name('api.v1.staff.index');
             Route::post('/', [StaffController::class, 'store'])->name('api.v1.staff.store');
+            Route::post('invite', [StaffController::class, 'invite'])->name('api.v1.staff.invite');
+            Route::get('invitations', [StaffController::class, 'invitations'])->name('api.v1.staff.invitations');
+            Route::post('invitations/{invitation}/cancel', [StaffController::class, 'cancelInvitation'])->name('api.v1.staff.invitations.cancel');
+            Route::get('activity-logs', [StaffController::class, 'activityLogs'])->name('api.v1.staff.activity-logs');
             Route::get('{staff}', [StaffController::class, 'show'])->name('api.v1.staff.show');
             Route::put('{staff}', [StaffController::class, 'update'])->name('api.v1.staff.update');
             Route::delete('{staff}', [StaffController::class, 'destroy'])->name('api.v1.staff.destroy');
@@ -213,6 +224,9 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
                     'message' => 'Role assigned successfully'
                 ]);
             })->name('api.v1.staff.assign-role');
+            Route::post('{staff}/permissions', [StaffController::class, 'grantPermission'])->name('api.v1.staff.grant-permission');
+            Route::get('{staff}/performance', [StaffController::class, 'performance'])->name('api.v1.staff.performance');
+            Route::post('{staff}/performance', [StaffController::class, 'updatePerformance'])->name('api.v1.staff.update-performance');
         });
 
         // Invitations
@@ -223,6 +237,7 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::put('{invitation}', [InvitationController::class, 'update'])->name('api.v1.invitations.update');
             Route::delete('{invitation}', [InvitationController::class, 'destroy'])->name('api.v1.invitations.destroy');
         });
+
 
         // Payments
         Route::prefix('payments')->group(function (): void {
@@ -238,13 +253,24 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::put('{paymentMethod}', [PaymentMethodController::class, 'update'])->name('api.v1.payment-methods.update');
             Route::delete('{paymentMethod}', [PaymentMethodController::class, 'destroy'])->name('api.v1.payment-methods.destroy');
             Route::post('create-token', [PaymentMethodController::class, 'createToken'])->name('api.v1.payment-methods.create-token');
-            Route::post('{paymentMethod}/set-default', [PaymentMethodController::class, 'setAsDefault'])->name('api.v1.payment-methods.set-default');
+            Route::post('{paymentMethod}/set-default', [PaymentMethodController::class, 'setDefault'])->name('api.v1.payment-methods.set-default');
         });
 
         // Inventory
         Route::prefix('inventory')->group(function (): void {
+            Route::get('/', [InventoryController::class, 'index'])->name('api.v1.inventory.index');
+            Route::post('adjust', [InventoryController::class, 'adjust'])->name('api.v1.inventory.adjust');
             Route::get('levels', [InventoryController::class, 'levels'])->name('api.v1.inventory.levels');
-            Route::post('movements', [InventoryController::class, 'movements'])->name('api.v1.inventory.movements');
+            Route::get('movements', [InventoryController::class, 'movements'])->name('api.v1.inventory.movements.list');
+            Route::post('movements', [InventoryController::class, 'createMovement'])->name('api.v1.inventory.movements');
+            Route::get('alerts/low-stock', [InventoryController::class, 'lowStockAlerts'])->name('api.v1.inventory.alerts.low-stock');
+            Route::get('reports/stock-levels', [InventoryReportController::class, 'stockLevels'])->name('api.v1.inventory.reports.stock-levels');
+            Route::get('reports/movements', [InventoryReportController::class, 'movements'])->name('api.v1.inventory.reports.movements');
+            Route::get('reports/valuation', [InventoryReportController::class, 'valuation'])->name('api.v1.inventory.reports.valuation');
+            Route::get('reports/cogs-analysis', [InventoryReportController::class, 'cogsAnalysis'])->name('api.v1.inventory.reports.cogs-analysis');
+            Route::get('reports/stock-aging', [InventoryReportController::class, 'stockAging'])->name('api.v1.inventory.reports.stock-aging');
+            Route::get('reports/stock-turnover', [InventoryReportController::class, 'stockTurnover'])->name('api.v1.inventory.reports.stock-turnover');
+            Route::get('{product}', [InventoryController::class, 'show'])->name('api.v1.inventory.show');
         });
 
         // Inventory Reports
@@ -276,6 +302,14 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::get('{report}', [CashFlowReportController::class, 'show'])->name('api.v1.cash-flow-reports.show');
         });
 
+        // Cash Flow Reports (alternative routes)
+        Route::prefix('reports/cash-flow')->group(function (): void {
+            Route::get('daily', [CashFlowReportController::class, 'dailyCashFlow'])->name('api.v1.reports.cash-flow.daily');
+            Route::get('payment-methods', [CashFlowReportController::class, 'paymentMethodBreakdown'])->name('api.v1.reports.cash-flow.payment-methods');
+            Route::get('variance-analysis', [CashFlowReportController::class, 'cashVarianceAnalysis'])->name('api.v1.reports.cash-flow.variance-analysis');
+            Route::get('shift-summary', [CashFlowReportController::class, 'shiftSummary'])->name('api.v1.reports.cash-flow.shift-summary');
+        });
+
         // Recipes
         Route::prefix('recipes')->group(function (): void {
             Route::get('/', [RecipeController::class, 'index'])->name('api.v1.recipes.index');
@@ -294,10 +328,10 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::get('product-performance', [ReportController::class, 'productPerformance'])->name('api.v1.reports.product-performance');
             Route::get('customer-analytics', [ReportController::class, 'customerAnalytics'])->name('api.v1.reports.customer-analytics');
             Route::post('export', [ReportController::class, 'export'])->name('api.v1.reports.export');
-            Route::get('sales-trend', [ReportController::class, 'salesTrend'])->name('api.v1.reports.sales-trend');
+            Route::get('sales-trend', [ReportController::class, 'salesTrends'])->name('api.v1.reports.sales-trend');
             Route::get('product-analytics', [ReportController::class, 'productAnalytics'])->name('api.v1.reports.product-analytics');
             Route::get('customer-behavior', [ReportController::class, 'customerBehavior'])->name('api.v1.reports.customer-behavior');
-            Route::get('profitability', [ReportController::class, 'profitability'])->name('api.v1.reports.profitability');
+            Route::get('profitability', [ReportController::class, 'profitabilityAnalysis'])->name('api.v1.reports.profitability');
             Route::get('operational-efficiency', [ReportController::class, 'operationalEfficiency'])->name('api.v1.reports.operational-efficiency');
         });
 
@@ -350,6 +384,16 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
                 ]);
             })->name('api.v1.permissions.available');
         });
+    });
+
+    // Subscription payment routes
+    Route::prefix('subscription-payments')->group(function () {
+        Route::get('plans', [SubscriptionPaymentController::class, 'plans'])->name('api.v1.subscription-payments.plans');
+        Route::post('create', [SubscriptionPaymentController::class, 'create'])->name('api.v1.subscription-payments.create');
+        Route::get('payment-methods', [SubscriptionPaymentController::class, 'paymentMethods'])->name('api.v1.subscription-payments.payment-methods');
+        Route::get('invoices', [SubscriptionPaymentController::class, 'invoices'])->name('api.v1.subscription-payments.invoices');
+        Route::post('invoices/{invoice}/pay', [SubscriptionPaymentController::class, 'payInvoice'])->name('api.v1.subscription-payments.pay-invoice');
+        Route::get('invoices/{invoice}/status', [SubscriptionPaymentController::class, 'paymentStatus'])->name('api.v1.subscription-payments.payment-status');
     });
 
     // Webhooks

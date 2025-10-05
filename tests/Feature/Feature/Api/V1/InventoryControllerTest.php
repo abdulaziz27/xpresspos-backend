@@ -31,7 +31,7 @@ class InventoryControllerTest extends TestCase
         $this->store = Store::factory()->create();
         $this->user = User::factory()->create(['store_id' => $this->store->id]);
         $this->user->assignRole('owner');
-        
+
         // Create Pro plan with inventory tracking feature
         $plan = \App\Models\Plan::factory()->create([
             'name' => 'Pro',
@@ -39,7 +39,7 @@ class InventoryControllerTest extends TestCase
             'features' => ['pos', 'inventory_tracking', 'advanced_reports', 'cogs_calculation'],
             'limits' => ['products' => 500, 'users' => 5, 'transactions' => 5000],
         ]);
-        
+
         // Create active subscription for the store
         \App\Models\Subscription::factory()->create([
             'store_id' => $this->store->id,
@@ -48,7 +48,7 @@ class InventoryControllerTest extends TestCase
             'starts_at' => now(),
             'ends_at' => now()->addMonth(),
         ]);
-        
+
         // Create test category and product
         $category = Category::factory()->create(['store_id' => $this->store->id]);
         $this->product = Product::factory()->create([
@@ -155,7 +155,7 @@ class InventoryControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->user)
-            ->getJson('/api/v1/inventory/movements/list');
+            ->getJson('/api/v1/inventory/movements');
 
         $response->assertStatus(200)
             ->assertJsonStructure([

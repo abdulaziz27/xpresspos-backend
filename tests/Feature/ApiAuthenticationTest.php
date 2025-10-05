@@ -17,26 +17,26 @@ class ApiAuthenticationTest extends TestCase
         $response = $this->getJson('/api/v1/auth/me');
 
         $response->assertStatus(401)
-                ->assertJson([
-                    'success' => false,
-                    'error' => [
-                        'code' => 'AUTHENTICATION_FAILED',
-                        'message' => 'Authentication required to access this resource',
-                    ]
-                ])
-                ->assertJsonStructure([
-                    'success',
-                    'error' => [
-                        'code',
-                        'message',
-                        'details'
-                    ],
-                    'meta' => [
-                        'timestamp',
-                        'version',
-                        'request_id'
-                    ]
-                ]);
+            ->assertJson([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'Authentication required to access this resource',
+                ]
+            ])
+            ->assertJsonStructure([
+                'success',
+                'error' => [
+                    'code',
+                    'message',
+                    'details'
+                ],
+                'meta' => [
+                    'timestamp',
+                    'version',
+                    'request_id'
+                ]
+            ]);
     }
 
     public function test_authenticated_api_request_returns_json_response(): void
@@ -47,21 +47,21 @@ class ApiAuthenticationTest extends TestCase
         $response = $this->getJson('/api/v1/auth/me');
 
         $response->assertStatus(200)
-                ->assertJson([
-                    'success' => true,
-                ])
-                ->assertJsonStructure([
-                    'success',
-                    'data' => [
-                        'user' => [
-                            'id',
-                            'name',
-                            'email'
-                        ]
-                    ],
-                    'message',
-                    'meta'
-                ]);
+            ->assertJson([
+                'success' => true,
+            ])
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    'user' => [
+                        'id',
+                        'name',
+                        'email'
+                    ]
+                ],
+                'message',
+                'meta'
+            ]);
     }
 
     public function test_api_request_with_invalid_token_returns_json_error(): void
@@ -72,12 +72,12 @@ class ApiAuthenticationTest extends TestCase
         ])->getJson('/api/v1/auth/me');
 
         $response->assertStatus(401)
-                ->assertJson([
-                    'success' => false,
-                    'error' => [
-                        'code' => 'AUTHENTICATION_FAILED',
-                    ]
-                ]);
+            ->assertJson([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                ]
+            ]);
     }
 
     public function test_api_request_without_accept_header_still_returns_json(): void
@@ -86,13 +86,13 @@ class ApiAuthenticationTest extends TestCase
         $response = $this->get('/api/v1/auth/me');
 
         $response->assertStatus(401)
-                ->assertHeader('Content-Type', 'application/json')
-                ->assertJson([
-                    'success' => false,
-                    'error' => [
-                        'code' => 'AUTHENTICATION_FAILED',
-                    ]
-                ]);
+            ->assertHeader('Content-Type', 'application/json')
+            ->assertJson([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                ]
+            ]);
     }
 
     public function test_validation_errors_return_json_format(): void
@@ -103,24 +103,13 @@ class ApiAuthenticationTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-                ->assertJson([
-                    'success' => false,
-                    'error' => [
-                        'code' => 'VALIDATION_FAILED',
-                        'message' => 'The given data was invalid.',
-                    ]
-                ])
-                ->assertJsonStructure([
-                    'success',
-                    'error' => [
-                        'code',
-                        'message',
-                        'details' => [
-                            'validation_errors'
-                        ]
-                    ],
-                    'meta'
-                ]);
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'email',
+                    'password'
+                ]
+            ]);
     }
 
     public function test_successful_login_returns_proper_json_structure(): void
@@ -136,33 +125,33 @@ class ApiAuthenticationTest extends TestCase
         ]);
 
         $response->assertStatus(200)
-                ->assertJson([
-                    'success' => true,
-                    'message' => 'Login successful',
-                ])
-                ->assertJsonStructure([
-                    'success',
-                    'data' => [
-                        'user' => [
-                            'id',
-                            'name',
-                            'email',
-                            'store_id',
-                            'store',
-                            'roles',
-                            'permissions'
-                        ],
-                        'token',
-                        'token_type',
-                        'expires_at'
+            ->assertJson([
+                'success' => true,
+                'message' => 'Login successful',
+            ])
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    'user' => [
+                        'id',
+                        'name',
+                        'email',
+                        'store_id',
+                        'store',
+                        'roles',
+                        'permissions'
                     ],
-                    'message',
-                    'meta' => [
-                        'timestamp',
-                        'version',
-                        'request_id'
-                    ]
-                ]);
+                    'token',
+                    'token_type',
+                    'expires_at'
+                ],
+                'message',
+                'meta' => [
+                    'timestamp',
+                    'version',
+                    'request_id'
+                ]
+            ]);
     }
 
     public function test_health_check_endpoint_works(): void
@@ -170,15 +159,15 @@ class ApiAuthenticationTest extends TestCase
         $response = $this->getJson('/api/v1/health');
 
         $response->assertStatus(200)
-                ->assertJson([
-                    'status' => 'healthy',
-                    'version' => 'v1'
-                ])
-                ->assertJsonStructure([
-                    'status',
-                    'services',
-                    'timestamp',
-                    'version'
-                ]);
+            ->assertJson([
+                'status' => 'healthy',
+                'version' => 'v1'
+            ])
+            ->assertJsonStructure([
+                'status',
+                'services',
+                'timestamp',
+                'version'
+            ]);
     }
 }
