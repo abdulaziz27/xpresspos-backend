@@ -13,14 +13,14 @@ class ProductSeeder extends Seeder
     public function run(): void
     {
         $storeId = config('demo.store_id') ?? \App\Models\Store::first()->id;
-        $categories = \App\Models\Category::withoutStoreScope()->where('store_id', $storeId)->get();
-        
+        $categories = \App\Models\Category::query()->withoutStoreScope()->where('store_id', $storeId)->get();
+
         // Get category IDs safely
         $coffeeCategory = $categories->where('slug', 'coffee')->first();
         $teaCategory = $categories->where('slug', 'tea')->first();
         $pastryCategory = $categories->where('slug', 'pastry')->first();
         $snacksCategory = $categories->where('slug', 'snacks')->first();
-        
+
         if (!$coffeeCategory || !$teaCategory || !$pastryCategory || !$snacksCategory) {
             $this->command->error('Required categories not found. Make sure CategorySeeder runs first.');
             $this->command->info('Store ID: ' . $storeId);
@@ -29,7 +29,7 @@ class ProductSeeder extends Seeder
             $this->command->info('Category slugs: ' . $categories->pluck('slug')->implode(', '));
             return;
         }
-        
+
         $products = [
             // Coffee products
             [
@@ -130,7 +130,7 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $product) {
-            \App\Models\Product::withoutStoreScope()->create($product);
+            \App\Models\Product::query()->withoutStoreScope()->create($product);
         }
     }
 }

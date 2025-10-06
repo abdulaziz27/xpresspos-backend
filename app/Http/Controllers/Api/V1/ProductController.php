@@ -29,8 +29,8 @@ class ProductController extends Controller
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -57,7 +57,7 @@ class ProductController extends Controller
         // Apply sorting
         $sortBy = $request->input('sort_by', 'sort_order');
         $sortDirection = $request->input('sort_direction', 'asc');
-        
+
         if (in_array($sortBy, ['name', 'price', 'stock', 'sort_order', 'created_at', 'updated_at'])) {
             $query->orderBy($sortBy, $sortDirection);
         } else {
@@ -87,6 +87,8 @@ class ProductController extends Controller
      */
     public function store(StoreProductRequest $request): JsonResponse
     {
+        $this->authorize('create', Product::class);
+
         $product = Product::create([
             'store_id' => auth()->user()->store_id,
             'category_id' => $request->input('category_id'),
@@ -346,7 +348,7 @@ class ProductController extends Controller
 
         // Store new image
         $imagePath = $request->file('image')->store('products', 'public');
-        
+
         $product->update(['image' => $imagePath]);
 
         return response()->json([
@@ -417,12 +419,12 @@ class ProductController extends Controller
         }
 
         $search = $request->input('q');
-        
+
         $products = Product::with(['category:id,name', 'options'])
             ->active()
             ->where(function ($query) use ($search) {
                 $query->where('name', 'like', "%{$search}%")
-                      ->orWhere('sku', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%");
             })
             ->orderBy('name')
             ->limit(20)

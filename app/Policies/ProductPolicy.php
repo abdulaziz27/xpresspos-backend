@@ -12,13 +12,12 @@ class ProductPolicy
      */
     public function viewAny(User $user): bool
     {
-        // System admin can view all products globally
-        if ($user->hasRole('admin_sistem')) {
+        // System admin + operational roles can always view product listings
+        if ($user->hasAnyRole(['admin_sistem', 'owner', 'manager', 'cashier'])) {
             return true;
         }
 
-        // All authenticated users can view products in their store
-        return $user->can('products.view');
+        return $user->hasPermissionTo('products.view');
     }
 
     /**

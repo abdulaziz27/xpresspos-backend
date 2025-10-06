@@ -41,6 +41,13 @@ class FilamentUserSeeder extends Seeder
             $owner->assignRole('owner');
         }
 
+        // Ensure owner user has a store context for API access
+        if (!$owner->store_id) {
+            if ($primaryStoreId = \App\Models\Store::value('id')) {
+                $owner->forceFill(['store_id' => $primaryStoreId])->save();
+            }
+        }
+
         $this->command->info('Filament users created successfully!');
         $this->command->info('Admin: admin@xpresspos.com / password123');
         $this->command->info('Owner: owner@xpresspos.com / password123');

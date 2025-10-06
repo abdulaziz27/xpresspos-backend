@@ -12,13 +12,12 @@ class CategoryPolicy
      */
     public function viewAny(User $user): bool
     {
-        // System admin can view all categories globally
-        if ($user->hasRole('admin_sistem')) {
+        // System admin + store operational roles can view categories
+        if ($user->hasAnyRole(['admin_sistem', 'owner', 'manager', 'cashier'])) {
             return true;
         }
 
-        // All authenticated users can view categories in their store
-        return $user->can('products.view');
+        return $user->hasPermissionTo('products.view');
     }
 
     /**

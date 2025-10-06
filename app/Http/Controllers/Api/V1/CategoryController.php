@@ -26,7 +26,7 @@ class CategoryController extends Controller
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -37,7 +37,7 @@ class CategoryController extends Controller
         // Apply sorting
         $sortBy = $request->input('sort_by', 'sort_order');
         $sortDirection = $request->input('sort_direction', 'asc');
-        
+
         if (in_array($sortBy, ['name', 'sort_order', 'created_at', 'updated_at'])) {
             $query->orderBy($sortBy, $sortDirection);
         } else {
@@ -67,6 +67,8 @@ class CategoryController extends Controller
      */
     public function store(StoreCategoryRequest $request): JsonResponse
     {
+        $this->authorize('create', Category::class);
+
         $category = Category::create([
             'store_id' => auth()->user()->store_id,
             'name' => $request->input('name'),
@@ -110,6 +112,8 @@ class CategoryController extends Controller
      */
     public function update(UpdateCategoryRequest $request, Category $category): JsonResponse
     {
+        $this->authorize('update', $category);
+
         $category->update([
             'name' => $request->input('name'),
             'slug' => Str::slug($request->input('name')),

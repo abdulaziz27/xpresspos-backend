@@ -13,7 +13,7 @@ class CategorySeeder extends Seeder
     public function run(): void
     {
         $storeId = config('demo.store_id') ?? \App\Models\Store::first()->id;
-        
+
         $categories = [
             [
                 'store_id' => $storeId,
@@ -50,7 +50,7 @@ class CategorySeeder extends Seeder
         ];
 
         foreach ($categories as $category) {
-            \App\Models\Category::withoutStoreScope()->create($category);
+            \App\Models\Category::query()->withoutStoreScope()->create($category);
         }
     }
 }
