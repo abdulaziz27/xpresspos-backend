@@ -221,12 +221,12 @@ class InventoryReportController extends Controller
                 sl.average_cost,
                 sl.total_value,
                 sl.last_movement_at,
-                (julianday('now') - julianday(sl.last_movement_at)) as days_since_last_movement,
+                DATEDIFF(NOW(), sl.last_movement_at) as days_since_last_movement,
                 CASE
-                    WHEN (julianday('now') - julianday(sl.last_movement_at)) <= 30 THEN 'Fresh (0-30 days)'
-                    WHEN (julianday('now') - julianday(sl.last_movement_at)) <= 60 THEN 'Good (31-60 days)'
-                    WHEN (julianday('now') - julianday(sl.last_movement_at)) <= 90 THEN 'Aging (61-90 days)'
-                    WHEN (julianday('now') - julianday(sl.last_movement_at)) <= 180 THEN 'Old (91-180 days)'
+                    WHEN DATEDIFF(NOW(), sl.last_movement_at) <= 30 THEN 'Fresh (0-30 days)'
+                    WHEN DATEDIFF(NOW(), sl.last_movement_at) <= 60 THEN 'Good (31-60 days)'
+                    WHEN DATEDIFF(NOW(), sl.last_movement_at) <= 90 THEN 'Aging (61-90 days)'
+                    WHEN DATEDIFF(NOW(), sl.last_movement_at) <= 180 THEN 'Old (91-180 days)'
                     ELSE 'Very Old (180+ days)'
                 END as aging_category
             FROM products p
@@ -237,7 +237,7 @@ class InventoryReportController extends Controller
             ORDER BY days_since_last_movement DESC
         ";
 
-        $results = collect(\DB::select($query, [auth()->user()->store_id]));
+        $results = collect(\DB::select($query, [request()->user()->store_id]));
 
         // Group by aging category
         $agingGroups = $results->groupBy('aging_category')->map(function ($group) {
@@ -309,7 +309,7 @@ class InventoryReportController extends Controller
             ORDER BY turnover_ratio DESC
         ";
 
-        $results = collect(\DB::select($query, [$dateFrom, $dateTo, auth()->user()->store_id]));
+        $results = collect(\DB::select($query, [$dateFrom, $dateTo, request()->user()->store_id]));
 
         // Categorize turnover performance
         $turnoverCategories = $results->groupBy(function ($item) {

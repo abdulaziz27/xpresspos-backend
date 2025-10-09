@@ -46,24 +46,24 @@ class StockLevel extends Model
     public function updateFromMovement(InventoryMovement $movement): void
     {
         $signedQuantity = $movement->getSignedQuantity();
-        
+
         // Recalculate average cost for stock increases with cost BEFORE updating stock
         if ($movement->isStockIncrease() && $movement->unit_cost) {
             $this->recalculateAverageCost($movement);
         }
-        
+
         // Update current stock
         $this->current_stock += $signedQuantity;
-        
+
         // Update available stock (current - reserved)
         $this->available_stock = $this->current_stock - $this->reserved_stock;
-        
+
         // Update total value
         $this->total_value = $this->current_stock * $this->average_cost;
-        
+
         // Update last movement timestamp
         $this->last_movement_at = $movement->created_at;
-        
+
         $this->save();
     }
 
@@ -76,11 +76,11 @@ class StockLevel extends Model
         if (!$movement->unit_cost) {
             return;
         }
-        
+
         $currentValue = $this->current_stock * $this->average_cost;
         $newValue = $movement->quantity * $movement->unit_cost;
         $totalQuantity = $this->current_stock + $movement->quantity;
-        
+
         if ($totalQuantity > 0) {
             $this->average_cost = ($currentValue + $newValue) / $totalQuantity;
         }
@@ -97,7 +97,7 @@ class StockLevel extends Model
             $this->save();
             return true;
         }
-        
+
         return false;
     }
 
@@ -117,9 +117,9 @@ class StockLevel extends Model
      */
     public function isLowStock(): bool
     {
-        return $this->product && 
-               $this->product->track_inventory && 
-               $this->current_stock <= $this->product->min_stock_level;
+        return $this->product &&
+            $this->product->track_inventory &&
+            $this->current_stock <= $this->product->min_stock_level;
     }
 
     /**
@@ -127,19 +127,26 @@ class StockLevel extends Model
      */
     public function isOutOfStock(): bool
     {
-        return $this->product && 
-               $this->product->track_inventory && 
-               $this->available_stock <= 0;
+        return $this->product &&
+            $this->product->track_inventory &&
+            $this->available_stock <= 0;
     }
 
     /**
      * Get or create stock level for a product.
      */
-    public static function getOrCreateForProduct(string $productId): self
+    public static function getOrCreateForProduct(string $productId, ?string $storeId = null): self
     {
+        $user = auth()->user() ?? request()->user();
+        $storeId = $storeId ?? ($user ? $user->store_id : null);
+
+        if (!$storeId) {
+            throw new \Exception('Store ID is required to get or create stock level');
+        }
+
         return self::firstOrCreate(
             [
-                'store_id' => auth()->user()->store_id,
+                'store_id' => $storeId,
                 'product_id' => $productId,
             ],
             [

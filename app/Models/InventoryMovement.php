@@ -147,10 +147,12 @@ class InventoryMovement extends Model
         ?string $referenceId = null,
         ?string $notes = null
     ): self {
+        $user = auth()->user() ?? request()->user();
+
         return self::create([
-            'store_id' => auth()->user()->store_id,
+            'store_id' => $user?->store_id,
             'product_id' => $productId,
-            'user_id' => auth()->id(),
+            'user_id' => $user?->id,
             'type' => $type,
             'quantity' => abs($quantity), // Always store positive quantity
             'unit_cost' => $unitCost,

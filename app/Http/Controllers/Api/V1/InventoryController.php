@@ -67,11 +67,40 @@ class InventoryController extends Controller
      */
     public function show(string $productId): JsonResponse
     {
-        $product = Product::where('track_inventory', true)->findOrFail($productId);
-        $stockLevel = StockLevel::getOrCreateForProduct($productId);
+        $user = auth()->user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
+        if (!$user->store_id) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'STORE_CONTEXT_MISSING',
+                    'message' => 'User missing store context',
+                    'debug' => [
+                        'user_id' => $user->id,
+                        'user_store_id' => $user->store_id
+                    ]
+                ]
+            ], 400);
+        }
+
+        $product = Product::where('track_inventory', true)
+            ->where('store_id', $user->store_id)
+            ->findOrFail($productId);
+        $stockLevel = StockLevel::getOrCreateForProduct($productId, $user->store_id);
 
         // Get recent movements
         $recentMovements = InventoryMovement::where('product_id', $productId)
+            ->where('store_id', $user->store_id)
             ->with('user:id,name')
             ->orderByDesc('created_at')
             ->limit(10)
@@ -95,6 +124,18 @@ class InventoryController extends Controller
      */
     public function adjust(Request $request): JsonResponse
     {
+        $user = auth()->user() ?? request()->user();
+
+        if (!$user || !$user->store_id) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated or missing store context'
+                ]
+            ], 401);
+        }
+
         $request->validate([
             'product_id' => 'required|integer|exists:products,id',
             'quantity' => 'required|integer|not_in:0',
@@ -103,7 +144,9 @@ class InventoryController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        $product = Product::where('track_inventory', true)->findOrFail($request->product_id);
+        $product = Product::where('track_inventory', true)
+            ->where('store_id', $user->store_id)
+            ->findOrFail($request->product_id);
 
         $result = $this->inventoryService->adjustStock(
             $product->id,
@@ -187,6 +230,39 @@ class InventoryController extends Controller
     }
 
     /**
+     * Get inventory levels summary.
+     */
+    public function levels(Request $request): JsonResponse
+    {
+        $stockLevels = StockLevel::with(['product:id,name,sku,track_inventory,min_stock_level'])
+            ->whereHas('product', function ($q) {
+                $q->where('track_inventory', true);
+            })
+            ->get();
+
+        $summary = [
+            'total_products' => $stockLevels->count(),
+            'total_stock_value' => $stockLevels->sum(function ($level) {
+                return $level->current_stock * ($level->product->cost ?? 0);
+            }),
+            'low_stock_count' => $stockLevels->filter(function ($level) {
+                return $level->current_stock <= ($level->product->min_stock_level ?? 0);
+            })->count(),
+            'out_of_stock_count' => $stockLevels->where('current_stock', '<=', 0)->count(),
+            'available_stock_count' => $stockLevels->where('available_stock', '>', 0)->count(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'summary' => $summary,
+                'stock_levels' => $stockLevels,
+            ],
+            'message' => 'Inventory levels retrieved successfully'
+        ]);
+    }
+
+    /**
      * Get low stock alerts.
      */
     public function lowStockAlerts(): JsonResponse
@@ -206,5 +282,71 @@ class InventoryController extends Controller
             ],
             'message' => 'Low stock alerts retrieved successfully'
         ]);
+    }
+
+    /**
+     * Create a new inventory movement.
+     */
+    public function createMovement(Request $request): JsonResponse
+    {
+        $user = auth()->user() ?? request()->user();
+
+        if (!$user || !$user->store_id) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated or missing store context'
+                ]
+            ], 401);
+        }
+
+        $request->validate([
+            'product_id' => 'required|integer|exists:products,id',
+            'type' => 'required|string|in:sale,purchase,adjustment_in,adjustment_out,transfer_in,transfer_out,waste,return',
+            'quantity' => 'required|integer|min:1',
+            'unit_cost' => 'nullable|numeric|min:0',
+            'reason' => 'required|string|max:255',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $product = Product::where('track_inventory', true)
+            ->where('store_id', $user->store_id)
+            ->findOrFail($request->product_id);
+
+        try {
+            $movement = InventoryMovement::createMovement(
+                $product->id,
+                $request->type,
+                $request->quantity,
+                $request->unit_cost,
+                $request->reason,
+                null,
+                null,
+                $request->notes
+            );
+
+            // Update stock level
+            $stockLevel = StockLevel::getOrCreateForProduct($product->id, $user->store_id);
+            $stockLevel->updateFromMovement($movement);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'movement' => $movement,
+                    'stock_level' => $stockLevel->fresh(),
+                ],
+                'message' => 'Inventory movement created successfully'
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'MOVEMENT_CREATION_FAILED',
+                    'message' => 'Failed to create inventory movement',
+                    'details' => config('app.debug') ? $e->getMessage() : null
+                ]
+            ], 500);
+        }
     }
 }
