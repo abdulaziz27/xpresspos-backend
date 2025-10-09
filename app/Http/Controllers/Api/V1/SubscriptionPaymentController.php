@@ -74,7 +74,8 @@ class SubscriptionPaymentController extends Controller
 
         try {
             return DB::transaction(function () use ($request) {
-                $store = Auth::user()->store;
+                $user = Auth::user() ?? request()->user();
+                $store = $user?->store;
                 $plan = Plan::findOrFail($request->plan_id);
                 $billingCycle = $request->billing_cycle;
                 $paymentMethod = $request->payment_method_id
@@ -177,7 +178,8 @@ class SubscriptionPaymentController extends Controller
                 $invoice = Invoice::with('subscription.store')->findOrFail($invoiceId);
 
                 // Check if user has access to this invoice
-                if ($invoice->subscription->store_id !== Auth::user()->store_id) {
+                $user = Auth::user() ?? request()->user();
+                if ($invoice->subscription->store_id !== $user?->store_id) {
                     return response()->json([
                         'success' => false,
                         'error' => [
@@ -278,7 +280,23 @@ class SubscriptionPaymentController extends Controller
      */
     public function paymentMethods(Request $request): JsonResponse
     {
-        $user = Auth::user();
+        $user = Auth::user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1',
+                    'request_id' => $request->header('X-Request-ID', uniqid()),
+                ]
+            ], 401);
+        }
+
         $paymentMethods = $user->paymentMethods()
             ->where('gateway', 'midtrans')
             ->get()
@@ -312,7 +330,40 @@ class SubscriptionPaymentController extends Controller
      */
     public function invoices(Request $request): JsonResponse
     {
-        $store = Auth::user()->store;
+        $user = Auth::user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1',
+                    'request_id' => $request->header('X-Request-ID', uniqid()),
+                ]
+            ], 401);
+        }
+
+        $store = $user->store;
+
+        if (!$store) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'STORE_NOT_FOUND',
+                    'message' => 'User is not associated with any store',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1',
+                    'request_id' => $request->header('X-Request-ID', uniqid()),
+                ]
+            ], 404);
+        }
+
         $subscription = $store->subscriptions()->where('status', 'active')->first();
 
         if (!$subscription) {

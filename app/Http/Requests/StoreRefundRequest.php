@@ -27,7 +27,7 @@ class StoreRefundRequest extends FormRequest
                 'required_without:payment_id',
                 'integer',
                 Rule::exists('orders', 'id')->where(function ($query) {
-                    $query->where('store_id', auth()->user()->store_id);
+                    $query->where('store_id', request()->user()->store_id);
                 })
             ],
             'payment_id' => [
@@ -35,7 +35,7 @@ class StoreRefundRequest extends FormRequest
                 'integer',
                 Rule::exists('payments', 'id')->where(function ($query) {
                     $query->whereHas('order', function ($orderQuery) {
-                        $orderQuery->where('store_id', auth()->user()->store_id);
+                        $orderQuery->where('store_id', request()->user()->store_id);
                     });
                 })
             ],

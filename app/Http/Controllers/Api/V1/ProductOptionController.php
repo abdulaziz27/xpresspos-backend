@@ -13,7 +13,43 @@ use Illuminate\Http\Request;
 class ProductOptionController extends Controller
 {
     /**
-     * Display a listing of product options.
+     * Display a listing of all product options (standalone).
+     */
+    public function indexAll(Request $request): JsonResponse
+    {
+        // For MVP, allow owner role to view all product options
+        if (!auth()->user() && !request()->user()) {
+            abort(401, 'Unauthenticated');
+        }
+
+        $user = auth()->user() ?? request()->user();
+        if (!$user->hasAnyRole(['admin_sistem', 'owner', 'manager', 'cashier'])) {
+            abort(403, 'This action is unauthorized.');
+        }
+
+        $query = ProductOption::with(['product:id,name'])
+            ->where('is_active', true);
+
+        // Apply filters
+        if ($request->filled('product_id')) {
+            $query->where('product_id', $request->input('product_id'));
+        }
+
+        if ($request->filled('name')) {
+            $query->where('name', 'like', '%' . $request->input('name') . '%');
+        }
+
+        $options = $query->orderBy('sort_order')->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $options,
+            'message' => 'Product options retrieved successfully',
+        ]);
+    }
+
+    /**
+     * Display a listing of product options for a specific product.
      */
     public function index(Product $product): JsonResponse
     {
@@ -40,7 +76,7 @@ class ProductOptionController extends Controller
         $this->authorize('update', $product);
 
         $option = $product->options()->create([
-            'store_id' => auth()->user()->store_id,
+            'store_id' => request()->user()->store_id,
             'name' => $request->name,
             'value' => $request->value,
             'price_adjustment' => $request->price_adjustment ?? 0,

@@ -27,7 +27,7 @@ class AddOrderItemRequest extends FormRequest
                 'required',
                 'integer',
                 Rule::exists('products', 'id')->where(function ($query) {
-                    $query->where('store_id', auth()->user()->store_id)
+                    $query->where('store_id', request()->user()->store_id)
                           ->where('status', true);
                 })
             ],
@@ -36,7 +36,7 @@ class AddOrderItemRequest extends FormRequest
             'product_options.*' => [
                 'uuid',
                 Rule::exists('product_options', 'id')->where(function ($query) {
-                    $query->where('store_id', auth()->user()->store_id)
+                    $query->where('store_id', request()->user()->store_id)
                           ->where('is_active', true);
                 })
             ],

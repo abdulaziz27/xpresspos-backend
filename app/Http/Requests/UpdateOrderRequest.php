@@ -27,14 +27,14 @@ class UpdateOrderRequest extends FormRequest
                 'nullable',
                 'uuid',
                 Rule::exists('members', 'id')->where(function ($query) {
-                    $query->where('store_id', auth()->user()->store_id);
+                    $query->where('store_id', request()->user()->store_id);
                 })
             ],
             'table_id' => [
                 'nullable',
                 'uuid',
                 Rule::exists('tables', 'id')->where(function ($query) {
-                    $query->where('store_id', auth()->user()->store_id);
+                    $query->where('store_id', request()->user()->store_id);
                 })
             ],
             'status' => 'sometimes|in:draft,open,completed',

@@ -22,15 +22,15 @@ class StoreSwitchController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $stores = $this->storeSwitchingService->getAvailableStores(auth()->user());
-            $currentContext = $this->storeSwitchingService->getCurrentStoreInfo(auth()->user());
+            $stores = $this->storeSwitchingService->getAvailableStores(request()->user());
+            $currentContext = $this->storeSwitchingService->getCurrentStoreInfo(request()->user());
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'available_stores' => $stores,
                     'current_context' => $currentContext,
-                    'is_in_store_context' => $this->storeSwitchingService->isInStoreContext(auth()->user()),
+                    'is_in_store_context' => $this->storeSwitchingService->isInStoreContext(request()->user()),
                 ],
                 'message' => 'Available stores retrieved successfully',
             ]);
@@ -56,12 +56,12 @@ class StoreSwitchController extends Controller
             ]);
 
             $success = $this->storeSwitchingService->switchStore(
-                auth()->user(),
+                request()->user(),
                 $request->input('store_id')
             );
 
             if ($success) {
-                $storeInfo = $this->storeSwitchingService->getCurrentStoreInfo(auth()->user());
+                $storeInfo = $this->storeSwitchingService->getCurrentStoreInfo(request()->user());
 
                 return response()->json([
                     'success' => true,
@@ -106,7 +106,7 @@ class StoreSwitchController extends Controller
     public function clear(): JsonResponse
     {
         try {
-            $success = $this->storeSwitchingService->clearStoreContext(auth()->user());
+            $success = $this->storeSwitchingService->clearStoreContext(request()->user());
 
             if ($success) {
                 return response()->json([
@@ -142,15 +142,15 @@ class StoreSwitchController extends Controller
     public function current(): JsonResponse
     {
         try {
-            $storeInfo = $this->storeSwitchingService->getCurrentStoreInfo(auth()->user());
-            $isInContext = $this->storeSwitchingService->isInStoreContext(auth()->user());
+            $storeInfo = $this->storeSwitchingService->getCurrentStoreInfo(request()->user());
+            $isInContext = $this->storeSwitchingService->isInStoreContext(request()->user());
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'current_store' => $storeInfo,
                     'is_in_store_context' => $isInContext,
-                    'can_switch_stores' => auth()->user()->hasRole('admin_sistem'),
+                    'can_switch_stores' => request()->user()->hasRole('admin_sistem'),
                 ],
                 'message' => 'Current store context retrieved successfully',
             ]);

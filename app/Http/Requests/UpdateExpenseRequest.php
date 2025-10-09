@@ -42,7 +42,7 @@ class UpdateExpenseRequest extends FormRequest
                 'nullable',
                 'uuid',
                 Rule::exists('cash_sessions', 'id')->where(function ($query) {
-                    return $query->where('store_id', auth()->user()->store_id);
+                    return $query->where('store_id', request()->user()->store_id);
                 })
             ],
             'category' => ['sometimes', 'required', 'string', Rule::in($categories)],

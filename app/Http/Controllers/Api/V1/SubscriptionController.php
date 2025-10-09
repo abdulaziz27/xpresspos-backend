@@ -22,8 +22,25 @@ class SubscriptionController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $store = Auth::user()->store;
-        
+        $user = Auth::user() ?? $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1',
+                    'request_id' => $request->header('X-Request-ID', uniqid()),
+                ]
+            ], 401);
+        }
+
+        $store = $user->store;
+
         if (!$store) {
             return response()->json([
                 'success' => false,
@@ -111,7 +128,8 @@ class SubscriptionController extends Controller
      */
     public function usage(Request $request): JsonResponse
     {
-        $store = Auth::user()->store;
+        $user = Auth::user() ?? request()->user();
+        $store = $user?->store;
         $subscription = $store->subscriptions()->where('status', 'active')->first();
 
         if (!$subscription) {
@@ -155,7 +173,8 @@ class SubscriptionController extends Controller
      */
     public function status(Request $request): JsonResponse
     {
-        $store = Auth::user()->store;
+        $user = Auth::user() ?? request()->user();
+        $store = $user?->store;
         $subscription = $store->subscriptions()->where('status', 'active')->first();
 
         if (!$subscription) {
@@ -213,7 +232,8 @@ class SubscriptionController extends Controller
             'billing_cycle' => 'sometimes|in:monthly,annual',
         ]);
 
-        $store = Auth::user()->store;
+        $user = Auth::user() ?? request()->user();
+        $store = $user?->store;
         $subscription = $store->subscriptions()->where('status', 'active')->first();
 
         if (!$subscription) {
@@ -274,7 +294,6 @@ class SubscriptionController extends Controller
                     'request_id' => $request->header('X-Request-ID', uniqid()),
                 ]
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -300,7 +319,8 @@ class SubscriptionController extends Controller
             'plan_id' => 'required|exists:plans,id',
         ]);
 
-        $store = Auth::user()->store;
+        $user = Auth::user() ?? request()->user();
+        $store = $user?->store;
         $subscription = $store->subscriptions()->where('status', 'active')->first();
 
         if (!$subscription) {
@@ -360,7 +380,6 @@ class SubscriptionController extends Controller
                     'request_id' => $request->header('X-Request-ID', uniqid()),
                 ]
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -387,7 +406,8 @@ class SubscriptionController extends Controller
             'reason' => 'sometimes|string|max:500',
         ]);
 
-        $store = Auth::user()->store;
+        $user = Auth::user() ?? request()->user();
+        $store = $user?->store;
         $subscription = $store->subscriptions()->where('status', 'active')->first();
 
         if (!$subscription) {
@@ -418,8 +438,8 @@ class SubscriptionController extends Controller
                 $cancelledSubscription->update(['metadata' => $metadata]);
             }
 
-            $message = $immediately 
-                ? 'Subscription cancelled immediately' 
+            $message = $immediately
+                ? 'Subscription cancelled immediately'
                 : 'Subscription cancellation scheduled. Access will continue until the end of current billing period.';
 
             return response()->json([
@@ -440,7 +460,6 @@ class SubscriptionController extends Controller
                     'request_id' => $request->header('X-Request-ID', uniqid()),
                 ]
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -462,7 +481,8 @@ class SubscriptionController extends Controller
      */
     public function renew(Request $request): JsonResponse
     {
-        $store = Auth::user()->store;
+        $user = Auth::user() ?? request()->user();
+        $store = $user?->store;
         $subscription = $store->subscriptions()
             ->whereIn('status', ['active', 'expired'])
             ->first();
@@ -504,7 +524,6 @@ class SubscriptionController extends Controller
                     'request_id' => $request->header('X-Request-ID', uniqid()),
                 ]
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

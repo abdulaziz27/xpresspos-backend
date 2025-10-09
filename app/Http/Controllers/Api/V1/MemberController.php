@@ -90,7 +90,7 @@ class MemberController extends Controller
             DB::beginTransaction();
 
             $member = Member::create([
-                'store_id' => auth()->user()->store_id,
+                'store_id' => request()->user()->store_id,
                 'member_number' => $this->generateMemberNumber(),
                 ...$request->validated()
             ]);
@@ -504,7 +504,7 @@ class MemberController extends Controller
                 $request->input('reason'),
                 [
                     'description' => $request->input('description'),
-                    'adjusted_by' => auth()->user()->name,
+                    'adjusted_by' => request()->user()->name,
                 ]
             );
 
@@ -556,7 +556,7 @@ class MemberController extends Controller
     {
         $this->authorize('viewAny', Member::class);
 
-        $tiers = MemberTier::where('store_id', auth()->user()->store_id)
+        $tiers = MemberTier::where('store_id', request()->user()->store_id)
             ->active()
             ->ordered()
             ->get();
@@ -579,7 +579,7 @@ class MemberController extends Controller
         $this->authorize('viewAny', Member::class);
 
         $loyaltyService = app(\App\Services\LoyaltyService::class);
-        $statistics = $loyaltyService->getTierStatistics(auth()->user()->store_id);
+        $statistics = $loyaltyService->getTierStatistics(request()->user()->store_id);
 
         return response()->json([
             'success' => true,

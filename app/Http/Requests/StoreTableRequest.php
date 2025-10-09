@@ -28,7 +28,7 @@ class StoreTableRequest extends FormRequest
                 'string',
                 'max:20',
                 Rule::unique('tables')->where(function ($query) {
-                    return $query->where('store_id', auth()->user()->store_id);
+                    return $query->where('store_id', request()->user()->store_id);
                 })
             ],
             'name' => 'nullable|string|max:255',

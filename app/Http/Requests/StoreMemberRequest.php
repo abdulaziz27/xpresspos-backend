@@ -29,7 +29,7 @@ class StoreMemberRequest extends FormRequest
                 'email',
                 'max:255',
                 Rule::unique('members')->where(function ($query) {
-                    return $query->where('store_id', auth()->user()->store_id);
+                    return $query->where('store_id', request()->user()->store_id);
                 })
             ],
             'phone' => [
@@ -37,7 +37,7 @@ class StoreMemberRequest extends FormRequest
                 'string',
                 'max:20',
                 Rule::unique('members')->where(function ($query) {
-                    return $query->where('store_id', auth()->user()->store_id);
+                    return $query->where('store_id', request()->user()->store_id);
                 })
             ],
             'date_of_birth' => 'nullable|date|before:today',

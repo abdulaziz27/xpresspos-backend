@@ -163,7 +163,7 @@ class Product extends Model
     public function scopeLowStock($query)
     {
         return $query->where('track_inventory', true)
-                    ->whereColumn('stock', '<=', 'min_stock_level');
+            ->whereColumn('stock', '<=', 'min_stock_level');
     }
 
     /**
@@ -178,18 +178,19 @@ class Product extends Model
      * Record price change in history.
      */
     public function recordPriceChange(
-        float $newPrice, 
-        ?float $newCostPrice = null, 
+        float $newPrice,
+        ?float $newCostPrice = null,
         ?string $reason = null
     ): void {
         if ($this->price != $newPrice || ($newCostPrice !== null && $this->cost_price != $newCostPrice)) {
+            $user = auth()->user() ?? request()->user();
             $this->priceHistory()->create([
                 'store_id' => $this->store_id,
                 'old_price' => $this->price,
                 'new_price' => $newPrice,
                 'old_cost_price' => $this->cost_price,
                 'new_cost_price' => $newCostPrice,
-                'changed_by' => auth()->id(),
+                'changed_by' => $user?->id,
                 'reason' => $reason,
                 'effective_date' => now(),
             ]);
@@ -202,7 +203,7 @@ class Product extends Model
     public function updatePrice(float $newPrice, ?float $newCostPrice = null, ?string $reason = null): void
     {
         $this->recordPriceChange($newPrice, $newCostPrice, $reason);
-        
+
         $this->update([
             'price' => $newPrice,
             'cost_price' => $newCostPrice ?? $this->cost_price,
@@ -293,7 +294,7 @@ class Product extends Model
     public function validateOptions(array $optionIds): array
     {
         $errors = [];
-        
+
         if (empty($optionIds)) {
             return $errors;
         }
@@ -308,7 +309,7 @@ class Product extends Model
         // Check if all provided option IDs are valid
         $validOptionIds = $validOptions->pluck('id')->toArray();
         $invalidIds = array_diff($optionIds, $validOptionIds);
-        
+
         if (!empty($invalidIds)) {
             $errors[] = 'Invalid option IDs: ' . implode(', ', $invalidIds);
         }

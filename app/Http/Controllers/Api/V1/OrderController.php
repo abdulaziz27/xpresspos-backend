@@ -50,17 +50,17 @@ class OrderController extends Controller
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('order_number', 'like', "%{$search}%")
-                  ->orWhereHas('member', function ($memberQuery) use ($search) {
-                      $memberQuery->where('name', 'like', "%{$search}%")
-                                  ->orWhere('phone', 'like', "%{$search}%");
-                  });
+                    ->orWhereHas('member', function ($memberQuery) use ($search) {
+                        $memberQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%");
+                    });
             });
         }
 
         // Apply sorting
         $sortBy = $request->input('sort_by', 'created_at');
         $sortDirection = $request->input('sort_direction', 'desc');
-        
+
         if (in_array($sortBy, ['created_at', 'order_number', 'total_amount', 'status'])) {
             $query->orderBy($sortBy, $sortDirection);
         } else {
@@ -93,9 +93,10 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
+            $user = auth()->user() ?? request()->user();
             $order = Order::create([
-                'store_id' => auth()->user()->store_id,
-                'user_id' => auth()->id(),
+                'store_id' => $user->store_id,
+                'user_id' => $user->id,
                 'member_id' => $request->input('member_id'),
                 'table_id' => $request->input('table_id'),
                 'status' => $request->input('status', 'draft'),
@@ -133,7 +134,6 @@ class OrderController extends Controller
                     'version' => 'v1'
                 ]
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Order creation failed', [
@@ -210,7 +210,7 @@ class OrderController extends Controller
                 if ($order->table) {
                     $order->table->makeAvailable();
                 }
-                
+
                 // Assign new table
                 if ($request->input('table_id')) {
                     $table = Table::find($request->input('table_id'));
@@ -235,7 +235,6 @@ class OrderController extends Controller
                     'version' => 'v1'
                 ]
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Order update failed', [
@@ -308,7 +307,6 @@ class OrderController extends Controller
                     'version' => 'v1'
                 ]
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Order deletion failed', [
@@ -359,7 +357,7 @@ class OrderController extends Controller
 
             $itemData = $request->validated();
             $orderItem = $this->addItemToOrder($order, $itemData);
-            
+
             $order->calculateTotals();
 
             DB::commit();
@@ -376,7 +374,6 @@ class OrderController extends Controller
                     'version' => 'v1'
                 ]
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Add item to order failed', [
@@ -479,7 +476,6 @@ class OrderController extends Controller
                     'version' => 'v1'
                 ]
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Update order item failed', [
@@ -563,7 +559,6 @@ class OrderController extends Controller
                     'version' => 'v1'
                 ]
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Remove order item failed', [
@@ -642,7 +637,6 @@ class OrderController extends Controller
                     'version' => 'v1'
                 ]
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Order completion failed', [
@@ -674,7 +668,7 @@ class OrderController extends Controller
         $this->authorize('viewAny', Order::class);
 
         $date = $request->input('date', now()->toDateString());
-        
+
         $baseQuery = Order::whereDate('created_at', $date);
 
         $summary = [
@@ -704,7 +698,7 @@ class OrderController extends Controller
     private function addItemToOrder(Order $order, array $itemData): OrderItem
     {
         $product = Product::findOrFail($itemData['product_id']);
-        
+
         // Validate product options if provided
         if (!empty($itemData['product_options'])) {
             $errors = $product->validateOptions($itemData['product_options']);
@@ -715,7 +709,7 @@ class OrderController extends Controller
 
         // Calculate price with options
         $priceCalculation = $product->calculatePriceWithOptions($itemData['product_options'] ?? []);
-        
+
         $orderItem = $order->items()->create([
             'store_id' => $order->store_id,
             'product_id' => $product->id,

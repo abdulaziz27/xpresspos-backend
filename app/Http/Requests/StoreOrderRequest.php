@@ -27,14 +27,14 @@ class StoreOrderRequest extends FormRequest
                 'nullable',
                 'uuid',
                 Rule::exists('members', 'id')->where(function ($query) {
-                    $query->where('store_id', auth()->user()->store_id);
+                    $query->where('store_id', request()->user()->store_id);
                 })
             ],
             'table_id' => [
                 'nullable',
                 'uuid',
                 Rule::exists('tables', 'id')->where(function ($query) {
-                    $query->where('store_id', auth()->user()->store_id)
+                    $query->where('store_id', request()->user()->store_id)
                           ->where('status', 'available');
                 })
             ],
@@ -49,7 +49,7 @@ class StoreOrderRequest extends FormRequest
                 'required_with:items',
                 'integer',
                 Rule::exists('products', 'id')->where(function ($query) {
-                    $query->where('store_id', auth()->user()->store_id)
+                    $query->where('store_id', request()->user()->store_id)
                           ->where('status', true);
                 })
             ],
