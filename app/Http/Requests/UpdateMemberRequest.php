@@ -23,6 +23,7 @@ class UpdateMemberRequest extends FormRequest
     public function rules(): array
     {
         $member = $this->route('member');
+        $user = auth()->user() ?? request()->user();
 
         return [
             'name' => 'sometimes|string|max:255',
@@ -31,18 +32,24 @@ class UpdateMemberRequest extends FormRequest
                 'nullable',
                 'email',
                 'max:255',
-                Rule::unique('members')->where(function ($query) {
-                    return $query->where('store_id', auth()->user()->store_id);
-                })->ignore($member->id)
+                Rule::unique('members')->where(function ($query) use ($user) {
+                    if ($user) {
+                        return $query->where('store_id', $user->store_id);
+                    }
+                    return $query;
+                })->ignore(is_string($member) ? $member : ($member->id ?? null))
             ],
             'phone' => [
                 'sometimes',
                 'nullable',
                 'string',
                 'max:20',
-                Rule::unique('members')->where(function ($query) {
-                    return $query->where('store_id', auth()->user()->store_id);
-                })->ignore($member->id)
+                Rule::unique('members')->where(function ($query) use ($user) {
+                    if ($user) {
+                        return $query->where('store_id', $user->store_id);
+                    }
+                    return $query;
+                })->ignore(is_string($member) ? $member : ($member->id ?? null))
             ],
             'date_of_birth' => 'sometimes|nullable|date|before:today',
             'address' => 'sometimes|nullable|string|max:500',

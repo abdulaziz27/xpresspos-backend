@@ -153,7 +153,7 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
 
         // Product Options
         Route::prefix('product-options')->group(function (): void {
-            Route::get('/', [ProductOptionController::class, 'index'])->name('api.v1.product-options.index');
+            Route::get('/', [ProductOptionController::class, 'indexAll'])->name('api.v1.product-options.index');
             Route::post('/', [ProductOptionController::class, 'store'])->name('api.v1.product-options.store');
             Route::get('{productOption}', [ProductOptionController::class, 'show'])->name('api.v1.product-options.show');
             Route::put('{productOption}', [ProductOptionController::class, 'update'])->name('api.v1.product-options.update');
@@ -181,10 +181,12 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
         Route::prefix('tables')->group(function (): void {
             Route::get('/', [TableController::class, 'index'])->name('api.v1.tables.index');
             Route::post('/', [TableController::class, 'store'])->name('api.v1.tables.store');
+            // Specific routes must come before parameterized routes
+            Route::get('available', [TableController::class, 'available'])->name('api.v1.tables.available');
+            // Parameterized routes
             Route::get('{table}', [TableController::class, 'show'])->name('api.v1.tables.show');
             Route::put('{table}', [TableController::class, 'update'])->name('api.v1.tables.update');
             Route::delete('{table}', [TableController::class, 'destroy'])->name('api.v1.tables.destroy');
-            Route::get('available', [TableController::class, 'available'])->name('api.v1.tables.available');
             Route::post('{table}/occupy', [TableController::class, 'occupy'])->name('api.v1.tables.occupy');
             Route::post('{table}/make-available', [TableController::class, 'makeAvailable'])->name('api.v1.tables.make-available');
             Route::get('{table}/occupancy-stats', [TableController::class, 'occupancyStats'])->name('api.v1.tables.occupancy-stats');
@@ -259,10 +261,11 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
         // Inventory
         Route::prefix('inventory')->group(function (): void {
             Route::get('/', [InventoryController::class, 'index'])->name('api.v1.inventory.index');
-            Route::post('adjust', [InventoryController::class, 'adjust'])->name('api.v1.inventory.adjust');
+            // Specific routes must come before parameterized routes
             Route::get('levels', [InventoryController::class, 'levels'])->name('api.v1.inventory.levels');
             Route::get('movements', [InventoryController::class, 'movements'])->name('api.v1.inventory.movements.list');
             Route::post('movements', [InventoryController::class, 'createMovement'])->name('api.v1.inventory.movements');
+            Route::post('adjust', [InventoryController::class, 'adjust'])->name('api.v1.inventory.adjust');
             Route::get('alerts/low-stock', [InventoryController::class, 'lowStockAlerts'])->name('api.v1.inventory.alerts.low-stock');
             Route::get('reports/stock-levels', [InventoryReportController::class, 'stockLevels'])->name('api.v1.inventory.reports.stock-levels');
             Route::get('reports/movements', [InventoryReportController::class, 'movements'])->name('api.v1.inventory.reports.movements');
@@ -270,6 +273,7 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::get('reports/cogs-analysis', [InventoryReportController::class, 'cogsAnalysis'])->name('api.v1.inventory.reports.cogs-analysis');
             Route::get('reports/stock-aging', [InventoryReportController::class, 'stockAging'])->name('api.v1.inventory.reports.stock-aging');
             Route::get('reports/stock-turnover', [InventoryReportController::class, 'stockTurnover'])->name('api.v1.inventory.reports.stock-turnover');
+            // Parameterized routes must come last
             Route::get('{product}', [InventoryController::class, 'show'])->name('api.v1.inventory.show');
         });
 
@@ -384,16 +388,16 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
                 ]);
             })->name('api.v1.permissions.available');
         });
-    });
 
-    // Subscription payment routes
-    Route::prefix('subscription-payments')->group(function () {
-        Route::get('plans', [SubscriptionPaymentController::class, 'plans'])->name('api.v1.subscription-payments.plans');
-        Route::post('create', [SubscriptionPaymentController::class, 'create'])->name('api.v1.subscription-payments.create');
-        Route::get('payment-methods', [SubscriptionPaymentController::class, 'paymentMethods'])->name('api.v1.subscription-payments.payment-methods');
-        Route::get('invoices', [SubscriptionPaymentController::class, 'invoices'])->name('api.v1.subscription-payments.invoices');
-        Route::post('invoices/{invoice}/pay', [SubscriptionPaymentController::class, 'payInvoice'])->name('api.v1.subscription-payments.pay-invoice');
-        Route::get('invoices/{invoice}/status', [SubscriptionPaymentController::class, 'paymentStatus'])->name('api.v1.subscription-payments.payment-status');
+        // Subscription payment routes
+        Route::prefix('subscription-payments')->group(function () {
+            Route::get('plans', [SubscriptionPaymentController::class, 'plans'])->name('api.v1.subscription-payments.plans');
+            Route::post('create', [SubscriptionPaymentController::class, 'create'])->name('api.v1.subscription-payments.create');
+            Route::get('payment-methods', [SubscriptionPaymentController::class, 'paymentMethods'])->name('api.v1.subscription-payments.payment-methods');
+            Route::get('invoices', [SubscriptionPaymentController::class, 'invoices'])->name('api.v1.subscription-payments.invoices');
+            Route::post('invoices/{invoice}/pay', [SubscriptionPaymentController::class, 'payInvoice'])->name('api.v1.subscription-payments.pay-invoice');
+            Route::get('invoices/{invoice}/status', [SubscriptionPaymentController::class, 'paymentStatus'])->name('api.v1.subscription-payments.payment-status');
+        });
     });
 
     // Webhooks

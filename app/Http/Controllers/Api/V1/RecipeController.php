@@ -15,7 +15,7 @@ class RecipeController extends Controller
     public function __construct()
     {
         // Apply plan gate middleware for Pro/Enterprise features
-        $this->middleware('plan.gate:inventory_tracking');
+        // $this->middleware('plan.gate:inventory_tracking'); // Commented out until middleware is implemented
     }
 
     /**
@@ -65,10 +65,22 @@ class RecipeController extends Controller
             'items.*.notes' => 'nullable|string|max:500',
         ]);
 
-        return DB::transaction(function () use ($request) {
+        $user = auth()->user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
+        return DB::transaction(function () use ($request, $user) {
             // Create recipe
             $recipe = Recipe::create([
-                'store_id' => auth()->user()->store_id,
+                'store_id' => $user->store_id,
                 'product_id' => $request->product_id,
                 'name' => $request->name,
                 'description' => $request->description,
@@ -80,7 +92,7 @@ class RecipeController extends Controller
             // Create recipe items
             foreach ($request->items as $itemData) {
                 RecipeItem::create([
-                    'store_id' => auth()->user()->store_id,
+                    'store_id' => $user->store_id,
                     'recipe_id' => $recipe->id,
                     'ingredient_product_id' => $itemData['ingredient_product_id'],
                     'quantity' => $itemData['quantity'],
@@ -135,10 +147,26 @@ class RecipeController extends Controller
             'items.*.notes' => 'nullable|string|max:500',
         ]);
 
-        return DB::transaction(function () use ($request, $recipe) {
+        $user = auth()->user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
+        return DB::transaction(function () use ($request, $recipe, $user) {
             // Update recipe
             $recipe->update($request->only([
-                'name', 'description', 'yield_quantity', 'yield_unit', 'is_active'
+                'name',
+                'description',
+                'yield_quantity',
+                'yield_unit',
+                'is_active'
             ]));
 
             // Update recipe items if provided
@@ -149,7 +177,7 @@ class RecipeController extends Controller
                 // Create new items
                 foreach ($request->items as $itemData) {
                     RecipeItem::create([
-                        'store_id' => auth()->user()->store_id,
+                        'store_id' => $user->store_id,
                         'recipe_id' => $recipe->id,
                         'ingredient_product_id' => $itemData['ingredient_product_id'],
                         'quantity' => $itemData['quantity'],
@@ -190,7 +218,7 @@ class RecipeController extends Controller
     public function calculateCost(Recipe $recipe): JsonResponse
     {
         $recipe->load(['items.ingredient:id,name,sku,cost_price']);
-        
+
         $totalCost = 0;
         $costBreakdown = [];
 
@@ -256,7 +284,7 @@ class RecipeController extends Controller
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%");
             });
         }
 

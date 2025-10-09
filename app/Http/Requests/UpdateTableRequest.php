@@ -23,15 +23,19 @@ class UpdateTableRequest extends FormRequest
     public function rules(): array
     {
         $table = $this->route('table');
+        $user = auth()->user() ?? request()->user();
 
         return [
             'table_number' => [
                 'sometimes',
                 'string',
                 'max:20',
-                Rule::unique('tables')->where(function ($query) {
-                    return $query->where('store_id', auth()->user()->store_id);
-                })->ignore($table->id)
+                Rule::unique('tables')->where(function ($query) use ($user) {
+                    if ($user) {
+                        return $query->where('store_id', $user->store_id);
+                    }
+                    return $query;
+                })->ignore(is_string($table) ? $table : ($table->id ?? null))
             ],
             'name' => 'sometimes|nullable|string|max:255',
             'capacity' => 'sometimes|integer|min:1|max:50',

@@ -100,10 +100,11 @@ class Table extends Model
     /**
      * Mark table as occupied with detailed tracking.
      */
-    public function occupy(Order $order = null, int $partySize = null): TableOccupancyHistory
+    public function occupy(Order $order = null, int $partySize = null, $userId = null): TableOccupancyHistory
     {
         $occupiedAt = now();
-        
+        $user = $userId ?? (auth()->id() ?? (request()->user()?->id));
+
         $this->update([
             'status' => 'occupied',
             'occupied_at' => $occupiedAt,
@@ -114,7 +115,7 @@ class Table extends Model
         return $this->occupancyHistories()->create([
             'store_id' => $this->store_id,
             'order_id' => $order?->id,
-            'user_id' => auth()->id(),
+            'user_id' => $user,
             'occupied_at' => $occupiedAt,
             'party_size' => $partySize,
             'status' => 'occupied',
@@ -141,7 +142,7 @@ class Table extends Model
                 'status' => 'cleared',
                 'order_total' => $this->currentOrder?->total_amount,
             ]);
-            
+
             $currentOccupancy->calculateDuration();
             $this->updateAverageOccupancyDuration();
         }
@@ -192,14 +193,14 @@ class Table extends Model
     public function getOccupancyStats(int $days = 30): array
     {
         $startDate = now()->subDays($days);
-        
+
         $histories = $this->occupancyHistories()
             ->dateRange($startDate, now())
             ->get();
 
         $totalOccupancies = $histories->count();
         $clearedOccupancies = $histories->where('status', 'cleared');
-        
+
         return [
             'total_occupancies' => $totalOccupancies,
             'cleared_occupancies' => $clearedOccupancies->count(),

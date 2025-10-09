@@ -20,7 +20,23 @@ class PaymentMethodController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $user = Auth::user();
+        $user = Auth::user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1',
+                    'request_id' => $request->header('X-Request-ID', uniqid()),
+                ]
+            ], 401);
+        }
+
         $paymentMethods = $user->paymentMethods()
             ->orderBy('is_default', 'desc')
             ->orderBy('created_at', 'desc')
@@ -65,7 +81,7 @@ class PaymentMethodController extends Controller
         try {
             $user = Auth::user();
             $paymentData = $request->only(['enabled_payments']);
-            
+
             $tokenData = $this->paymentService->createPaymentToken($user, $paymentData);
 
             return response()->json([
@@ -81,7 +97,6 @@ class PaymentMethodController extends Controller
                     'request_id' => $request->header('X-Request-ID', uniqid()),
                 ]
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -109,7 +124,23 @@ class PaymentMethodController extends Controller
         ]);
 
         try {
-            $user = Auth::user();
+            $user = Auth::user() ?? request()->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'UNAUTHENTICATED',
+                        'message' => 'User not authenticated',
+                    ],
+                    'meta' => [
+                        'timestamp' => now()->toISOString(),
+                        'version' => 'v1',
+                        'request_id' => $request->header('X-Request-ID', uniqid()),
+                    ]
+                ], 401);
+            }
+
             $paymentData = $request->input('payment_data');
             $setAsDefault = $request->boolean('set_as_default', false);
 
@@ -136,7 +167,6 @@ class PaymentMethodController extends Controller
                     'request_id' => $request->header('X-Request-ID', uniqid()),
                 ]
             ], 201);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -242,7 +272,6 @@ class PaymentMethodController extends Controller
                     ]
                 ], 422);
             }
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

@@ -63,7 +63,7 @@ class SyncController extends Controller
         try {
             foreach ($items as $item) {
                 $idempotencyKey = $item['idempotency_key'];
-                
+
                 // Check if already processed
                 $existingSync = SyncHistory::findByIdempotencyKey($idempotencyKey);
                 if ($existingSync) {
@@ -103,7 +103,7 @@ class SyncController extends Controller
                     }
                 } catch (\Exception $e) {
                     $errorCount++;
-                    
+
                     // Create failed sync record
                     SyncHistory::createSync(
                         $idempotencyKey,
@@ -136,10 +136,9 @@ class SyncController extends Controller
                 ],
                 'message' => 'Batch sync completed',
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -173,7 +172,7 @@ class SyncController extends Controller
 
         $keys = $request->input('idempotency_keys');
         $syncRecords = SyncHistory::whereIn('idempotency_key', $keys)
-            ->where('store_id', auth()->user()->store_id)
+            ->where('store_id', request()->user()->store_id)
             ->get()
             ->keyBy('idempotency_key');
 
@@ -205,11 +204,27 @@ class SyncController extends Controller
     }
 
     /**
+     * Get sync stats - Alias for route compatibility.
+     */
+    public function getStats(Request $request): JsonResponse
+    {
+        return $this->getSyncStats($request);
+    }
+
+    /**
+     * Get sync status - Alias for route compatibility.
+     */
+    public function getStatus(Request $request): JsonResponse
+    {
+        return $this->getSyncStatus($request);
+    }
+
+    /**
      * Get sync statistics for the store.
      */
     public function getSyncStats(Request $request): JsonResponse
     {
-        $storeId = auth()->user()->store_id;
+        $storeId = request()->user()->store_id;
         $period = $request->input('period', '24h'); // 24h, 7d, 30d
 
         $since = match ($period) {
@@ -289,7 +304,7 @@ class SyncController extends Controller
         try {
             foreach ($conflicts as $conflict) {
                 $syncRecord = SyncHistory::where('idempotency_key', $conflict['idempotency_key'])
-                    ->where('store_id', auth()->user()->store_id)
+                    ->where('store_id', request()->user()->store_id)
                     ->where('status', SyncHistory::STATUS_CONFLICT)
                     ->first();
 
@@ -334,10 +349,9 @@ class SyncController extends Controller
                 ],
                 'message' => 'Conflict resolution completed',
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -382,13 +396,13 @@ class SyncController extends Controller
         try {
             foreach ($items as $item) {
                 $queueItem = SyncQueue::create([
-                    'store_id' => auth()->user()->store_id,
+                    'store_id' => request()->user()->store_id,
                     'batch_id' => $batchId,
                     'sync_type' => $item['sync_type'],
                     'operation' => $item['operation'],
                     'data' => $item['data'],
                     'priority' => $item['priority'] ?? SyncQueue::PRIORITY_NORMAL,
-                    'scheduled_at' => isset($item['scheduled_at']) ? 
+                    'scheduled_at' => isset($item['scheduled_at']) ?
                         \Carbon\Carbon::parse($item['scheduled_at']) : null,
                 ]);
 
@@ -412,10 +426,9 @@ class SyncController extends Controller
                 ],
                 'message' => 'Items queued for sync successfully',
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -431,11 +444,11 @@ class SyncController extends Controller
      */
     public function getQueueStatus(Request $request): JsonResponse
     {
-        $storeId = auth()->user()->store_id;
+        $storeId = request()->user()->store_id;
         $batchId = $request->input('batch_id');
 
         $query = SyncQueue::where('store_id', $storeId);
-        
+
         if ($batchId) {
             $query->where('batch_id', $batchId);
         }
@@ -446,9 +459,9 @@ class SyncController extends Controller
             MIN(created_at) as oldest_item,
             MAX(created_at) as newest_item
         ')
-        ->groupBy('status')
-        ->get()
-        ->keyBy('status');
+            ->groupBy('status')
+            ->get()
+            ->keyBy('status');
 
         $summary = [
             'total' => $stats->sum('count'),
@@ -497,7 +510,7 @@ class SyncController extends Controller
             ], 422);
         }
 
-        $storeId = auth()->user()->store_id;
+        $storeId = request()->user()->store_id;
         $idempotencyKeys = $request->input('idempotency_keys');
         $syncType = $request->input('sync_type');
         $maxRetries = $request->input('max_retries', 3);

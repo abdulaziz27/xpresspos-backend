@@ -48,15 +48,15 @@ class TableController extends Controller
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('table_number', 'like', "%{$search}%")
-                  ->orWhere('name', 'like', "%{$search}%")
-                  ->orWhere('location', 'like', "%{$search}%");
+                    ->orWhere('name', 'like', "%{$search}%")
+                    ->orWhere('location', 'like', "%{$search}%");
             });
         }
 
         // Apply sorting
         $sortBy = $request->input('sort_by', 'table_number');
         $sortDirection = $request->input('sort_direction', 'asc');
-        
+
         if (in_array($sortBy, ['table_number', 'name', 'capacity', 'status', 'location'])) {
             $query->orderBy($sortBy, $sortDirection);
         } else {
@@ -92,7 +92,7 @@ class TableController extends Controller
             DB::beginTransaction();
 
             $table = Table::create([
-                'store_id' => auth()->user()->store_id,
+                'store_id' => request()->user()->store_id,
                 ...$request->validated()
             ]);
 
@@ -107,7 +107,6 @@ class TableController extends Controller
                     'version' => 'v1'
                 ]
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Table creation failed', [
@@ -177,7 +176,6 @@ class TableController extends Controller
                     'version' => 'v1'
                 ]
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Table update failed', [
@@ -238,7 +236,6 @@ class TableController extends Controller
                     'version' => 'v1'
                 ]
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Table deletion failed', [
@@ -313,8 +310,9 @@ class TableController extends Controller
         try {
             DB::beginTransaction();
 
-            $order = $request->input('order_id') ? Order::find($request->input('order_id')) : null;
-            $occupancy = $table->occupy($order, $request->input('party_size'));
+            $user = auth()->user() ?? request()->user();
+            $order = $request->input('order_id') ? \App\Models\Order::find($request->input('order_id')) : null;
+            $occupancy = $table->occupy($order, $request->input('party_size'), $user?->id);
 
             if ($request->filled('notes')) {
                 $occupancy->update(['notes' => $request->input('notes')]);
@@ -333,7 +331,6 @@ class TableController extends Controller
                     'version' => 'v1'
                 ]
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Table occupation failed', [
@@ -384,7 +381,6 @@ class TableController extends Controller
                     'version' => 'v1'
                 ]
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Making table available failed', [
@@ -498,7 +494,7 @@ class TableController extends Controller
             'location' => 'sometimes|string',
         ]);
 
-        $query = Table::where('store_id', auth()->user()->store_id)->active();
+        $query = Table::where('store_id', request()->user()->store_id)->active();
 
         if ($request->filled('location')) {
             $query->where('location', 'like', '%' . $request->input('location') . '%');
@@ -521,10 +517,10 @@ class TableController extends Controller
                 'maintenance_tables' => $tables->where('status', 'maintenance')->count(),
             ],
             'occupancy_details' => $tables->map(function ($table) use ($request) {
-                $days = $request->filled('date_from') && $request->filled('date_to') 
+                $days = $request->filled('date_from') && $request->filled('date_to')
                     ? now()->parse($request->input('date_from'))->diffInDays(now()->parse($request->input('date_to')))
                     : 30;
-                
+
                 return [
                     'table' => new TableResource($table),
                     'stats' => $table->getOccupancyStats($days),

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
@@ -90,7 +91,7 @@ class ProductController extends Controller
         $this->authorize('create', Product::class);
 
         $product = Product::create([
-            'store_id' => auth()->user()->store_id,
+            'store_id' => request()->user()->store_id,
             'category_id' => $request->input('category_id'),
             'name' => $request->input('name'),
             'sku' => $request->input('sku'),
@@ -150,27 +151,29 @@ class ProductController extends Controller
 
         $validator = Validator::make($request->all(), [
             'category_id' => [
-                'required',
+                'sometimes',
                 'exists:categories,id',
                 function ($attribute, $value, $fail) {
-                    $category = Category::find($value);
-                    if (!$category || $category->store_id !== auth()->user()->store_id) {
-                        $fail('The selected category is invalid.');
+                    if ($value) {
+                        $category = Category::find($value);
+                        if (!$category || $category->store_id !== request()->user()->store_id) {
+                            $fail('The selected category is invalid.');
+                        }
                     }
                 }
             ],
-            'name' => 'required|string|max:255',
+            'name' => 'sometimes|required|string|max:255',
             'sku' => [
                 'nullable',
                 'string',
                 'max:100',
                 Rule::unique('products')->where(function ($query) {
-                    return $query->where('store_id', auth()->user()->store_id);
+                    return $query->where('store_id', request()->user()->store_id);
                 })->ignore($product->id)
             ],
             'description' => 'nullable|string|max:2000',
             'image' => 'nullable|string|max:255',
-            'price' => 'required|numeric|min:0|max:999999.99',
+            'price' => 'sometimes|required|numeric|min:0|max:999999.99',
             'cost_price' => 'nullable|numeric|min:0|max:999999.99',
             'track_inventory' => 'boolean',
             'stock' => 'integer|min:0',
@@ -205,21 +208,49 @@ class ProductController extends Controller
             $product->recordPriceChange($newPrice, $newCostPrice, $priceChangeReason);
         }
 
-        $product->update([
-            'category_id' => $request->input('category_id'),
-            'name' => $request->input('name'),
-            'sku' => $request->input('sku'),
-            'description' => $request->input('description'),
-            'image' => $request->input('image'),
-            'price' => $newPrice,
-            'cost_price' => $newCostPrice,
-            'track_inventory' => $request->input('track_inventory', $product->track_inventory),
-            'stock' => $request->input('stock', $product->stock),
-            'min_stock_level' => $request->input('min_stock_level', $product->min_stock_level),
-            'status' => $request->input('status', $product->status),
-            'is_favorite' => $request->input('is_favorite', $product->is_favorite),
-            'sort_order' => $request->input('sort_order', $product->sort_order)
-        ]);
+        $updateData = [];
+
+        if ($request->has('category_id')) {
+            $updateData['category_id'] = $request->input('category_id');
+        }
+        if ($request->has('name')) {
+            $updateData['name'] = $request->input('name');
+        }
+        if ($request->has('sku')) {
+            $updateData['sku'] = $request->input('sku');
+        }
+        if ($request->has('description')) {
+            $updateData['description'] = $request->input('description');
+        }
+        if ($request->has('image')) {
+            $updateData['image'] = $request->input('image');
+        }
+        if ($request->has('price')) {
+            $updateData['price'] = $newPrice;
+        }
+        if ($request->has('cost_price')) {
+            $updateData['cost_price'] = $newCostPrice;
+        }
+        if ($request->has('track_inventory')) {
+            $updateData['track_inventory'] = $request->input('track_inventory');
+        }
+        if ($request->has('stock')) {
+            $updateData['stock'] = $request->input('stock');
+        }
+        if ($request->has('min_stock_level')) {
+            $updateData['min_stock_level'] = $request->input('min_stock_level');
+        }
+        if ($request->has('status')) {
+            $updateData['status'] = $request->input('status');
+        }
+        if ($request->has('is_favorite')) {
+            $updateData['is_favorite'] = $request->input('is_favorite');
+        }
+        if ($request->has('sort_order')) {
+            $updateData['sort_order'] = $request->input('sort_order');
+        }
+
+        $product->update($updateData);
 
         $product->load(['category:id,name', 'options']);
 
@@ -260,16 +291,56 @@ class ProductController extends Controller
             ], 422);
         }
 
-        $product->delete();
+        try {
+            DB::beginTransaction();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Product deleted successfully',
-            'meta' => [
-                'timestamp' => now()->toISOString(),
-                'version' => 'v1'
-            ]
-        ]);
+            // Delete related records first to avoid foreign key constraints
+            // Delete recipe items that use this product as ingredient
+            \DB::table('recipe_items')->where('ingredient_product_id', $id)->delete();
+
+            // Delete recipes that use this product
+            $product->recipes()->delete();
+
+            // Delete product options
+            $product->options()->delete();
+
+            // Delete inventory movements
+            $product->inventoryMovements()->delete();
+
+            // Delete stock level
+            $product->stockLevel()?->delete();
+
+            // Delete price history
+            $product->priceHistory()->delete();
+
+            // Finally delete the product
+            $product->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Product deleted successfully',
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'DELETE_FAILED',
+                    'message' => 'Failed to delete product: ' . $e->getMessage(),
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 500);
+        }
     }
 
     /**
