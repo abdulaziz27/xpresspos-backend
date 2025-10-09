@@ -214,7 +214,7 @@ class ReportService
             ->join('products', 'order_items.product_id', '=', 'products.id')
             ->join('categories', 'products.category_id', '=', 'categories.id')
             ->where('orders.status', 'completed')
-            ->where('orders.store_id', auth()->user()->store_id)
+            ->where('orders.store_id', (auth()->user() ?? request()->user())?->store_id)
             ->whereBetween('orders.completed_at', [$startDate, $endDate])
             ->select([
                 'products.id',
@@ -293,7 +293,7 @@ class ReportService
         $customerStats = DB::table('orders')
             ->leftJoin('members', 'orders.member_id', '=', 'members.id')
             ->where('orders.status', 'completed')
-            ->where('orders.store_id', auth()->user()->store_id)
+            ->where('orders.store_id', (auth()->user() ?? request()->user())?->store_id)
             ->whereBetween('orders.completed_at', [$startDate, $endDate])
             ->select([
                 DB::raw('COUNT(DISTINCT orders.id) as total_orders'),
@@ -309,7 +309,7 @@ class ReportService
         $topCustomers = DB::table('orders')
             ->join('members', 'orders.member_id', '=', 'members.id')
             ->where('orders.status', 'completed')
-            ->where('orders.store_id', auth()->user()->store_id)
+            ->where('orders.store_id', (auth()->user() ?? request()->user())?->store_id)
             ->whereBetween('orders.completed_at', [$startDate, $endDate])
             ->select([
                 'members.id',
@@ -853,7 +853,8 @@ class ReportService
         $average = array_sum($recentValues) / $windowSize;
 
         // Calculate trend from recent data
-        $recentTrend = $this->calculateTrends(array_slice($salesData, -$windowSize, null, true));
+        $recentSalesData = array_slice($salesData, -$windowSize);
+        $recentTrend = $this->calculateTrends($recentSalesData);
 
         $forecast = [];
         for ($i = 1; $i <= $periods; $i++) {
@@ -891,11 +892,11 @@ class ReportService
 
         // Calculate averages and identify patterns
         $totalRevenue = array_sum(array_column($seasonalData, 'revenue'));
-        $avgRevenue = $totalRevenue / count($seasonalData);
+        $avgRevenue = count($seasonalData) > 0 ? $totalRevenue / count($seasonalData) : 0;
 
         foreach ($seasonalData as $key => &$data) {
             $data['avg_revenue'] = $data['count'] > 0 ? $data['revenue'] / $data['count'] : 0;
-            $data['variance_from_avg'] = (($data['revenue'] - $avgRevenue) / $avgRevenue) * 100;
+            $data['variance_from_avg'] = $avgRevenue > 0 ? (($data['revenue'] - $avgRevenue) / $avgRevenue) * 100 : 0;
         }
 
         return $seasonalData;
@@ -911,13 +912,22 @@ class ReportService
             $insights[] = 'Declining sales trend detected. Review marketing strategies and customer feedback.';
         }
 
-        $recentRevenue = end($salesData)['revenue'];
-        $avgRevenue = array_sum(array_column($salesData, 'revenue')) / count($salesData);
+        if (empty($salesData)) {
+            $insights[] = 'Insufficient data for trend analysis. Consider expanding the date range or generating more sales activity.';
+            return $insights;
+        }
 
-        if ($recentRevenue > $avgRevenue * 1.2) {
-            $insights[] = 'Recent performance is significantly above average. Analyze successful factors for replication.';
-        } elseif ($recentRevenue < $avgRevenue * 0.8) {
-            $insights[] = 'Recent performance is below average. Consider promotional activities or operational improvements.';
+        $lastEntry = end($salesData);
+        $recentRevenue = $lastEntry ? $lastEntry['revenue'] : 0;
+        $totalRevenue = array_sum(array_column($salesData, 'revenue'));
+        $avgRevenue = count($salesData) > 0 ? $totalRevenue / count($salesData) : 0;
+
+        if ($avgRevenue > 0) {
+            if ($recentRevenue > $avgRevenue * 1.2) {
+                $insights[] = 'Recent performance is significantly above average. Analyze successful factors for replication.';
+            } elseif ($recentRevenue < $avgRevenue * 0.8) {
+                $insights[] = 'Recent performance is below average. Consider promotional activities or operational improvements.';
+            }
         }
 
         return $insights;
@@ -929,7 +939,7 @@ class ReportService
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->join('products', 'order_items.product_id', '=', 'products.id')
             ->where('orders.status', 'completed')
-            ->where('orders.store_id', auth()->user()->store_id)
+            ->where('orders.store_id', (auth()->user() ?? request()->user())?->store_id)
             ->whereBetween('orders.completed_at', [$startDate, $endDate])
             ->select([
                 'products.id',
@@ -1021,7 +1031,7 @@ class ReportService
             ->join('products as p1', 'oi1.product_id', '=', 'p1.id')
             ->join('products as p2', 'oi2.product_id', '=', 'p2.id')
             ->where('orders.status', 'completed')
-            ->where('orders.store_id', auth()->user()->store_id)
+            ->where('orders.store_id', (auth()->user() ?? request()->user())?->store_id)
             ->whereBetween('orders.completed_at', [$startDate, $endDate])
             ->select([
                 'p1.name as product_1',
@@ -1076,10 +1086,24 @@ class ReportService
 
     private function performRfmAnalysis(Carbon $startDate, Carbon $endDate): array
     {
+        $user = auth()->user() ?? request()->user();
+        $storeId = $user?->store_id;
+
+        if (!$storeId) {
+            return [
+                'rfm_analysis' => [],
+                'customer_lifetime_value' => [],
+                'churn_analysis' => [],
+                'purchase_patterns' => [],
+                'customer_journey' => [],
+                'segments' => [],
+            ];
+        }
+
         $customerData = DB::table('orders')
             ->join('members', 'orders.member_id', '=', 'members.id')
             ->where('orders.status', 'completed')
-            ->where('orders.store_id', auth()->user()->store_id)
+            ->where('orders.store_id', $storeId)
             ->whereBetween('orders.completed_at', [$startDate, $endDate])
             ->select([
                 'members.id',
@@ -1139,16 +1163,23 @@ class ReportService
     private function calculateCustomerLifetimeValue(Carbon $startDate, Carbon $endDate): array
     {
         // Simplified CLV calculation
+        $user = auth()->user() ?? request()->user();
+        $storeId = $user?->store_id;
+
+        if (!$storeId) {
+            return [];
+        }
+
         $customerMetrics = DB::table('orders')
             ->join('members', 'orders.member_id', '=', 'members.id')
             ->where('orders.status', 'completed')
-            ->where('orders.store_id', auth()->user()->store_id)
+            ->where('orders.store_id', $storeId)
             ->select([
                 'members.id',
                 'members.name',
                 DB::raw('AVG(orders.total_amount) as avg_order_value'),
                 DB::raw('COUNT(orders.id) as total_orders'),
-                DB::raw('(julianday(MAX(orders.completed_at)) - julianday(MIN(orders.completed_at))) as customer_lifespan_days'),
+                DB::raw('DATEDIFF(MAX(orders.completed_at), MIN(orders.completed_at)) as customer_lifespan_days'),
                 DB::raw('SUM(orders.total_amount) as total_spent'),
             ])
             ->groupBy(['members.id', 'members.name'])
@@ -1181,12 +1212,23 @@ class ReportService
         // Simple churn analysis based on last order date
         $churnThreshold = 90; // days
 
+        $user = auth()->user() ?? request()->user();
+        $storeId = $user?->store_id;
+
+        if (!$storeId) {
+            return [
+                'customers' => [],
+                'churn_rate' => 0,
+                'at_risk_customers' => 0,
+            ];
+        }
+
         $customerActivity = DB::table('members')
             ->leftJoin('orders', function ($join) {
                 $join->on('members.id', '=', 'orders.member_id')
                     ->where('orders.status', 'completed');
             })
-            ->where('members.store_id', auth()->user()->store_id)
+            ->where('members.store_id', $storeId)
             ->select([
                 'members.id',
                 'members.name',
@@ -1235,13 +1277,23 @@ class ReportService
 
     private function analyzePurchasePatterns(Carbon $startDate, Carbon $endDate): array
     {
+        $user = auth()->user() ?? request()->user();
+        $storeId = $user?->store_id;
+
+        if (!$storeId) {
+            return [
+                'hourly_patterns' => [],
+                'daily_patterns' => [],
+            ];
+        }
+
         // Analyze purchase patterns by time
         $hourlyPatterns = DB::table('orders')
             ->where('status', 'completed')
-            ->where('store_id', auth()->user()->store_id)
+            ->where('store_id', $storeId)
             ->whereBetween('completed_at', [$startDate, $endDate])
             ->select([
-                DB::raw('CAST(strftime("%H", completed_at) AS INTEGER) as hour'),
+                DB::raw('HOUR(completed_at) as hour'),
                 DB::raw('COUNT(*) as order_count'),
                 DB::raw('AVG(total_amount) as avg_order_value'),
             ])
@@ -1251,10 +1303,10 @@ class ReportService
 
         $dailyPatterns = DB::table('orders')
             ->where('status', 'completed')
-            ->where('store_id', auth()->user()->store_id)
+            ->where('store_id', $storeId)
             ->whereBetween('completed_at', [$startDate, $endDate])
             ->select([
-                DB::raw('CAST(strftime("%w", completed_at) AS INTEGER) + 1 as day_of_week'),
+                DB::raw('DAYOFWEEK(completed_at) as day_of_week'),
                 DB::raw('COUNT(*) as order_count'),
                 DB::raw('AVG(total_amount) as avg_order_value'),
             ])

@@ -20,6 +20,12 @@ class ReportController extends Controller
      */
     public function sales(Request $request): JsonResponse
     {
+        // Set default dates if not provided
+        $request->merge([
+            'start_date' => $request->input('start_date', now()->subDays(30)->format('Y-m-d')),
+            'end_date' => $request->input('end_date', now()->format('Y-m-d')),
+        ]);
+
         $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
@@ -30,7 +36,7 @@ class ReportController extends Controller
         ]);
 
         $cacheKey = $this->generateCacheKey('sales', $request->all());
-        
+
         $report = Cache::remember($cacheKey, 300, function () use ($request) {
             return $this->reportService->generateSalesReport(
                 startDate: Carbon::parse($request->start_date),
@@ -62,7 +68,7 @@ class ReportController extends Controller
         ]);
 
         $cacheKey = $this->generateCacheKey('inventory', $request->all());
-        
+
         $report = Cache::remember($cacheKey, 600, function () use ($request) {
             return $this->reportService->generateInventoryReport(
                 filters: $request->only(['category_id', 'low_stock_only']),
@@ -85,6 +91,12 @@ class ReportController extends Controller
      */
     public function cashFlow(Request $request): JsonResponse
     {
+        // Set default dates if not provided
+        $request->merge([
+            'start_date' => $request->input('start_date', now()->subDays(30)->format('Y-m-d')),
+            'end_date' => $request->input('end_date', now()->format('Y-m-d')),
+        ]);
+
         $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
@@ -92,7 +104,7 @@ class ReportController extends Controller
         ]);
 
         $cacheKey = $this->generateCacheKey('cash_flow', $request->all());
-        
+
         $report = Cache::remember($cacheKey, 300, function () use ($request) {
             return $this->reportService->generateCashFlowReport(
                 startDate: Carbon::parse($request->start_date),
@@ -116,6 +128,12 @@ class ReportController extends Controller
      */
     public function productPerformance(Request $request): JsonResponse
     {
+        // Set default dates if not provided
+        $request->merge([
+            'start_date' => $request->input('start_date', now()->subDays(30)->format('Y-m-d')),
+            'end_date' => $request->input('end_date', now()->format('Y-m-d')),
+        ]);
+
         $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
@@ -124,7 +142,7 @@ class ReportController extends Controller
         ]);
 
         $cacheKey = $this->generateCacheKey('product_performance', $request->all());
-        
+
         $report = Cache::remember($cacheKey, 600, function () use ($request) {
             return $this->reportService->generateProductPerformanceReport(
                 startDate: Carbon::parse($request->start_date),
@@ -149,6 +167,12 @@ class ReportController extends Controller
      */
     public function customerAnalytics(Request $request): JsonResponse
     {
+        // Set default dates if not provided
+        $request->merge([
+            'start_date' => $request->input('start_date', now()->subDays(30)->format('Y-m-d')),
+            'end_date' => $request->input('end_date', now()->format('Y-m-d')),
+        ]);
+
         $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
@@ -156,7 +180,7 @@ class ReportController extends Controller
         ]);
 
         $cacheKey = $this->generateCacheKey('customer_analytics', $request->all());
-        
+
         $report = Cache::remember($cacheKey, 600, function () use ($request) {
             return $this->reportService->generateCustomerAnalyticsReport(
                 startDate: Carbon::parse($request->start_date),
@@ -188,7 +212,7 @@ class ReportController extends Controller
         ]);
 
         // Check plan limits for export functionality
-        $store = auth()->user()->store;
+        $store = request()->user()->store;
         if ($store->hasExceededTransactionQuota() && !$store->activeSubscription->plan->hasFeature('report_export')) {
             return response()->json([
                 'success' => false,
@@ -226,7 +250,7 @@ class ReportController extends Controller
 
         $period = $request->string('period', 'today');
         $cacheKey = $this->generateCacheKey('dashboard', ['period' => $period]);
-        
+
         $summary = Cache::remember($cacheKey, 300, function () use ($period) {
             return $this->reportService->generateDashboardSummary($period);
         });
@@ -246,6 +270,12 @@ class ReportController extends Controller
      */
     public function salesTrends(Request $request): JsonResponse
     {
+        // Set default dates if not provided
+        $request->merge([
+            'start_date' => $request->input('start_date', now()->subDays(30)->format('Y-m-d')),
+            'end_date' => $request->input('end_date', now()->format('Y-m-d')),
+        ]);
+
         $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
@@ -253,7 +283,7 @@ class ReportController extends Controller
         ]);
 
         $cacheKey = $this->generateCacheKey('sales_trends', $request->all());
-        
+
         $analysis = Cache::remember($cacheKey, 600, function () use ($request) {
             return $this->reportService->generateSalesTrendAnalysis(
                 startDate: Carbon::parse($request->start_date),
@@ -277,13 +307,19 @@ class ReportController extends Controller
      */
     public function productAnalytics(Request $request): JsonResponse
     {
+        // Set default dates if not provided
+        $request->merge([
+            'start_date' => $request->input('start_date', now()->subDays(30)->format('Y-m-d')),
+            'end_date' => $request->input('end_date', now()->format('Y-m-d')),
+        ]);
+
         $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
         $cacheKey = $this->generateCacheKey('product_analytics', $request->all());
-        
+
         $analysis = Cache::remember($cacheKey, 900, function () use ($request) {
             return $this->reportService->generateProductAnalytics(
                 startDate: Carbon::parse($request->start_date),
@@ -306,13 +342,31 @@ class ReportController extends Controller
      */
     public function customerBehavior(Request $request): JsonResponse
     {
+        // Ensure user is authenticated
+        $user = auth()->user() ?? request()->user();
+        if (!$user || !$user->store_id) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User authentication required'
+                ]
+            ], 401);
+        }
+
+        // Set default dates if not provided
+        $request->merge([
+            'start_date' => $request->input('start_date', now()->subDays(30)->format('Y-m-d')),
+            'end_date' => $request->input('end_date', now()->format('Y-m-d')),
+        ]);
+
         $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
         $cacheKey = $this->generateCacheKey('customer_behavior', $request->all());
-        
+
         $analysis = Cache::remember($cacheKey, 900, function () use ($request) {
             return $this->reportService->generateCustomerBehaviorAnalytics(
                 startDate: Carbon::parse($request->start_date),
@@ -335,13 +389,19 @@ class ReportController extends Controller
      */
     public function profitabilityAnalysis(Request $request): JsonResponse
     {
+        // Set default dates if not provided
+        $request->merge([
+            'start_date' => $request->input('start_date', now()->subDays(30)->format('Y-m-d')),
+            'end_date' => $request->input('end_date', now()->format('Y-m-d')),
+        ]);
+
         $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
         $cacheKey = $this->generateCacheKey('profitability_analysis', $request->all());
-        
+
         $analysis = Cache::remember($cacheKey, 900, function () use ($request) {
             return $this->reportService->generateProfitabilityAnalysis(
                 startDate: Carbon::parse($request->start_date),
@@ -364,13 +424,19 @@ class ReportController extends Controller
      */
     public function operationalEfficiency(Request $request): JsonResponse
     {
+        // Set default dates if not provided
+        $request->merge([
+            'start_date' => $request->input('start_date', now()->subDays(30)->format('Y-m-d')),
+            'end_date' => $request->input('end_date', now()->format('Y-m-d')),
+        ]);
+
         $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
         $cacheKey = $this->generateCacheKey('operational_efficiency', $request->all());
-        
+
         $analysis = Cache::remember($cacheKey, 600, function () use ($request) {
             return $this->reportService->generateOperationalEfficiencyMetrics(
                 startDate: Carbon::parse($request->start_date),
@@ -393,9 +459,10 @@ class ReportController extends Controller
      */
     private function generateCacheKey(string $reportType, array $parameters): string
     {
-        $storeId = auth()->user()->store_id;
+        $user = auth()->user() ?? request()->user();
+        $storeId = $user?->store_id ?? 'no-store';
         $paramHash = md5(serialize($parameters));
-        
+
         return "report:{$storeId}:{$reportType}:{$paramHash}";
     }
 }
