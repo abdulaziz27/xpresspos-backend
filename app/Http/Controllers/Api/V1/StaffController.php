@@ -18,12 +18,32 @@ class StaffController extends Controller
     }
 
     /**
+     * Get authenticated user with fallback.
+     */
+    private function getAuthUser()
+    {
+        return auth()->user() ?? request()->user();
+    }
+
+    /**
      * Display a listing of staff members.
      */
     public function index(): JsonResponse
     {
-        $staff = User::where('store_id', auth()->user()->store_id)
-            ->where('id', '!=', auth()->id())
+        $user = auth()->user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
+        $staff = User::where('store_id', $user->store_id)
+            ->where('id', '!=', $user->id)
             ->whereDoesntHave('roles', function ($query) {
                 $query->where('name', 'admin_sistem');
             })
@@ -42,6 +62,18 @@ class StaffController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $user = auth()->user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
@@ -53,7 +85,7 @@ class StaffController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => bcrypt($request->password),
-            'store_id' => auth()->user()->store_id,
+            'store_id' => $user->store_id,
         ]);
 
         $staff->assignRole($request->role);
@@ -70,8 +102,20 @@ class StaffController extends Controller
      */
     public function show(User $staff): JsonResponse
     {
+        $user = auth()->user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         // Ensure staff belongs to the same store
-        if ($staff->store_id !== auth()->user()->store_id) {
+        if ($staff->store_id !== $user->store_id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -104,8 +148,20 @@ class StaffController extends Controller
      */
     public function update(Request $request, User $staff): JsonResponse
     {
+        $user = auth()->user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         // Ensure staff belongs to the same store
-        if ($staff->store_id !== auth()->user()->store_id) {
+        if ($staff->store_id !== $user->store_id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -150,8 +206,20 @@ class StaffController extends Controller
      */
     public function destroy(User $staff): JsonResponse
     {
+        $user = auth()->user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         // Ensure staff belongs to the same store
-        if ($staff->store_id !== auth()->user()->store_id) {
+        if ($staff->store_id !== $user->store_id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -173,7 +241,7 @@ class StaffController extends Controller
         }
 
         // Cannot delete self
-        if ($staff->id === auth()->id()) {
+        if ($staff->id === $user->id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -196,8 +264,20 @@ class StaffController extends Controller
      */
     public function assignRole(User $staff, Request $request): JsonResponse
     {
+        $user = auth()->user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         // Ensure staff belongs to the same store
-        if ($staff->store_id !== auth()->user()->store_id) {
+        if ($staff->store_id !== $user->store_id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -225,7 +305,7 @@ class StaffController extends Controller
         }
 
         // Cannot assign owner role to others (only one owner per store)
-        if ($role === 'owner' && $staff->id !== auth()->id()) {
+        if ($role === 'owner' && $staff->id !== $user->id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -249,8 +329,20 @@ class StaffController extends Controller
      */
     public function removeRole(User $staff, Role $role): JsonResponse
     {
+        $user = $this->getAuthUser();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         // Ensure staff belongs to the same store
-        if ($staff->store_id !== auth()->user()->store_id) {
+        if ($staff->store_id !== $user->store_id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -272,7 +364,7 @@ class StaffController extends Controller
         }
 
         // Cannot remove owner role from self
-        if ($role->name === 'owner' && $staff->id === auth()->id()) {
+        if ($role->name === 'owner' && $staff->id === $user->id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -296,8 +388,20 @@ class StaffController extends Controller
      */
     public function grantPermission(User $staff, Request $request): JsonResponse
     {
+        $user = $this->getAuthUser();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         // Ensure staff belongs to the same store
-        if ($staff->store_id !== auth()->user()->store_id) {
+        if ($staff->store_id !== $user->store_id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -338,8 +442,20 @@ class StaffController extends Controller
      */
     public function revokePermission(User $staff, Permission $permission): JsonResponse
     {
+        $user = $this->getAuthUser();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         // Ensure staff belongs to the same store
-        if ($staff->store_id !== auth()->user()->store_id) {
+        if ($staff->store_id !== $user->store_id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -393,6 +509,18 @@ class StaffController extends Controller
      */
     public function invite(Request $request): JsonResponse
     {
+        $user = $this->getAuthUser();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users|unique:staff_invitations,email,NULL,id,status,pending',
@@ -401,8 +529,8 @@ class StaffController extends Controller
         ]);
 
         $invitation = \App\Models\StaffInvitation::create([
-            'store_id' => auth()->user()->store_id,
-            'invited_by' => auth()->id(),
+            'store_id' => $user->store_id,
+            'invited_by' => $user->id,
             'email' => $request->email,
             'name' => $request->name,
             'role' => $request->role,
@@ -415,8 +543,8 @@ class StaffController extends Controller
 
         // Log the invitation activity
         \App\Models\ActivityLog::create([
-            'store_id' => auth()->user()->store_id,
-            'user_id' => auth()->id(),
+            'store_id' => $user->store_id,
+            'user_id' => $user->id,
             'event' => 'staff.invitation.sent',
             'auditable_type' => \App\Models\StaffInvitation::class,
             'auditable_id' => $invitation->id,
@@ -441,7 +569,19 @@ class StaffController extends Controller
      */
     public function invitations(): JsonResponse
     {
-        $invitations = \App\Models\StaffInvitation::where('store_id', auth()->user()->store_id)
+        $user = $this->getAuthUser();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
+        $invitations = \App\Models\StaffInvitation::where('store_id', $user->store_id)
             ->with('invitedBy', 'user')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -458,8 +598,20 @@ class StaffController extends Controller
      */
     public function cancelInvitation(\App\Models\StaffInvitation $invitation): JsonResponse
     {
+        $user = $this->getAuthUser();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         // Ensure invitation belongs to the same store
-        if ($invitation->store_id !== auth()->user()->store_id) {
+        if ($invitation->store_id !== $user->store_id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -483,8 +635,8 @@ class StaffController extends Controller
 
         // Log the cancellation activity
         \App\Models\ActivityLog::create([
-            'store_id' => auth()->user()->store_id,
-            'user_id' => auth()->id(),
+            'store_id' => $user->store_id,
+            'user_id' => $user->id,
             'event' => 'staff.invitation.cancelled',
             'auditable_type' => \App\Models\StaffInvitation::class,
             'auditable_id' => $invitation->id,
@@ -505,8 +657,20 @@ class StaffController extends Controller
      */
     public function resendInvitation(\App\Models\StaffInvitation $invitation): JsonResponse
     {
+        $user = $this->getAuthUser();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         // Ensure invitation belongs to the same store
-        if ($invitation->store_id !== auth()->user()->store_id) {
+        if ($invitation->store_id !== $user->store_id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -535,8 +699,8 @@ class StaffController extends Controller
 
         // Log the resend activity
         \App\Models\ActivityLog::create([
-            'store_id' => auth()->user()->store_id,
-            'user_id' => auth()->id(),
+            'store_id' => $user->store_id,
+            'user_id' => $user->id,
             'event' => 'staff.invitation.resent',
             'auditable_type' => \App\Models\StaffInvitation::class,
             'auditable_id' => $invitation->id,
@@ -559,6 +723,18 @@ class StaffController extends Controller
      */
     public function activityLogs(Request $request): JsonResponse
     {
+        $user = $this->getAuthUser();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         $request->validate([
             'user_id' => 'sometimes|exists:users,id',
             'event' => 'sometimes|string',
@@ -567,7 +743,7 @@ class StaffController extends Controller
             'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
-        $query = \App\Models\ActivityLog::where('store_id', auth()->user()->store_id)
+        $query = \App\Models\ActivityLog::where('store_id', $user->store_id)
             ->with('user')
             ->orderBy('created_at', 'desc');
 
@@ -601,13 +777,25 @@ class StaffController extends Controller
      */
     public function performance(Request $request, User $staff = null): JsonResponse
     {
+        $user = $this->getAuthUser();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         $request->validate([
             'start_date' => 'sometimes|date',
             'end_date' => 'sometimes|date|after_or_equal:start_date',
             'period' => 'sometimes|in:daily,weekly,monthly',
         ]);
 
-        $storeId = auth()->user()->store_id;
+        $storeId = $user->store_id;
         $startDate = $request->input('start_date', now()->subDays(30)->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
 
@@ -662,8 +850,20 @@ class StaffController extends Controller
      */
     public function updatePerformance(Request $request, User $staff): JsonResponse
     {
+        $user = $this->getAuthUser();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
         // Ensure staff belongs to the same store
-        if ($staff->store_id !== auth()->user()->store_id) {
+        if ($staff->store_id !== $user->store_id) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -687,7 +887,7 @@ class StaffController extends Controller
 
         $performance = \App\Models\StaffPerformance::updateOrCreate(
             [
-                'store_id' => auth()->user()->store_id,
+                'store_id' => $user->store_id,
                 'user_id' => $staff->id,
                 'date' => $request->date,
             ],
@@ -708,13 +908,16 @@ class StaffController extends Controller
 
         // Log the performance update
         \App\Models\ActivityLog::create([
-            'store_id' => auth()->user()->store_id,
-            'user_id' => auth()->id(),
+            'store_id' => $user->store_id,
+            'user_id' => $user->id,
             'event' => 'staff.performance.updated',
             'auditable_type' => \App\Models\StaffPerformance::class,
             'auditable_id' => $performance->id,
             'new_values' => $performance->only([
-                'date', 'orders_processed', 'total_sales', 'hours_worked'
+                'date',
+                'orders_processed',
+                'total_sales',
+                'hours_worked'
             ]),
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),

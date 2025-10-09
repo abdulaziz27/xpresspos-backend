@@ -58,8 +58,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'signed' => ValidateSignature::class,
             'throttle' => ThrottleRequests::class,
             'verified' => EnsureEmailIsVerified::class,
-            'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
-            'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
+            'role' => \App\Http\Middleware\RoleMiddleware::class, // Use custom middleware for API
+            'spatie.role' => \Spatie\Permission\Middleware\RoleMiddleware::class, // Keep Spatie for web
+            'permission' => \App\Http\Middleware\PermissionMiddleware::class, // Use custom middleware for API
+            'spatie.permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class, // Keep Spatie for web
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'tenant.scope' => \App\Http\Middleware\TenantScopeMiddleware::class,
             'domain.routing' => \App\Http\Middleware\DomainRoutingMiddleware::class,

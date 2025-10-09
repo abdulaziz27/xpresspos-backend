@@ -15,7 +15,9 @@ class RoleMiddleware
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        if (!auth()->check()) {
+        $user = auth()->user() ?? request()->user();
+
+        if (!$user) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
@@ -29,7 +31,7 @@ class RoleMiddleware
             return redirect()->guest(route('login'));
         }
 
-        if (!auth()->user()->hasAnyRole($roles)) {
+        if (!$user->hasAnyRole($roles)) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
@@ -37,7 +39,7 @@ class RoleMiddleware
                         'code' => 'UNAUTHORIZED',
                         'message' => 'You do not have the required role to access this resource',
                         'required_roles' => $roles,
-                        'user_roles' => auth()->user()->getRoleNames()->toArray()
+                        'user_roles' => $user->getRoleNames()->toArray()
                     ]
                 ], 403);
             }
