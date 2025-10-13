@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CashFlowReportController;
 use App\Http\Controllers\Api\V1\CashSessionController;
+use App\Http\Controllers\Api\V1\DiscountController;
 use App\Http\Controllers\Api\V1\ExpenseController;
 use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\InventoryReportController;
@@ -112,6 +113,15 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
 
         // Categories options endpoint
         Route::get('categories-options', [CategoryController::class, 'options'])->name('api.v1.categories.options');
+
+        // Discounts
+        Route::prefix('discounts')->group(function (): void {
+            Route::get('/', [DiscountController::class, 'index'])->name('api.v1.discounts.index');
+            Route::post('/', [DiscountController::class, 'store'])->name('api.v1.discounts.store');
+            Route::get('{discount}', [DiscountController::class, 'show'])->name('api.v1.discounts.show');
+            Route::put('{discount}', [DiscountController::class, 'update'])->name('api.v1.discounts.update');
+            Route::delete('{discount}', [DiscountController::class, 'destroy'])->name('api.v1.discounts.destroy');
+        });
 
         // Products
         Route::prefix('products')->group(function (): void {

@@ -33,6 +33,12 @@ class RolePermissionSeeder extends Seeder
             'products.delete',
             'products.manage_categories',
 
+            // Discount management
+            'discounts.view',
+            'discounts.create',
+            'discounts.update',
+            'discounts.delete',
+
             // Order management
             'orders.view',
             'orders.create',
@@ -113,6 +119,7 @@ class RolePermissionSeeder extends Seeder
         $owner->givePermissionTo([
             'users.view', 'users.create', 'users.update', 'users.delete', 'users.manage_roles',
             'products.view', 'products.create', 'products.update', 'products.delete', 'products.manage_categories',
+            'discounts.view', 'discounts.create', 'discounts.update', 'discounts.delete',
             'orders.view', 'orders.create', 'orders.update', 'orders.delete', 'orders.refund', 'orders.void',
             'payments.view', 'payments.create', 'payments.update', 'payments.delete',
             'refunds.view', 'refunds.create', 'refunds.update', 'refunds.delete',
@@ -129,6 +136,7 @@ class RolePermissionSeeder extends Seeder
         $manager = Role::create(['name' => 'manager']);
         $manager->givePermissionTo([
             'products.view', 'products.create', 'products.update', 'products.manage_categories',
+            'discounts.view', 'discounts.create', 'discounts.update', 'discounts.delete',
             'orders.view', 'orders.create', 'orders.update', 'orders.refund',
             'payments.view', 'payments.create', 'payments.update',
             'refunds.view', 'refunds.create', 'refunds.update',
@@ -144,6 +152,7 @@ class RolePermissionSeeder extends Seeder
         $cashier = Role::create(['name' => 'cashier']);
         $cashier->givePermissionTo([
             'products.view',
+            'discounts.view',
             'orders.view', 'orders.create', 'orders.update',
             'payments.view', 'payments.create',
             'tables.view', 'tables.update',

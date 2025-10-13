@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Discount;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -96,6 +97,14 @@ class Store extends Model
     public function members(): HasMany
     {
         return $this->hasMany(Member::class);
+    }
+
+    /**
+     * Get the discounts for the store.
+     */
+    public function discounts(): HasMany
+    {
+        return $this->hasMany(Discount::class);
     }
 
     /**

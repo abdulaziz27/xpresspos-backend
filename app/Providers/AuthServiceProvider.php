@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Category;
+use App\Models\Discount;
 use App\Models\Member;
 use App\Models\Order;
 use App\Models\Payment;
@@ -11,6 +12,7 @@ use App\Models\Refund;
 use App\Models\Table;
 use App\Models\User;
 use App\Policies\CategoryPolicy;
+use App\Policies\DiscountPolicy;
 use App\Policies\MemberPolicy;
 use App\Policies\OrderPolicy;
 use App\Policies\PaymentPolicy;
@@ -29,6 +31,7 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         Category::class => CategoryPolicy::class,
+        Discount::class => DiscountPolicy::class,
         Member::class => MemberPolicy::class,
         Order::class => OrderPolicy::class,
         Payment::class => PaymentPolicy::class,
