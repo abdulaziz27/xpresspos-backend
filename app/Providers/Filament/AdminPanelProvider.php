@@ -11,6 +11,7 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Illuminate\Support\Str;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -24,9 +25,10 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        return $panel
+        $adminDomain = config('domains.admin');
+
+        $panel = $panel
             ->id('admin')
-            ->path('admin')
             ->login()
             ->brandName('POS Xpress Admin')
             ->brandLogo(asset('img/logo-jf.png'))
@@ -70,5 +72,22 @@ class AdminPanelProvider extends PanelProvider
             ->authGuard('web')
             ->authPasswordBroker('users')
             ->default();
+
+        if ($this->shouldUseDomain($adminDomain)) {
+            $panel->domain($adminDomain)->path('/');
+        } else {
+            $panel->path('admin');
+        }
+
+        return $panel;
+    }
+
+    protected function shouldUseDomain(?string $domain): bool
+    {
+        if (blank($domain)) {
+            return false;
+        }
+
+        return ! Str::contains($domain, ['localhost', '127.0.0.1']);
     }
 }

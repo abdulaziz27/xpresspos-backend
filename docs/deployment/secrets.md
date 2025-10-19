@@ -5,10 +5,11 @@ Gunakan tabel berikut sebagai referensi saat mengisi GitHub Secrets atau membuat
 | Nama                    | Sumber / Contoh                         | Wajib | Keterangan |
 |-------------------------|-----------------------------------------|:-----:|------------|
 | `APP_KEY`               | `base64:eHaQW0RVq9Ojp0pVo0Zs847rjgWeBuS7t1l3q8wC6XQ=` | ✅ | Harus sama dengan `.env.production`. |
-| `DB_HOST`               | mis. `31.97.187.17`                     | ✅ | Host MySQL produksi. |
+| `DB_HOST`               | `xpresspos-mysql`                       | ✅ | Host (service name) MySQL di docker-compose. |
 | `DB_DATABASE`           | mis. `xpresspos_prod`                   | ✅ | Nama database. |
 | `DB_USERNAME`           | mis. `xpresspos_prod`                   | ✅ | Username database. |
 | `DB_PASSWORD`           | -                                       | ✅ | Password database. |
+| `DB_ROOT_PASSWORD`      | mis. `root`                             | ✅ | Password root untuk kontainer MySQL. |
 | `MAIL_HOST`             | mis. `smtp.gmail.com`                   | ✅ | Host SMTP. |
 | `MAIL_PORT`             | `465` atau `587`                        | ✅ | Port SMTP. |
 | `MAIL_USERNAME`         | `hello@xpresspos.id`                   | ✅ | Username/Email pengirim. |
@@ -25,6 +26,10 @@ Gunakan tabel berikut sebagai referensi saat mengisi GitHub Secrets atau membuat
 | `SSH_HOST`              | `31.97.187.17`                          | ✅ | Host VPS untuk deploy. |
 | `SSH_USER`              | `root` (atau user lain)                 | ✅ | Username SSH. |
 | `SSH_KEY`               | Private key OpenSSH                     | ✅ | Key yang punya akses ke server. |
+| `LANDING_DOMAIN`        | `xpresspos.id`                          | ✅ | Domain untuk landing page / marketing site. |
+| `OWNER_DOMAIN`          | `user.xpresspos.id`                     | ✅ | Domain dashboard owner. |
+| `ADMIN_DOMAIN`          | `admin.xpresspos.id`                    | ✅ | Domain admin (Filament). |
+| `API_DOMAIN`            | `api.xpresspos.id`                      | ✅ | Domain API. |
 | `ENV_PRODUCTION`        | Salin isi `deploy/.env.example` (isi nilai produksi) | ✅ | Digunakan untuk menulis `.env` di server. |
 
 > Baris dengan simbol ⭕️ opsional; biarkan kosong sampai layanannya tersedia.
