@@ -92,6 +92,11 @@ jobs:
             if ! grep -q '^APP_BASE_PATH=' .env; then
               echo 'APP_BASE_PATH=/var/www/html' >> .env
             fi
+            if grep -q '^DB_HOST=' .env; then
+              sed -i 's/^DB_HOST=.*/DB_HOST=host.docker.internal/' .env
+            else
+              echo 'DB_HOST=host.docker.internal' >> .env
+            fi
 
             echo "Login registry"
             echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ghcr.io -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
