@@ -1,0 +1,39 @@
+version: "3"
+
+rpc:
+  listen: tcp://127.0.0.1:6001
+
+server:
+  command: "php ./vendor/bin/rr-worker"
+  relay: pipes
+
+http:
+  address: 0.0.0.0:8080
+  middleware: ["headers", "gzip", "static"]
+  pool:
+    num_workers: ${RR_NUM_WORKERS:-4}
+    max_jobs: ${RR_HTTP_MAX_REQUESTS:-0}
+    supervisor:
+      max_worker_memory: ${RR_MAX_MEMORY_MB:-256}
+      watch_tick: 1s
+      ttl: 0
+      exec_ttl: 60s
+  static:
+    dir: "public"
+    forbid: [".php", ".htaccess"]
+  headers:
+    response:
+      X-Frame-Options: ["SAMEORIGIN"]
+      X-Content-Type-Options: ["nosniff"]
+      X-XSS-Protection: ["1; mode=block"]
+      Referrer-Policy: ["strict-origin-when-cross-origin"]
+
+logs:
+  mode: production
+  output: stdout
+
+status:
+  address: 0.0.0.0:2114
+
+metrics:
+  address: 0.0.0.0:2112

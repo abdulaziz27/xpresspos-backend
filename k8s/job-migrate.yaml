@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: xpresspos-migrate
+  namespace: xpresspos
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: xpresspos-migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/abdulaziz27/xpresspos-backend:<IMAGE_TAG>
+          imagePullPolicy: IfNotPresent
+          command: ["php", "artisan", "migrate", "--force"]
+          envFrom:
+            - configMapRef:
+                name: xpresspos-backend-config
+            - secretRef:
+                name: xpresspos-backend-secrets

@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: xpresspos
+resources:
+  - namespace.yaml
+  - configmap-app.yaml
+  - clusterissuer.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - job-migrate.yaml
+images:
+  - name: ghcr.io/abdulaziz27/xpresspos-backend
+    newTag: <IMAGE_TAG>

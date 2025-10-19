@@ -1,0 +1,113 @@
+name: CI-CD
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  REGISTRY_IMAGE: ghcr.io/abdulaziz27/xpresspos-backend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, intl, pcntl, bcmath, zip
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Run PHPUnit
+        run: php artisan test
+        continue-on-error: true
+
+      - name: Build front-end assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set image tag
+        id: meta
+        run: echo "tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ghcr.io -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
+
+      - name: Build and push image
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          docker build -f docker/Dockerfile -t "${REGISTRY_IMAGE}:${IMAGE_TAG}" .
+          docker push "${REGISTRY_IMAGE}:${IMAGE_TAG}"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' }}
+    env:
+      IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy deploy files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "deploy/docker-compose.yml"
+          target: "/srv/apps/xpresspos-backend"
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: IMAGE_TAG,REGISTRY_IMAGE
+          script: |
+            set -e
+            mkdir -p /srv/apps/xpresspos-backend
+            cd /srv/apps/xpresspos-backend
+
+            cat <<'EOF_ENV' > .env.tmp
+${{ secrets.ENV_PRODUCTION }}
+EOF_ENV
+            if [ -f .env ]; then mv .env .env.backup; fi
+            mv .env.tmp .env
+            grep -v '^IMAGE_NAME=' .env > .env.tmp && mv .env.tmp .env
+            echo "IMAGE_NAME=${REGISTRY_IMAGE}:${IMAGE_TAG}" >> .env
+
+            echo "Login registry"
+            echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ghcr.io -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
+
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker compose exec -T app php artisan migrate --force
+            docker compose exec -T app php artisan octane:reload || docker compose exec -T app rr reset
+
+            docker logout ghcr.io || true
+
+      - name: Cleanup old env backup
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /srv/apps/xpresspos-backend || exit 0
+            rm -f .env.backup

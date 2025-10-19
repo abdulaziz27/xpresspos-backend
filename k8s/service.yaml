@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: xpresspos-backend
+  namespace: xpresspos
+  labels:
+    app: xpresspos-backend
+spec:
+  type: ClusterIP
+  selector:
+    app: xpresspos-backend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  app:
+    image: ${IMAGE_NAME:-ghcr.io/abdulaziz27/xpresspos-backend:latest}
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT:-8083}:8080"
+    volumes:
+      - storage:/var/www/html/storage
+      - logs:/var/www/html/storage/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1024M
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+volumes:
+  storage:
+  logs:

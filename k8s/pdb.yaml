@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: xpresspos-backend
+  namespace: xpresspos
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: xpresspos-backend

@@ -1,0 +1,59 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: xpresspos-backend
+  namespace: xpresspos
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  tls:
+    - hosts:
+        - api.xpresspos.id
+        - xpresspos.id
+        - user.xpresspos.id
+        - admin.xpresspos.id
+      secretName: xpresspos-tls
+  rules:
+    - host: api.xpresspos.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: xpresspos-backend
+                port:
+                  number: 80
+    - host: xpresspos.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: xpresspos-backend
+                port:
+                  number: 80
+    - host: user.xpresspos.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: xpresspos-backend
+                port:
+                  number: 80
+    - host: admin.xpresspos.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: xpresspos-backend
+                port:
+                  number: 80
