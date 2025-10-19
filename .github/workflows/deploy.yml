@@ -96,6 +96,8 @@ jobs:
             docker compose pull
             docker compose up -d --remove-orphans
             docker compose exec -T app php artisan migrate --force
+            docker compose exec -T app php artisan optimize
+            docker compose exec -T app php artisan filament:upgrade || true
             docker compose exec -T app php artisan octane:reload || docker compose exec -T app rr reset
 
             docker logout ghcr.io || true

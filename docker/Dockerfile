@@ -6,10 +6,10 @@ FROM composer:2.7 AS vendor
 WORKDIR /var/www/html
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
-    --ignore-platform-req=ext-intl --ignore-platform-req=ext-gd
+    --no-scripts --ignore-platform-req=ext-intl --ignore-platform-req=ext-gd
 COPY . .
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
-    --ignore-platform-req=ext-intl --ignore-platform-req=ext-gd
+    --no-scripts --ignore-platform-req=ext-intl --ignore-platform-req=ext-gd
 
 FROM node:20 AS assets
 WORKDIR /var/www/html
