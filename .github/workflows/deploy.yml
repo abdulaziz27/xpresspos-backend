@@ -93,12 +93,16 @@ jobs:
             echo "Login registry"
             echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ghcr.io -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
 
-            docker compose pull
-            docker compose up -d --remove-orphans
-            docker compose exec -T app php artisan migrate --force
-            docker compose exec -T app php artisan optimize
-            docker compose exec -T app php artisan filament:upgrade || true
-            docker compose exec -T app php artisan octane:reload || docker compose exec -T app rr reset
+            if [ ! -f docker-compose.yml ]; then
+              ln -sf deploy/docker-compose.yml docker-compose.yml
+            fi
+
+            (docker compose pull || docker-compose pull)
+            (docker compose up -d --remove-orphans || docker-compose up -d --remove-orphans)
+            (docker compose exec -T app php artisan migrate --force || docker-compose exec -T app php artisan migrate --force)
+            (docker compose exec -T app php artisan optimize || docker-compose exec -T app php artisan optimize)
+            (docker compose exec -T app php artisan filament:upgrade || docker-compose exec -T app php artisan filament:upgrade || true)
+            docker compose exec -T app php artisan octane:reload || docker compose exec -T app rr reset || docker-compose exec -T app php artisan octane:reload || docker-compose exec -T app rr reset
 
             docker logout ghcr.io || true
 
