@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   app:
     image: ${IMAGE_NAME:-ghcr.io/abdulaziz27/xpresspos-backend:latest}
