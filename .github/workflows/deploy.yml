@@ -89,6 +89,9 @@ jobs:
             mv .env.tmp .env
             grep -v '^IMAGE_NAME=' .env > .env.tmp && mv .env.tmp .env
             echo "IMAGE_NAME=${REGISTRY_IMAGE}:${IMAGE_TAG}" >> .env
+            if ! grep -q '^APP_BASE_PATH=' .env; then
+              echo 'APP_BASE_PATH=/var/www/html' >> .env
+            fi
 
             echo "Login registry"
             echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ghcr.io -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
