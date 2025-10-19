@@ -84,9 +84,7 @@ jobs:
             mkdir -p /srv/apps/xpresspos-backend
             cd /srv/apps/xpresspos-backend
 
-            cat <<'EOF_ENV' > .env.tmp
-${{ secrets.ENV_PRODUCTION }}
-EOF_ENV
+            printf '%s\n' "${{ secrets.ENV_PRODUCTION }}" > .env.tmp
             if [ -f .env ]; then mv .env .env.backup; fi
             mv .env.tmp .env
             grep -v '^IMAGE_NAME=' .env > .env.tmp && mv .env.tmp .env
