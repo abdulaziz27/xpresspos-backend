@@ -4,14 +4,12 @@ FROM ghcr.io/roadrunner-server/roadrunner:2024.2 AS rr
 
 FROM composer:2.7 AS vendor
 WORKDIR /var/www/html
-RUN apt-get update && apt-get install -y --no-install-recommends libicu-dev git unzip \
-    && docker-php-ext-configure intl \
-    && docker-php-ext-install intl \
-    && rm -rf /var/lib/apt/lists/*
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
+    --ignore-platform-req=ext-intl --ignore-platform-req=ext-gd
 COPY . .
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
+    --ignore-platform-req=ext-intl --ignore-platform-req=ext-gd
 
 FROM node:20 AS assets
 WORKDIR /var/www/html
