@@ -4,8 +4,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    extra_hosts:
-      - "mysql-main:host-gateway"
     ports:
       - "${APP_PORT:-8083}:8080"
     volumes:
@@ -25,6 +23,14 @@ services:
         reservations:
           cpus: "0.25"
           memory: 512M
+    networks:
+      - default
+      - mysql-shared
 volumes:
   storage:
   logs:
+
+networks:
+  mysql-shared:
+    external: true
+    name: koupii-api_koupii-network
