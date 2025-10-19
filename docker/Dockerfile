@@ -34,7 +34,14 @@ WORKDIR /var/www/html
 COPY --from=vendor /var/www/html /var/www/html
 COPY --from=assets /var/www/html/public/build /var/www/html/public/build
 COPY .rr.yaml ./
-RUN chown -R www-data:www-data storage bootstrap/cache
+RUN mkdir -p storage/app/public \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/testing \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache \
+  && chown -R www-data:www-data storage bootstrap/cache
 ENV APP_ENV=production \
     APP_DEBUG=false \
     OCTANE_SERVER=roadrunner \
