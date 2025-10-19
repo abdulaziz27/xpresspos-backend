@@ -6,10 +6,12 @@ FROM composer:2.7 AS vendor
 WORKDIR /var/www/html
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
-    --no-scripts --ignore-platform-req=ext-intl --ignore-platform-req=ext-gd
+    --no-scripts --ignore-platform-req=ext-intl --ignore-platform-req=ext-gd \
+    --ignore-platform-req=ext-sockets
 COPY . .
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
-    --no-scripts --ignore-platform-req=ext-intl --ignore-platform-req=ext-gd
+    --no-scripts --ignore-platform-req=ext-intl --ignore-platform-req=ext-gd \
+    --ignore-platform-req=ext-sockets
 
 FROM node:20 AS assets
 WORKDIR /var/www/html
@@ -23,7 +25,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git unzip libpq-dev libzip-dev zip libicu-dev g++ libpng-dev libjpeg62-turbo-dev libfreetype6-dev curl \
     && docker-php-ext-configure intl \
-    && docker-php-ext-install intl pcntl bcmath zip pdo_mysql opcache \
+    && docker-php-ext-install intl pcntl bcmath zip pdo_mysql opcache sockets \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd \
     && pecl install redis \
