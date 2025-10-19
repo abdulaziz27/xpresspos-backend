@@ -24,4 +24,5 @@ docs/erd/
 Homestead.json
 Homestead.yaml
 Thumbs.db
+/.env.production.local
 rr
