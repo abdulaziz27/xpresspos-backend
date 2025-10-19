@@ -93,9 +93,9 @@ jobs:
               echo 'APP_BASE_PATH=/var/www/html' >> .env
             fi
             if grep -q '^DB_HOST=' .env; then
-              sed -i 's/^DB_HOST=.*/DB_HOST=mysql-main/' .env
+              sed -i 's/^DB_HOST=.*/DB_HOST=xpresspos-mysql/' .env
             else
-              echo 'DB_HOST=mysql-main' >> .env
+              echo 'DB_HOST=xpresspos-mysql' >> .env
             fi
 
             echo "Login registry"

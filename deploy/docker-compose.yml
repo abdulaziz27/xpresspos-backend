@@ -4,6 +4,9 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    depends_on:
+      mysql:
+        condition: service_healthy
     ports:
       - "${APP_PORT:-8083}:8080"
     volumes:
@@ -23,14 +26,25 @@ services:
         reservations:
           cpus: "0.25"
           memory: 512M
-    networks:
-      - default
-      - mysql-shared
+
+  mysql:
+    image: mysql:8.0
+    container_name: xpresspos-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-xpresspos_prod}
+      MYSQL_USER: ${DB_USERNAME:-xpresspos_prod}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${DB_ROOT_PASSWORD:-root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
 volumes:
   storage:
   logs:
-
-networks:
-  mysql-shared:
-    external: true
-    name: koupii-api_koupii-network
+  db-data:
