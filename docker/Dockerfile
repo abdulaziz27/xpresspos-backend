@@ -13,8 +13,7 @@ FROM node:20 AS assets
 WORKDIR /var/www/html
 COPY package.json package-lock.json ./
 RUN npm ci
-COPY resources ./resources
-COPY vite.config.js artisan tailwind.config.js postcss.config.js ./
+COPY . .
 RUN npm run build
 
 FROM php:8.3-cli AS runtime

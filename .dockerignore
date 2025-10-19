@@ -1,0 +1,12 @@
+.git
+.github
+.gitignore
+.env*
+.vscode
+node_modules
+vendor
+storage
+bootstrap/cache
+tests
+.DS_Store
+docs/erd
