@@ -93,9 +93,9 @@ jobs:
               echo 'APP_BASE_PATH=/var/www/html' >> .env
             fi
             if grep -q '^DB_HOST=' .env; then
-              sed -i 's/^DB_HOST=.*/DB_HOST=host.docker.internal/' .env
+              sed -i 's/^DB_HOST=.*/DB_HOST=mysql-main/' .env
             else
-              echo 'DB_HOST=host.docker.internal' >> .env
+              echo 'DB_HOST=mysql-main' >> .env
             fi
 
             echo "Login registry"

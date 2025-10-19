@@ -5,7 +5,7 @@ services:
     env_file:
       - .env
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "mysql-main:host-gateway"
     ports:
       - "${APP_PORT:-8083}:8080"
     volumes:
