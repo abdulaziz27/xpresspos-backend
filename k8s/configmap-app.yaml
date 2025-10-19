@@ -8,6 +8,7 @@ data:
   APP_ENV: production
   APP_DEBUG: "false"
   APP_URL: https://api.xpresspos.id
+  APP_BASE_PATH: /var/www/html
   APP_LOCALE: id
   APP_FALLBACK_LOCALE: id
   APP_TIMEZONE: Asia/Jakarta
