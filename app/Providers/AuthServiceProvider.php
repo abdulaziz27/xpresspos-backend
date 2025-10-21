@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Refund;
+use App\Models\StoreUserAssignment;
 use App\Models\Table;
 use App\Models\User;
 use App\Policies\CategoryPolicy;
@@ -18,6 +19,7 @@ use App\Policies\OrderPolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\ProductPolicy;
 use App\Policies\RefundPolicy;
+use App\Policies\StoreUserAssignmentPolicy;
 use App\Policies\TablePolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
@@ -37,6 +39,7 @@ class AuthServiceProvider extends ServiceProvider
         Payment::class => PaymentPolicy::class,
         Product::class => ProductPolicy::class,
         Refund::class => RefundPolicy::class,
+        StoreUserAssignment::class => StoreUserAssignmentPolicy::class,
         Table::class => TablePolicy::class,
         User::class => UserPolicy::class,
     ];

@@ -55,13 +55,13 @@ class RecipeItem extends Model
         });
 
         static::saved(function ($recipeItem) {
-            // Recalculate recipe costs when item is saved
-            $recipeItem->recipe->recalculateCosts();
+            $recipe = Recipe::withoutStoreScope()->find($recipeItem->recipe_id);
+            $recipe?->recalculateCosts();
         });
 
         static::deleted(function ($recipeItem) {
-            // Recalculate recipe costs when item is deleted
-            $recipeItem->recipe->recalculateCosts();
+            $recipe = Recipe::withoutStoreScope()->find($recipeItem->recipe_id);
+            $recipe?->recalculateCosts();
         });
     }
 

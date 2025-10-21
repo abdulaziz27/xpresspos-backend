@@ -22,13 +22,20 @@ class RecipePerformanceWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
+        $storeId = auth()->user()?->currentStoreId();
+
+        $query = Recipe::query()
+            ->with(['product', 'items'])
+            ->where('is_active', true);
+
+        if ($storeId) {
+            $query->where('store_id', $storeId);
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+
         return $table
-            ->query(
-                Recipe::query()
-                    ->with(['product', 'items'])
-                    ->where('store_id', auth()->user()->store_id)
-                    ->where('is_active', true)
-            )
+            ->query($query)
             ->columns([
                 TextColumn::make('product.name')
                     ->label('Product')
@@ -78,9 +85,15 @@ class RecipePerformanceWidget extends BaseWidget
                         $monthStart = Carbon::now()->startOfMonth();
                         $monthEnd = Carbon::now()->endOfMonth();
 
-                        $usage = CogsHistory::where('product_id', $record->product_id)
+                        $usageQuery = CogsHistory::where('product_id', $record->product_id)
                             ->whereBetween('created_at', [$monthStart, $monthEnd])
-                            ->sum('quantity_sold');
+                            ->select('quantity_sold');
+
+                        if ($record->store_id ?? $storeId) {
+                            $usageQuery->where('store_id', $record->store_id ?? $storeId);
+                        }
+
+                        $usage = $usageQuery->sum('quantity_sold');
 
                         return number_format($usage) . ' units';
                     })

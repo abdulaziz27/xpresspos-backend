@@ -13,6 +13,7 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\Member;
 use App\Models\Table;
+use App\Services\OrderCalculationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -107,10 +108,11 @@ class OrderController extends Controller
 
             // Add items if provided
             if ($request->has('items')) {
+                $calculationService = app(OrderCalculationService::class);
                 foreach ($request->input('items') as $itemData) {
                     $this->addItemToOrder($order, $itemData);
                 }
-                $order->calculateTotals();
+                $calculationService->updateOrderTotals($order);
             }
 
             // Assign table if provided
@@ -729,3 +731,111 @@ class OrderController extends Controller
         return $orderItem;
     }
 }
+    /**
+     * Cancel an order.
+     */
+    public function cancel(string $id): JsonResponse
+    {
+        $order = Order::findOrFail($id);
+        $this->authorize('update', $order);
+
+        if ($order->status === 'cancelled') {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_ALREADY_CANCELLED',
+                    'message' => 'This order is already cancelled.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 422);
+        }
+
+        if ($order->status === 'completed') {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_ALREADY_COMPLETED',
+                    'message' => 'Cannot cancel a completed order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 422);
+        }
+
+        // Check if order has payments
+        if ($order->payments()->where('status', 'completed')->exists()) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_HAS_PAYMENTS',
+                    'message' => 'Cannot cancel order with completed payments. Please process refunds first.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Restore inventory for all items
+            foreach ($order->items as $item) {
+                if ($item->product && $item->product->track_inventory) {
+                    $item->product->increaseStock($item->quantity);
+                }
+            }
+
+            // Free table if assigned
+            if ($order->table) {
+                $order->table->makeAvailable();
+            }
+
+            // Cancel pending payments
+            $order->payments()->where('status', 'pending')->update(['status' => 'cancelled']);
+
+            // Update order status
+            $order->update(['status' => 'cancelled']);
+
+            DB::commit();
+
+            $order->load(['items.product', 'member', 'table', 'user:id,name']);
+
+            return response()->json([
+                'success' => true,
+                'data' => new OrderResource($order),
+                'message' => 'Order cancelled successfully',
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Order cancellation failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+                'user_id' => auth()->id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_CANCELLATION_FAILED',
+                    'message' => 'Failed to cancel order. Please try again.',
+                    'details' => config('app.debug') ? $e->getMessage() : null
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 500);
+        }
+    }

@@ -2,8 +2,6 @@
 
 namespace App\Filament\Owner\Resources\Payments;
 
-use App\Filament\Owner\Resources\Payments\Pages\CreatePayment;
-use App\Filament\Owner\Resources\Payments\Pages\EditPayment;
 use App\Filament\Owner\Resources\Payments\Pages\ListPayments;
 use App\Filament\Owner\Resources\Payments\Schemas\PaymentForm;
 use App\Filament\Owner\Resources\Payments\Tables\PaymentsTable;
@@ -11,8 +9,8 @@ use App\Models\Payment;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class PaymentResource extends Resource
 {
@@ -50,8 +48,36 @@ class PaymentResource extends Resource
     {
         return [
             'index' => ListPayments::route('/'),
-            'create' => CreatePayment::route('/create'),
-            'edit' => EditPayment::route('/{record}/edit'),
         ];
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
+    }
+
+    public static function canForceDelete(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canForceDeleteAny(): bool
+    {
+        return false;
     }
 }

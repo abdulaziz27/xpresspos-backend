@@ -2,8 +2,6 @@
 
 namespace App\Filament\Owner\Resources\Orders;
 
-use App\Filament\Owner\Resources\Orders\Pages\CreateOrder;
-use App\Filament\Owner\Resources\Orders\Pages\EditOrder;
 use App\Filament\Owner\Resources\Orders\Pages\ListOrders;
 use App\Filament\Owner\Resources\Orders\Schemas\OrderForm;
 use App\Filament\Owner\Resources\Orders\Tables\OrdersTable;
@@ -11,8 +9,8 @@ use App\Models\Order;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class OrderResource extends Resource
 {
@@ -50,8 +48,36 @@ class OrderResource extends Resource
     {
         return [
             'index' => ListOrders::route('/'),
-            'create' => CreateOrder::route('/create'),
-            'edit' => EditOrder::route('/{record}/edit'),
         ];
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
+    }
+
+    public static function canForceDelete(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canForceDeleteAny(): bool
+    {
+        return false;
     }
 }

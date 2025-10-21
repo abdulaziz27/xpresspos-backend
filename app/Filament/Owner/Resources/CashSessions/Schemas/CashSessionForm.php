@@ -26,7 +26,10 @@ class CashSessionForm
                                 Select::make('user_id')
                                     ->label('Cashier')
                                     ->options(function () {
-                                        return User::where('store_id', auth()->user()->store_id)
+                                        $storeId = auth()->user()?->currentStoreId();
+
+                                        return User::query()
+                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->pluck('name', 'id');
                                     })
                                     ->searchable()

@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\Store;
+use App\Models\StoreUserAssignment;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -43,13 +45,30 @@ class FilamentUserSeeder extends Seeder
 
         // Ensure owner user has a store context for API access
         if (!$owner->store_id) {
-            if ($primaryStoreId = \App\Models\Store::value('id')) {
+            if ($primaryStoreId = Store::value('id')) {
                 $owner->forceFill(['store_id' => $primaryStoreId])->save();
+                $this->assignUserToStore($owner, $primaryStoreId, 'owner');
             }
+        } else {
+            $this->assignUserToStore($owner, $owner->store_id, 'owner');
         }
 
         $this->command->info('Filament users created successfully!');
         $this->command->info('Admin: admin@xpresspos.com / password123');
         $this->command->info('Owner: owner@xpresspos.com / password123');
+    }
+
+    private function assignUserToStore(User $user, string $storeId, string $role): void
+    {
+        StoreUserAssignment::updateOrCreate(
+            [
+                'store_id' => $storeId,
+                'user_id' => $user->id,
+            ],
+            [
+                'assignment_role' => $role,
+                'is_primary' => true,
+            ]
+        );
     }
 }

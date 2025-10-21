@@ -6,11 +6,21 @@ use App\Models\Product;
 use App\Models\Order;
 use App\Models\Member;
 use App\Models\User;
+use App\Services\Concerns\ResolvesStoreContext;
+use App\Services\StoreContext;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 class SyncValidationService
 {
+    use ResolvesStoreContext;
+
+    protected StoreContext $storeContext;
+
+    public function __construct(StoreContext $storeContext)
+    {
+        $this->storeContext = $storeContext;
+    }
     /**
      * Validate sync data based on type and operation.
      */
@@ -216,6 +226,8 @@ class SyncValidationService
      */
     protected function validateOrderBusiness(string $operation, array $data): void
     {
+        $storeId = $this->resolveStoreId($data, true);
+
         if ($operation === 'create') {
             // Validate order totals
             if (isset($data['items']) && is_array($data['items'])) {
@@ -241,8 +253,8 @@ class SyncValidationService
             }
 
             // Validate member exists if provided
-            if (isset($data['member_id'])) {
-                $member = Member::where('store_id', auth()->user()->store_id)
+            if ($storeId && isset($data['member_id'])) {
+                $member = Member::where('store_id', $storeId)
                     ->find($data['member_id']);
                 if (!$member) {
                     throw new \InvalidArgumentException("Member not found: {$data['member_id']}");
@@ -250,8 +262,8 @@ class SyncValidationService
             }
 
             // Validate user exists if provided
-            if (isset($data['user_id'])) {
-                $user = User::where('store_id', auth()->user()->store_id)
+            if ($storeId && isset($data['user_id'])) {
+                $user = User::where('store_id', $storeId)
                     ->find($data['user_id']);
                 if (!$user) {
                     throw new \InvalidArgumentException("User not found: {$data['user_id']}");
@@ -266,8 +278,11 @@ class SyncValidationService
     protected function validateInventoryBusiness(string $operation, array $data): void
     {
         if ($operation === 'create') {
+            $storeId = $this->resolveStoreId($data, true);
+
             // Validate product exists and tracks inventory
-            $product = Product::where('store_id', auth()->user()->store_id)
+            $product = Product::query()
+                ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                 ->find($data['product_id']);
             
             if (!$product) {
@@ -305,8 +320,11 @@ class SyncValidationService
     protected function validatePaymentBusiness(string $operation, array $data): void
     {
         if ($operation === 'create') {
+            $storeId = $this->resolveStoreId($data, true);
+
             // Validate order exists and belongs to store
-            $order = Order::where('store_id', auth()->user()->store_id)
+            $order = Order::query()
+                ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                 ->find($data['order_id']);
             
             if (!$order) {
@@ -334,9 +352,11 @@ class SyncValidationService
     protected function validateProductBusiness(string $operation, array $data): void
     {
         if ($operation === 'create') {
+            $storeId = $this->resolveStoreId($data, true);
             // Validate SKU uniqueness if provided
             if (isset($data['sku']) && !empty($data['sku'])) {
-                $existingProduct = Product::where('store_id', auth()->user()->store_id)
+                $existingProduct = Product::query()
+                    ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                     ->where('sku', $data['sku'])
                     ->first();
                 

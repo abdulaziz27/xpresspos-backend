@@ -9,19 +9,32 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Member;
 use App\Models\Expense;
+use App\Services\Concerns\ResolvesStoreContext;
+use App\Services\StoreContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class SyncService
 {
+    use ResolvesStoreContext;
+
+    protected StoreContext $storeContext;
+
     protected ConflictResolver $conflictResolver;
     protected IdempotencyService $idempotencyService;
 
-    public function __construct(ConflictResolver $conflictResolver, IdempotencyService $idempotencyService)
+    public function __construct(ConflictResolver $conflictResolver, IdempotencyService $idempotencyService, StoreContext $storeContext)
     {
         $this->conflictResolver = $conflictResolver;
         $this->idempotencyService = $idempotencyService;
+        $this->storeContext = $storeContext;
+    }
+
+    protected function storeId(array $context = [], bool $allowNull = false): ?string
+    {
+        return $this->resolveStoreId($context, $allowNull);
     }
 
     /**
@@ -153,8 +166,10 @@ class SyncService
      */
     protected function createOrder(array $data, ?string $timestamp): array
     {
+        $storeId = $this->storeId($data);
+
         // Check for existing order with same order_number
-        $existingOrder = Order::where('store_id', auth()->user()->store_id)
+        $existingOrder = Order::where('store_id', $storeId)
             ->where('order_number', $data['order_number'])
             ->first();
 
@@ -169,14 +184,14 @@ class SyncService
             }
         }
 
-        DB::beginTransaction();
-        try {
-            // Create order
-            $order = Order::create([
-                'store_id' => auth()->user()->store_id,
-                'user_id' => $data['user_id'] ?? auth()->id(),
-                'member_id' => $data['member_id'] ?? null,
-                'table_id' => $data['table_id'] ?? null,
+            DB::beginTransaction();
+            try {
+                // Create order
+                $order = Order::create([
+                    'store_id' => $storeId,
+                    'user_id' => $data['user_id'] ?? Auth::id(),
+                    'member_id' => $data['member_id'] ?? null,
+                    'table_id' => $data['table_id'] ?? null,
                 'order_number' => $data['order_number'],
                 'status' => $data['status'] ?? 'draft',
                 'subtotal' => $data['subtotal'] ?? 0,
@@ -218,7 +233,10 @@ class SyncService
      */
     protected function updateOrder(string $entityId, array $data, ?string $timestamp): array
     {
-        $order = Order::where('store_id', auth()->user()->store_id)
+        $storeId = $this->storeId($data, true);
+
+        $order = Order::query()
+            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
             ->findOrFail($entityId);
 
         // Check for conflicts
@@ -261,7 +279,9 @@ class SyncService
      */
     protected function deleteOrder(string $entityId): array
     {
-        $order = Order::where('store_id', auth()->user()->store_id)
+        $storeId = $this->storeId();
+
+        $order = Order::where('store_id', $storeId)
             ->findOrFail($entityId);
 
         // Check if order can be deleted
@@ -293,8 +313,10 @@ class SyncService
      */
     protected function createInventoryMovement(array $data, ?string $timestamp): array
     {
+        $storeId = $this->storeId($data);
+
         // Check for duplicate movement
-        $existingMovement = InventoryMovement::where('store_id', auth()->user()->store_id)
+        $existingMovement = InventoryMovement::where('store_id', $storeId)
             ->where('product_id', $data['product_id'])
             ->where('type', $data['type'])
             ->where('quantity', $data['quantity'])
@@ -308,9 +330,9 @@ class SyncService
         }
 
         $movement = InventoryMovement::create([
-            'store_id' => auth()->user()->store_id,
+            'store_id' => $storeId,
             'product_id' => $data['product_id'],
-            'user_id' => $data['user_id'] ?? auth()->id(),
+            'user_id' => $data['user_id'] ?? Auth::id(),
             'type' => $data['type'],
             'quantity' => $data['quantity'],
             'unit_cost' => $data['unit_cost'] ?? null,
@@ -353,12 +375,14 @@ class SyncService
      */
     protected function createPayment(array $data, ?string $timestamp): array
     {
+        $storeId = $this->storeId($data);
+
         $payment = Payment::create([
-            'store_id' => auth()->user()->store_id,
+            'store_id' => $storeId,
             'order_id' => $data['order_id'],
-            'user_id' => $data['user_id'] ?? auth()->id(),
+            'user_id' => $data['user_id'] ?? Auth::id(),
             'amount' => $data['amount'],
-            'method' => $data['method'],
+            'payment_method' => $data['payment_method'] ?? $data['method'] ?? null,
             'status' => $data['status'] ?? 'completed',
             'reference_number' => $data['reference_number'] ?? null,
             'notes' => $data['notes'] ?? null,
@@ -372,13 +396,17 @@ class SyncService
      */
     protected function updatePayment(string $entityId, array $data, ?string $timestamp): array
     {
-        $payment = Payment::where('store_id', auth()->user()->store_id)
+        $storeId = $this->storeId($data, true);
+
+        $payment = Payment::query()
+            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
             ->findOrFail($entityId);
 
         $payment->update([
             'status' => $data['status'] ?? $payment->status,
             'reference_number' => $data['reference_number'] ?? $payment->reference_number,
             'notes' => $data['notes'] ?? $payment->notes,
+            'payment_method' => $data['payment_method'] ?? $data['method'] ?? $payment->payment_method,
         ]);
 
         return ['entity_id' => $payment->id];

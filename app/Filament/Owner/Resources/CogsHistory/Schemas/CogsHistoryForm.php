@@ -25,7 +25,10 @@ class CogsHistoryForm
                                 Select::make('product_id')
                                     ->label('Product')
                                     ->options(function () {
-                                        return Product::where('store_id', auth()->user()->store_id)
+                                        $storeId = auth()->user()?->currentStoreId();
+
+                                        return Product::query()
+                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->pluck('name', 'id');
                                     })
                                     ->searchable()
@@ -44,7 +47,10 @@ class CogsHistoryForm
                                 Select::make('order_id')
                                     ->label('Order (Optional)')
                                     ->options(function () {
-                                        return Order::where('store_id', auth()->user()->store_id)
+                                        $storeId = auth()->user()?->currentStoreId();
+
+                                        return Order::query()
+                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->where('status', 'completed')
                                             ->pluck('order_number', 'id');
                                     })

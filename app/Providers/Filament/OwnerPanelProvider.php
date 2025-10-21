@@ -19,6 +19,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use App\Http\Middleware\EnsureStoreContext;
 
 class OwnerPanelProvider extends PanelProvider
 {
@@ -29,8 +30,9 @@ class OwnerPanelProvider extends PanelProvider
             ->path('owner')
             ->login()
             ->brandName('POS Xpress Store')
-            ->brandLogo(asset('img/logo-jf.png'))
-            ->favicon(asset('favicon.ico'))
+            ->brandLogo(fn () => view('filament.brand-logo'))
+            ->brandLogoHeight('2.5rem')
+            ->favicon(asset('img/logo-xpress.png'))
             ->colors([
                 'primary' => Color::Green,
             ])
@@ -67,6 +69,7 @@ class OwnerPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+                EnsureStoreContext::class,
                 FilamentRoleMiddleware::class . ':owner',
             ])
             ->authMiddleware([

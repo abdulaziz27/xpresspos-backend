@@ -15,15 +15,18 @@ class RecentOrdersWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
-        $storeId = auth()->user()->store_id;
+        $storeId = auth()->user()?->currentStoreId();
+
+        $query = Order::query()->latest()->limit(10);
+
+        if ($storeId) {
+            $query->where('store_id', $storeId);
+        } else {
+            $query->whereRaw('1 = 0');
+        }
 
         return $table
-            ->query(
-                Order::query()
-                    ->where('store_id', $storeId)
-                    ->latest()
-                    ->limit(10)
-            )
+            ->query($query)
             ->columns([
                 Tables\Columns\TextColumn::make('order_number')
                     ->label('Order #')

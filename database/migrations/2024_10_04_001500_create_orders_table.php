@@ -21,8 +21,6 @@ return new class extends Migration
             $table->decimal('discount_amount', 12, 2)->default(0);
             $table->decimal('service_charge', 12, 2)->default(0);
             $table->decimal('total_amount', 12, 2)->default(0);
-            $table->string('payment_method')->nullable();
-            $table->integer('total_items')->default(0);
             $table->text('notes')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();

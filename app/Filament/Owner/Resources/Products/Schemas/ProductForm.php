@@ -117,7 +117,10 @@ class ProductForm
                                 Select::make('category_id')
                                     ->label('Category')
                                     ->options(function () {
-                                        return Category::where('store_id', auth()->user()->store_id)
+                                        $storeId = auth()->user()?->currentStoreId();
+
+                                        return Category::query()
+                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->where('is_active', true)
                                             ->pluck('name', 'id');
                                     })
@@ -133,7 +136,7 @@ class ProductForm
                                             ->default(true),
                                     ])
                                     ->createOptionUsing(function (array $data): int {
-                                        $data['store_id'] = auth()->user()->store_id;
+                                        $data['store_id'] = auth()->user()?->currentStoreId();
                                         return Category::create($data)->getKey();
                                     }),
 

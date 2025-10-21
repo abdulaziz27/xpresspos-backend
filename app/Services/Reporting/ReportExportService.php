@@ -8,9 +8,21 @@ use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ReportExport;
+use App\Models\Store;
+use App\Services\Concerns\ResolvesStoreContext;
+use App\Services\StoreContext;
 
 class ReportExportService
 {
+    use ResolvesStoreContext;
+
+    protected StoreContext $storeContext;
+
+    public function __construct(StoreContext $storeContext)
+    {
+        $this->storeContext = $storeContext;
+    }
+
     /**
      * Export report data to specified format.
      */
@@ -36,11 +48,14 @@ class ReportExportService
     {
         $view = $this->getReportView($reportType);
         
+        $storeId = $this->resolveStoreId([], true);
+        $storeName = $storeId ? Store::find($storeId)?->name : null;
+
         $pdf = Pdf::loadView($view, [
             'data' => $data,
             'reportType' => $reportType,
             'generatedAt' => now(),
-            'storeName' => auth()->user()->store->name ?? 'POS Xpress Store',
+            'storeName' => $storeName ?? 'POS Xpress Store',
         ]);
         
         // Configure PDF settings
@@ -79,7 +94,7 @@ class ReportExportService
     private function generateFileName(string $reportType, string $format, array $parameters): string
     {
         $timestamp = now()->format('Y-m-d_H-i-s');
-        $storeId = auth()->user()->store_id;
+        $storeId = $this->resolveStoreId($parameters, true) ?? 'store';
         $extension = $format === 'excel' ? 'xlsx' : $format;
         
         // Add date range to filename if available

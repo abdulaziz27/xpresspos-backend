@@ -26,7 +26,10 @@ class InventoryMovementForm
                                 Select::make('product_id')
                                     ->label('Product')
                                     ->options(function () {
-                                        return Product::where('store_id', auth()->user()->store_id)
+                                        $storeId = auth()->user()?->currentStoreId();
+
+                                        return Product::query()
+                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->where('track_inventory', true)
                                             ->pluck('name', 'id');
                                     })
@@ -103,7 +106,10 @@ class InventoryMovementForm
                                 Select::make('user_id')
                                     ->label('Recorded By')
                                     ->options(function () {
-                                        return User::where('store_id', auth()->user()->store_id)
+                                        $storeId = auth()->user()?->currentStoreId();
+
+                                        return User::query()
+                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->pluck('name', 'id');
                                     })
                                     ->searchable()

@@ -19,8 +19,6 @@ return new class extends Migration
             $table->decimal('price', 10, 2);
             $table->decimal('cost_price', 10, 2)->nullable();
             $table->boolean('track_inventory')->default(false);
-            $table->integer('stock')->default(0);
-            $table->integer('min_stock_level')->default(0);
             $table->json('variants')->nullable();
             $table->boolean('status')->default(true);
             $table->boolean('is_favorite')->default(false);

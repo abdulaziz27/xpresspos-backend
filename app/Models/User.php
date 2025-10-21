@@ -3,11 +3,15 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use App\Services\StoreContext;
 
 class User extends Authenticatable
 {
@@ -49,9 +53,36 @@ class User extends Authenticatable
     /**
      * Get the store that owns the user.
      */
-    public function store()
+    public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
+    }
+
+    public function storeAssignments(): HasMany
+    {
+        return $this->hasMany(StoreUserAssignment::class);
+    }
+
+    public function stores(): BelongsToMany
+    {
+        return $this->belongsToMany(Store::class, 'store_user_assignments')
+            ->withPivot(['assignment_role', 'is_primary'])
+            ->withTimestamps();
+    }
+
+    public function primaryStore(): ?Store
+    {
+        $assignment = $this->storeAssignments()
+            ->where('is_primary', true)
+            ->orderByDesc('updated_at')
+            ->first();
+
+        return $assignment?->store;
+    }
+
+    public function currentStoreId(): ?string
+    {
+        return StoreContext::instance()->current($this);
     }
 
     /**

@@ -32,7 +32,10 @@ class OrderForm
                                 Select::make('user_id')
                                     ->label('Staff')
                                     ->options(function () {
-                                        return User::where('store_id', auth()->user()->store_id)
+                                        $storeId = auth()->user()?->currentStoreId();
+
+                                        return User::query()
+                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->pluck('name', 'id');
                                     })
                                     ->searchable()
@@ -46,7 +49,10 @@ class OrderForm
                                 Select::make('member_id')
                                     ->label('Customer/Member')
                                     ->options(function () {
-                                        return Member::where('store_id', auth()->user()->store_id)
+                                        $storeId = auth()->user()?->currentStoreId();
+
+                                        return Member::query()
+                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->where('is_active', true)
                                             ->pluck('name', 'id');
                                     })
@@ -64,15 +70,22 @@ class OrderForm
                                             ->maxLength(20),
                                     ])
                                     ->createOptionUsing(function (array $data): int {
-                                        $data['store_id'] = auth()->user()->store_id;
-                                        $data['member_number'] = 'MBR' . str_pad(Member::count() + 1, 6, '0', STR_PAD_LEFT);
+                                        $storeId = auth()->user()?->currentStoreId();
+                                        $data['store_id'] = $storeId;
+                                        $count = Member::withoutStoreScope()
+                                            ->where('store_id', $storeId)
+                                            ->count();
+                                        $data['member_number'] = 'MBR' . str_pad($count + 1, 6, '0', STR_PAD_LEFT);
                                         return Member::create($data)->getKey();
                                     }),
 
                                 Select::make('table_id')
                                     ->label('Table')
                                     ->options(function () {
-                                        return Table::where('store_id', auth()->user()->store_id)
+                                        $storeId = auth()->user()?->currentStoreId();
+
+                                        return Table::query()
+                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->where('is_active', true)
                                             ->pluck('name', 'id');
                                     })

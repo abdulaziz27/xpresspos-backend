@@ -31,8 +31,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->login()
             ->brandName('POS Xpress Admin')
-            ->brandLogo(asset('img/logo-jf.png'))
-            ->favicon(asset('favicon.ico'))
+            ->brandLogo(fn () => view('filament.brand-logo'))
+            ->brandLogoHeight('2.5rem')
+            ->favicon(asset('img/logo-xpress.png'))
             ->colors([
                 'primary' => Color::Blue,
             ])

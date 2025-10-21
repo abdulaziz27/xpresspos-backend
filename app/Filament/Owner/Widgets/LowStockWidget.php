@@ -15,16 +15,21 @@ class LowStockWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
-        $storeId = auth()->user()->store_id;
+        $storeId = auth()->user()?->currentStoreId();
+
+        $query = Product::query()
+            ->where('track_inventory', true)
+            ->whereColumn('stock', '<=', 'min_stock_level')
+            ->where('status', true);
+
+        if ($storeId) {
+            $query->where('store_id', $storeId);
+        } else {
+            $query->whereRaw('1 = 0');
+        }
 
         return $table
-            ->query(
-                Product::query()
-                    ->where('store_id', $storeId)
-                    ->where('track_inventory', true)
-                    ->whereColumn('stock', '<=', 'min_stock_level')
-                    ->where('status', true)
-            )
+            ->query($query)
             ->columns([
                 Tables\Columns\ImageColumn::make('image')
                     ->label('Image')

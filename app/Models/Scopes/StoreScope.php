@@ -2,6 +2,7 @@
 
 namespace App\Models\Scopes;
 
+use App\Services\StoreContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
@@ -17,21 +18,29 @@ class StoreScope implements Scope
         // Try to get user from different guards (sanctum for API, web for web)
         $user = auth()->user() ?: request()->user();
 
+        $storeContext = StoreContext::instance();
+
         // System admin bypasses tenant scoping
         if ($user && $user->hasRole('admin_sistem')) {
+            if ($storeContext->current()) {
+                $builder->where($model->getTable() . '.store_id', $storeContext->current());
+            }
+
             return;
         }
 
         // Apply store scoping for all other users
-        if ($user && $user->store_id) {
-            $builder->where($model->getTable() . '.store_id', $user->store_id);
+        $storeId = $storeContext->current($user);
+
+        if ($user && $storeId) {
+            $builder->where($model->getTable() . '.store_id', $storeId);
         } else {
             // If no authenticated user or no store_id, restrict to no results
             // This prevents data leakage in edge cases
             $builder->whereRaw('1 = 0');
 
             // Log potential security issue
-            if ($user && !$user->store_id) {
+            if ($user && !$storeId) {
                 Log::warning('User without store_id attempted to access scoped model', [
                     'user_id' => $user->id,
                     'user_email' => $user->email,

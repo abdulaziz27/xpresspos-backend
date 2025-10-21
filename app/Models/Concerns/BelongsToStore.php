@@ -4,6 +4,7 @@ namespace App\Models\Concerns;
 
 use App\Models\Store;
 use App\Models\Scopes\StoreScope;
+use App\Services\StoreContext;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 trait BelongsToStore
@@ -19,14 +20,20 @@ trait BelongsToStore
         static::creating(function ($model) {
             if (!$model->store_id && auth()->check()) {
                 $user = auth()->user();
-                
+
                 // System admin needs to explicitly set store_id
                 if ($user->hasRole('admin_sistem')) {
                     if (!$model->store_id) {
                         throw new \Exception('System admin must explicitly set store_id when creating records');
                     }
                 } else {
-                    $model->store_id = $user->store_id;
+                    $storeId = StoreContext::instance()->current($user);
+
+                    if (!$storeId) {
+                        throw new \Exception('Tidak dapat menentukan store aktif untuk pengguna.');
+                    }
+
+                    $model->store_id = $storeId;
                 }
             }
         });
@@ -54,12 +61,14 @@ trait BelongsToStore
     public function belongsToCurrentUserStore(): bool
     {
         $user = auth()->user();
-        
-        if (!$user || !$user->store_id) {
+
+        if (!$user) {
             return false;
         }
-        
-        return $this->belongsToStore($user->store_id);
+
+        $storeId = StoreContext::instance()->current($user);
+
+        return $storeId ? $this->belongsToStore($storeId) : false;
     }
 
     /**

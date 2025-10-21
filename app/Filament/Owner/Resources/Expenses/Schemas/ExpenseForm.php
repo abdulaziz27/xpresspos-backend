@@ -82,7 +82,10 @@ class ExpenseForm
                                 Select::make('cash_session_id')
                                     ->label('Cash Session')
                                     ->options(function () {
-                                        return CashSession::where('store_id', auth()->user()->store_id)
+                                        $storeId = auth()->user()?->currentStoreId();
+
+                                        return CashSession::query()
+                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->where('status', 'open')
                                             ->pluck('id', 'id');
                                     })
@@ -94,7 +97,10 @@ class ExpenseForm
                         Select::make('user_id')
                             ->label('Recorded By')
                             ->options(function () {
-                                return User::where('store_id', auth()->user()->store_id)
+                                $storeId = auth()->user()?->currentStoreId();
+
+                                return User::query()
+                                    ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                     ->pluck('name', 'id');
                             })
                             ->searchable()

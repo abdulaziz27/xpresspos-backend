@@ -3,12 +3,23 @@
 namespace App\Services\Sync;
 
 use App\Models\SyncHistory;
+use App\Services\Concerns\ResolvesStoreContext;
+use App\Services\StoreContext;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class IdempotencyService
 {
+    use ResolvesStoreContext;
+
     protected int $cacheTimeout = 3600; // 1 hour
+
+    protected StoreContext $storeContext;
+
+    public function __construct(StoreContext $storeContext)
+    {
+        $this->storeContext = $storeContext;
+    }
 
     /**
      * Check if an idempotency key is a duplicate.
@@ -76,7 +87,7 @@ class IdempotencyService
      */
     protected function getCacheKey(string $idempotencyKey): string
     {
-        $storeId = auth()->user()->store_id ?? 'unknown';
+        $storeId = $this->resolveStoreId([], true) ?? 'unknown';
         return "sync:idempotency:{$storeId}:{$idempotencyKey}";
     }
 
@@ -85,7 +96,7 @@ class IdempotencyService
      */
     public function clearStoreCache(?string $storeId = null): void
     {
-        $storeId = $storeId ?? auth()->user()->store_id;
+        $storeId = $storeId ?? $this->resolveStoreId([], true);
         $pattern = "sync:idempotency:{$storeId}:*";
         
         // Note: This is a simplified implementation
@@ -100,8 +111,8 @@ class IdempotencyService
      */
     public function getStats(?string $storeId = null): array
     {
-        $storeId = $storeId ?? auth()->user()->store_id;
-        
+        $storeId = $storeId ?? $this->resolveStoreId([], true);
+
         $stats = SyncHistory::where('store_id', $storeId)
             ->selectRaw('
                 COUNT(*) as total_requests,

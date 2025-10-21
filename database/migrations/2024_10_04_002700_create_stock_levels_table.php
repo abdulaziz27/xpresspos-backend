@@ -15,6 +15,7 @@ return new class extends Migration
             $table->integer('current_stock')->default(0);
             $table->integer('reserved_stock')->default(0);
             $table->integer('available_stock')->default(0);
+            $table->integer('min_stock_level')->default(0);
             $table->decimal('average_cost', 10, 2)->default(0);
             $table->decimal('total_value', 10, 2)->default(0);
             $table->timestamp('last_movement_at')->nullable();

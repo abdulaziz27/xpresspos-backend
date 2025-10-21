@@ -25,7 +25,6 @@ class Order extends Model
         'discount_amount',
         'service_charge',
         'total_amount',
-        'payment_method',
         'total_items',
         'notes',
         'completed_at',
@@ -114,20 +113,12 @@ class Order extends Model
     }
 
     /**
-     * Calculate order totals.
+     * Calculate order totals using OrderCalculationService.
      */
     public function calculateTotals(): void
     {
-        $subtotal = $this->items()->sum('total_price');
-        $taxAmount = $subtotal * 0.1; // 10% tax
-        $totalAmount = $subtotal + $taxAmount + $this->service_charge - $this->discount_amount;
-
-        $this->update([
-            'subtotal' => $subtotal,
-            'tax_amount' => $taxAmount,
-            'total_amount' => $totalAmount,
-            'total_items' => $this->items()->sum('quantity'),
-        ]);
+        $calculationService = app(\App\Services\OrderCalculationService::class);
+        $calculationService->updateOrderTotals($this);
     }
 
     /**
@@ -192,8 +183,8 @@ class Order extends Model
      */
     public function getRemainingBalance(): float
     {
-        $totalPaid = $this->payments()->where('status', 'completed')->sum('amount');
-        return max(0, $this->total_amount - $totalPaid);
+        $calculationService = app(\App\Services\OrderCalculationService::class);
+        return $calculationService->calculateRemainingBalance($this);
     }
     
     /**
@@ -221,19 +212,12 @@ class Order extends Model
     }
     
     /**
-     * Update the payment status of the order.
+     * Get the current payment status of the order.
      */
-    public function updatePaymentStatus(): void
+    public function getPaymentStatus(): string
     {
-        $paymentStatus = 'unpaid';
-        
-        if ($this->isFullyPaid()) {
-            $paymentStatus = 'paid';
-        } elseif ($this->getTotalPaid() > 0) {
-            $paymentStatus = 'partial';
-        }
-        
-        $this->update(['payment_status' => $paymentStatus]);
+        $calculationService = app(\App\Services\OrderCalculationService::class);
+        return $calculationService->getOrderPaymentStatus($this);
     }
     
     /**
@@ -241,12 +225,15 @@ class Order extends Model
      */
     public function getPaymentStatusDisplay(): string
     {
-        if ($this->isFullyPaid()) {
-            return 'Fully Paid';
-        }
-        
+        $remainingBalance = $this->getRemainingBalance();
         $totalPaid = $this->getTotalPaid();
-        if ($totalPaid > 0) {
+        $totalRefunded = $this->getTotalRefunded();
+        
+        if ($totalRefunded > 0 && $remainingBalance >= $this->total_amount) {
+            return 'Refunded';
+        } elseif ($remainingBalance <= 0) {
+            return 'Fully Paid';
+        } elseif ($totalPaid > 0) {
             return 'Partially Paid';
         }
         

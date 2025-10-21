@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Discount;
+use App\Models\StoreUserAssignment;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -33,6 +35,18 @@ class Store extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    public function userAssignments(): HasMany
+    {
+        return $this->hasMany(StoreUserAssignment::class);
+    }
+
+    public function assignedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'store_user_assignments')
+            ->withPivot(['assignment_role', 'is_primary'])
+            ->withTimestamps();
     }
 
     /**
@@ -175,7 +189,7 @@ class Store extends Model
             return \App\Models\User::where('store_id', $this->id)->count();
         }
 
-        return $this->users()->count();
+        return $this->userAssignments()->count();
     }
 
     /**

@@ -6,6 +6,8 @@ use App\Models\SyncHistory;
 use App\Models\SyncQueue;
 use App\Jobs\ProcessSyncJob;
 use App\Jobs\RetrySyncJob;
+use App\Services\Concerns\ResolvesStoreContext;
+use App\Services\StoreContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
@@ -13,6 +15,10 @@ use Carbon\Carbon;
 
 class SyncReliabilityService
 {
+    use ResolvesStoreContext;
+
+    protected StoreContext $storeContext;
+
     protected SyncService $syncService;
     protected SyncValidationService $validationService;
     protected SyncPerformanceMonitor $performanceMonitor;
@@ -29,11 +35,13 @@ class SyncReliabilityService
     public function __construct(
         SyncService $syncService,
         SyncValidationService $validationService,
-        SyncPerformanceMonitor $performanceMonitor
+        SyncPerformanceMonitor $performanceMonitor,
+        StoreContext $storeContext
     ) {
         $this->syncService = $syncService;
         $this->validationService = $validationService;
         $this->performanceMonitor = $performanceMonitor;
+        $this->storeContext = $storeContext;
     }
 
     /**
@@ -444,7 +452,7 @@ class SyncReliabilityService
      */
     public function getHealthMetrics(?string $storeId = null, int $hours = 24): array
     {
-        $storeId = $storeId ?? auth()->user()->store_id;
+        $storeId = $storeId ?? $this->resolveStoreId([], true);
         $since = now()->subHours($hours);
 
         $metrics = SyncHistory::where('store_id', $storeId)

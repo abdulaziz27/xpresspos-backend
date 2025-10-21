@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Concerns\BelongsToStore;
+use App\Services\StoreContext;
 
 class SyncHistory extends Model
 {
@@ -177,8 +178,14 @@ class SyncHistory extends Model
         array $payload,
         ?string $entityId = null
     ): self {
+        $storeId = app(StoreContext::class)->current(auth()->user()) ?? $payload['store_id'] ?? null;
+
+        if (!$storeId) {
+            throw new \RuntimeException('Unable to determine store context when creating sync history.');
+        }
+
         return self::create([
-            'store_id' => auth()->user()->store_id,
+            'store_id' => $storeId,
             'user_id' => auth()->id(),
             'idempotency_key' => $idempotencyKey,
             'sync_type' => $syncType,

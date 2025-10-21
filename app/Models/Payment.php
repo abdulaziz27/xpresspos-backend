@@ -16,16 +16,15 @@ class Payment extends Model
     protected $fillable = [
         'store_id',
         'order_id',
-        'payment_method',
+        'payment_method', // Enum: cash, credit_card, debit_card, qris, bank_transfer, e_wallet (match migration)
         'amount',
         'reference_number',
         'status',
         'processed_at',
-        'processed_by',
         'notes',
         'gateway',
         'gateway_transaction_id',
-        'payment_method_id',
+        'payment_method_id', // Optional: Link to saved PaymentMethod for recurring payments
         'invoice_id',
         'gateway_fee',
         'gateway_response',

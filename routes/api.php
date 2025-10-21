@@ -102,6 +102,16 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::get('current', [StoreSwitchController::class, 'getCurrentContext'])->name('api.v1.admin.stores.current');
         });
 
+        // Store User Assignments
+        Route::prefix('store-assignments')->group(function (): void {
+            Route::get('stores/{store}', [\App\Http\Controllers\Api\V1\StoreUserAssignmentController::class, 'index'])->name('api.v1.store-assignments.store.index');
+            Route::post('/', [\App\Http\Controllers\Api\V1\StoreUserAssignmentController::class, 'store'])->name('api.v1.store-assignments.store');
+            Route::put('{assignment}', [\App\Http\Controllers\Api\V1\StoreUserAssignmentController::class, 'update'])->name('api.v1.store-assignments.update');
+            Route::delete('{assignment}', [\App\Http\Controllers\Api\V1\StoreUserAssignmentController::class, 'destroy'])->name('api.v1.store-assignments.destroy');
+            Route::get('users/{user}/stores', [\App\Http\Controllers\Api\V1\StoreUserAssignmentController::class, 'userStores'])->name('api.v1.store-assignments.user.stores');
+            Route::post('users/{user}/primary-store', [\App\Http\Controllers\Api\V1\StoreUserAssignmentController::class, 'setPrimaryStore'])->name('api.v1.store-assignments.user.primary-store');
+        });
+
         // Categories
         Route::prefix('categories')->group(function (): void {
             Route::get('/', [CategoryController::class, 'index'])->name('api.v1.categories.index');
@@ -182,10 +192,11 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::post('{order}/items', [OrderController::class, 'addItem'])->name('api.v1.orders.add-item');
             Route::put('{order}/items/{item}', [OrderController::class, 'updateItem'])->name('api.v1.orders.update-item');
             Route::delete('{order}/items/{item}', [OrderController::class, 'removeItem'])->name('api.v1.orders.remove-item');
+            Route::get('summary', [OrderController::class, 'summary'])->name('api.v1.orders.summary');
         });
 
-        // Orders summary endpoint
-        Route::get('orders-summary', [OrderController::class, 'summary'])->name('api.v1.orders.summary');
+        // Orders summary endpoint (moved to orders prefix)
+        // Route::get('orders-summary', [OrderController::class, 'summary'])->name('api.v1.orders.summary'); // REMOVED - use orders/summary instead
 
         // Tables
         Route::prefix('tables')->group(function (): void {
@@ -201,11 +212,12 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::post('{table}/make-available', [TableController::class, 'makeAvailable'])->name('api.v1.tables.make-available');
             Route::get('{table}/occupancy-stats', [TableController::class, 'occupancyStats'])->name('api.v1.tables.occupancy-stats');
             Route::get('{table}/occupancy-history', [TableController::class, 'occupancyHistory'])->name('api.v1.tables.occupancy-history');
+            Route::get('occupancy-report', [TableController::class, 'occupancyReport'])->name('api.v1.tables.occupancy-report');
         });
 
-        // Table reports endpoints
-        Route::get('table-occupancy-report', [TableController::class, 'occupancyReport'])->name('api.v1.table-occupancy-report');
-        Route::get('tables-available', [TableController::class, 'available'])->name('api.v1.tables-available');
+        // Table reports endpoints (moved to tables prefix)
+        // Route::get('table-occupancy-report', [TableController::class, 'occupancyReport'])->name('api.v1.table-occupancy-report'); // REMOVED - use tables/occupancy-report
+        // Route::get('tables-available', [TableController::class, 'available'])->name('api.v1.tables-available'); // REMOVED - use tables/available
 
         // Members
         Route::prefix('members')->group(function (): void {
@@ -253,7 +265,12 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
 
         // Payments
         Route::prefix('payments')->group(function (): void {
+            Route::get('/', [PaymentController::class, 'index'])->name('api.v1.payments.index');
             Route::post('/', [PaymentController::class, 'store'])->name('api.v1.payments.store');
+            Route::get('methods', [PaymentController::class, 'paymentMethods'])->name('api.v1.payments.methods');
+            Route::get('summary', [PaymentController::class, 'summary'])->name('api.v1.payments.summary');
+            Route::post('receipt', [PaymentController::class, 'receipt'])->name('api.v1.payments.receipt');
+            Route::get('{payment}', [PaymentController::class, 'show'])->name('api.v1.payments.show');
             Route::post('{payment}/refund', [PaymentController::class, 'refund'])->name('api.v1.payments.refund');
         });
 

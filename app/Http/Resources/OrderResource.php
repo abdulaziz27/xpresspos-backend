@@ -24,7 +24,7 @@ class OrderResource extends JsonResource
             'service_charge' => $this->service_charge,
             'total_amount' => $this->total_amount,
             'total_items' => $this->total_items,
-            'payment_method' => $this->payment_method,
+            // 'payment_method' => $this->payment_method, // REMOVED: Field tidak ada di database
             'notes' => $this->notes,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
@@ -61,7 +61,16 @@ class OrderResource extends JsonResource
             'can_be_modified' => $this->canBeModified(),
             'is_completed' => $this->status === 'completed',
             'is_paid' => $this->whenLoaded('payments', function () {
-                return $this->payments->sum('amount') >= $this->total_amount;
+                return $this->isFullyPaid();
+            }),
+            'payment_status' => $this->whenLoaded('payments', function () {
+                return $this->getPaymentStatus();
+            }),
+            'payment_status_display' => $this->whenLoaded('payments', function () {
+                return $this->getPaymentStatusDisplay();
+            }),
+            'remaining_balance' => $this->whenLoaded('payments', function () {
+                return $this->getRemainingBalance();
             }),
         ];
     }

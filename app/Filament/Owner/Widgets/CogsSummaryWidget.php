@@ -15,7 +15,23 @@ class CogsSummaryWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $storeId = auth()->user()->store_id;
+        $storeId = auth()->user()?->currentStoreId();
+        if (!$storeId) {
+            return [
+                Stat::make('Today\'s COGS', 'Rp 0')
+                    ->description('Cost of goods sold today')
+                    ->descriptionIcon('heroicon-m-currency-dollar')
+                    ->color('gray'),
+                Stat::make('Monthly COGS', 'Rp 0')
+                    ->description('0.0% from last month')
+                    ->descriptionIcon('heroicon-m-arrow-trending-up')
+                    ->color('gray'),
+                Stat::make('Recipe Coverage', '0.0%')
+                    ->description('0 of 0 products have recipes')
+                    ->descriptionIcon('heroicon-m-clipboard-document-list')
+                    ->color('gray'),
+            ];
+        }
         $today = Carbon::today();
         $thisMonth = Carbon::now()->startOfMonth();
         $lastMonth = Carbon::now()->subMonth()->startOfMonth();

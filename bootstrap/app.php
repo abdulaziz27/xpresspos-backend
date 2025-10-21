@@ -65,6 +65,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'tenant.scope' => \App\Http\Middleware\TenantScopeMiddleware::class,
             'domain.routing' => \App\Http\Middleware\DomainRoutingMiddleware::class,
+            'store.permission' => \App\Http\Middleware\CheckStorePermission::class,
+            'store.context' => \App\Http\Middleware\EnsureStoreContext::class,
         ]);
 
         $middleware->web([

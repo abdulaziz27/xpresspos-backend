@@ -13,7 +13,11 @@ class OwnerStatsWidget extends BaseWidget
 {
     protected function getStats(): array
     {
-        $storeId = auth()->user()->store_id;
+        $storeId = auth()->user()?->currentStoreId();
+
+        if (!$storeId) {
+            return [];
+        }
 
         return [
             Stat::make('Today\'s Orders', Order::where('store_id', $storeId)->whereDate('created_at', today())->count())

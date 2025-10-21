@@ -28,7 +28,10 @@ class PaymentForm
                                 Select::make('order_id')
                                     ->label('Order')
                                     ->options(function () {
-                                        return Order::where('store_id', auth()->user()->store_id)
+                                        $storeId = auth()->user()?->currentStoreId();
+
+                                        return Order::query()
+                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->where('status', '!=', 'cancelled')
                                             ->pluck('order_number', 'id');
                                     })
@@ -115,7 +118,10 @@ class PaymentForm
                         Select::make('processed_by')
                             ->label('Processed By')
                             ->options(function () {
-                                return User::where('store_id', auth()->user()->store_id)
+                                $storeId = auth()->user()?->currentStoreId();
+
+                                return User::query()
+                                    ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                     ->pluck('name', 'id');
                             })
                             ->searchable()

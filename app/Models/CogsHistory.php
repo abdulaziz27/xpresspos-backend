@@ -88,7 +88,7 @@ class CogsHistory extends Model
         $totalCogs = $unitCost * $quantitySold;
 
         return self::create([
-            'store_id' => auth()->user()->store_id,
+            'store_id' => self::resolveStoreId($product),
             'product_id' => $product->id,
             'order_id' => $orderId,
             'quantity_sold' => $quantitySold,
@@ -138,7 +138,7 @@ class CogsHistory extends Model
         $averageUnitCost = $quantitySold > 0 ? $totalCogs / $quantitySold : 0;
 
         return self::create([
-            'store_id' => auth()->user()->store_id,
+            'store_id' => self::resolveStoreId($product),
             'product_id' => $product->id,
             'order_id' => $orderId,
             'quantity_sold' => $quantitySold,
@@ -189,7 +189,7 @@ class CogsHistory extends Model
         $averageUnitCost = $quantitySold > 0 ? $totalCogs / $quantitySold : 0;
 
         return self::create([
-            'store_id' => auth()->user()->store_id,
+            'store_id' => self::resolveStoreId($product),
             'product_id' => $product->id,
             'order_id' => $orderId,
             'quantity_sold' => $quantitySold,
@@ -198,5 +198,10 @@ class CogsHistory extends Model
             'calculation_method' => self::METHOD_LIFO,
             'cost_breakdown' => $costBreakdown,
         ]);
+    }
+
+    protected static function resolveStoreId(Product $product): ?string
+    {
+        return $product->store_id ?? auth()->user()?->currentStoreId();
     }
 }

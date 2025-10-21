@@ -38,7 +38,7 @@ class OrderItem extends Model
     protected static function booted(): void
     {
         static::saving(function ($orderItem) {
-            $orderItem->total_price = $orderItem->quantity * $orderItem->unit_price;
+            $orderItem->total_price = $orderItem->calculateSimpleTotal();
         });
     }
 
@@ -63,16 +63,24 @@ class OrderItem extends Model
      */
     public function calculateTotalPrice(): float
     {
+        return $this->calculateSimpleTotal();
+    }
+    
+    /**
+     * Calculate simple total without service injection.
+     */
+    private function calculateSimpleTotal(): float
+    {
         $basePrice = $this->unit_price;
         $optionsPrice = 0;
-
-        if ($this->product_options) {
+        
+        if ($this->product_options && is_array($this->product_options)) {
             foreach ($this->product_options as $option) {
                 $optionsPrice += $option['price_adjustment'] ?? 0;
             }
         }
-
-        return ($basePrice + $optionsPrice) * $this->quantity;
+        
+        return round(($basePrice + $optionsPrice) * $this->quantity, 2);
     }
 
     /**

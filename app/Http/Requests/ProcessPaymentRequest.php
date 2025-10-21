@@ -3,7 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
+use App\Enums\PaymentMethodEnum;
 
 class ProcessPaymentRequest extends FormRequest
 {
@@ -12,28 +12,22 @@ class ProcessPaymentRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true; // Authorization is handled in the controller
+        return true;
     }
 
     /**
      * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
+        $paymentMethods = array_column(PaymentMethodEnum::getAll(), 'id');
+        
         return [
             'order_id' => 'required|uuid|exists:orders,id',
-            'payment_method' => [
-                'required',
-                'string',
-                Rule::in(['cash', 'card', 'qris', 'bank_transfer', 'e_wallet'])
-            ],
-            'amount' => 'required|numeric|min:0.01',
+            'payment_method' => 'required|string|in:' . implode(',', $paymentMethods),
+            'amount' => 'required|numeric|min:0.01|max:999999.99',
             'reference_number' => 'nullable|string|max:255',
-            'notes' => 'nullable|string|max:500',
-            'received_amount' => 'nullable|numeric|min:0', // For cash payments
-            'change_amount' => 'nullable|numeric|min:0', // For cash payments
+            'notes' => 'nullable|string|max:1000',
         ];
     }
 
@@ -43,15 +37,13 @@ class ProcessPaymentRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'order_id.required' => 'Order ID is required.',
+            'order_id.exists' => 'The selected order does not exist.',
             'payment_method.required' => 'Payment method is required.',
-            'payment_method.in' => 'The selected payment method is not valid.',
+            'payment_method.in' => 'The selected payment method is invalid.',
             'amount.required' => 'Payment amount is required.',
-            'amount.numeric' => 'Payment amount must be a valid number.',
-            'amount.min' => 'Payment amount must be greater than 0.',
-            'reference_number.max' => 'Reference number cannot exceed 255 characters.',
-            'notes.max' => 'Notes cannot exceed 500 characters.',
-            'received_amount.numeric' => 'Received amount must be a valid number.',
-            'change_amount.numeric' => 'Change amount must be a valid number.',
+            'amount.min' => 'Payment amount must be at least 0.01.',
+            'amount.max' => 'Payment amount cannot exceed 999,999.99.',
         ];
     }
 
@@ -61,33 +53,9 @@ class ProcessPaymentRequest extends FormRequest
     public function attributes(): array
     {
         return [
+            'order_id' => 'order',
             'payment_method' => 'payment method',
-            'amount' => 'payment amount',
             'reference_number' => 'reference number',
-            'notes' => 'notes',
-            'received_amount' => 'received amount',
-            'change_amount' => 'change amount',
         ];
-    }
-
-    /**
-     * Prepare the data for validation.
-     */
-    protected function prepareForValidation(): void
-    {
-        // Generate reference number for cash payments if not provided
-        if ($this->input('payment_method') === 'cash' && !$this->input('reference_number')) {
-            $this->merge([
-                'reference_number' => 'CASH-' . now()->format('YmdHis') . '-' . rand(1000, 9999)
-            ]);
-        }
-
-        // Calculate change for cash payments
-        if ($this->input('payment_method') === 'cash' && $this->input('received_amount')) {
-            $changeAmount = max(0, $this->input('received_amount') - $this->input('amount'));
-            $this->merge([
-                'change_amount' => $changeAmount
-            ]);
-        }
     }
 }

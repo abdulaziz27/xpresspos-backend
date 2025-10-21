@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Order;
 use App\Observers\OrderObserver;
 use App\Providers\AuthServiceProvider;
+use App\Services\StoreContext;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -14,7 +15,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(StoreContext::class, function ($app) {
+            $session = $app->bound('session') ? $app->make('session') : null;
+
+            return new StoreContext($session);
+        });
     }
 
     /**

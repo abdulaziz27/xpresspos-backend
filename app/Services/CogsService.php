@@ -7,10 +7,21 @@ use App\Models\Recipe;
 use App\Models\CogsHistory;
 use App\Models\InventoryMovement;
 use App\Models\StockLevel;
+use App\Services\Concerns\ResolvesStoreContext;
+use App\Services\StoreContext;
 use Illuminate\Support\Facades\DB;
 
 class CogsService
 {
+    use ResolvesStoreContext;
+
+    protected StoreContext $storeContext;
+
+    public function __construct(StoreContext $storeContext)
+    {
+        $this->storeContext = $storeContext;
+    }
+
     /**
      * Calculate COGS for a product sale using different methods.
      */
@@ -69,8 +80,10 @@ class CogsService
         
         $unitCogs = $quantitySold > 0 ? $totalIngredientCost / $quantitySold : 0;
         
+        $storeId = $this->resolveStoreId(['store_id' => $product->store_id], true) ?? $product->store_id;
+
         return CogsHistory::create([
-            'store_id' => auth()->user()->store_id,
+            'store_id' => $storeId,
             'product_id' => $product->id,
             'order_id' => $orderId,
             'quantity_sold' => $quantitySold,
@@ -86,7 +99,10 @@ class CogsService
      */
     public function getCogsSummary(string $dateFrom, string $dateTo): array
     {
+        $storeId = $this->resolveStoreId();
+
         $cogsRecords = CogsHistory::with('product:id,name,sku')
+            ->where('store_id', $storeId)
             ->whereBetween('created_at', [$dateFrom, $dateTo])
             ->get();
 
@@ -128,6 +144,8 @@ class CogsService
      */
     public function getProfitMarginAnalysis(string $dateFrom, string $dateTo): array
     {
+        $storeId = $this->resolveStoreId();
+
         $query = "
             SELECT 
                 p.id,
@@ -147,7 +165,7 @@ class CogsService
             ORDER BY profit_margin_percentage DESC
         ";
 
-        $results = DB::select($query, [$dateFrom, $dateTo, auth()->user()->store_id]);
+        $results = DB::select($query, [$dateFrom, $dateTo, $storeId]);
 
         $totalRevenue = 0;
         $totalCogs = 0;
@@ -179,7 +197,12 @@ class CogsService
      */
     public function updateAllRecipeCosts(): array
     {
-        $recipes = Recipe::where('is_active', true)->get();
+        $storeId = $this->resolveStoreId([], true);
+
+        $recipes = Recipe::query()
+            ->where('is_active', true)
+            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
+            ->get();
         $updated = 0;
 
         foreach ($recipes as $recipe) {

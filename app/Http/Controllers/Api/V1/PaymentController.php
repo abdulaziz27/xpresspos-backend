@@ -7,6 +7,8 @@ use App\Http\Requests\ProcessPaymentRequest;
 use App\Http\Resources\PaymentResource;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Enums\PaymentMethodEnum;
+use App\Services\PaymentValidationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -76,50 +78,17 @@ class PaymentController extends Controller
         $order = Order::findOrFail($request->input('order_id'));
         $this->authorize('update', $order);
 
-        // Check if order can accept payments
-        if ($order->status === 'draft') {
+        // Validate payment using PaymentValidationService
+        $validationService = app(PaymentValidationService::class);
+        $validation = $validationService->validatePayment($order, $request->validated());
+
+        if (!$validation['valid']) {
             return response()->json([
                 'success' => false,
                 'error' => [
-                    'code' => 'ORDER_NOT_READY_FOR_PAYMENT',
-                    'message' => 'Cannot process payment for draft orders. Please set order to open status first.',
-                ],
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'version' => 'v1'
-                ]
-            ], 422);
-        }
-
-        // Check if order is already fully paid
-        $paidAmount = $order->payments()->completed()->sum('amount');
-        $remainingAmount = $order->total_amount - $paidAmount;
-
-        if ($remainingAmount <= 0) {
-            return response()->json([
-                'success' => false,
-                'error' => [
-                    'code' => 'ORDER_ALREADY_PAID',
-                    'message' => 'This order is already fully paid.',
-                ],
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'version' => 'v1'
-                ]
-            ], 422);
-        }
-
-        // Validate payment amount doesn't exceed remaining amount
-        if ($request->input('amount') > $remainingAmount) {
-            return response()->json([
-                'success' => false,
-                'error' => [
-                    'code' => 'PAYMENT_AMOUNT_EXCEEDS_REMAINING',
-                    'message' => 'Payment amount exceeds the remaining order balance.',
-                    'details' => [
-                        'remaining_amount' => $remainingAmount,
-                        'requested_amount' => $request->input('amount'),
-                    ]
+                    'code' => 'PAYMENT_VALIDATION_FAILED',
+                    'message' => 'Payment validation failed.',
+                    'details' => $validation['errors']
                 ],
                 'meta' => [
                     'timestamp' => now()->toISOString(),
@@ -144,8 +113,8 @@ class PaymentController extends Controller
             $this->processPaymentByMethod($payment, $request->validated());
 
             // Check if order is now fully paid and complete it
-            $totalPaid = $order->payments()->completed()->sum('amount');
-            if ($totalPaid >= $order->total_amount && $order->status !== 'completed') {
+            $order = $order->fresh();
+            if ($order->isFullyPaid() && $order->status !== 'completed') {
                 $order->complete();
             }
 
@@ -218,43 +187,7 @@ class PaymentController extends Controller
     {
         $this->authorize('viewAny', Payment::class);
 
-        $methods = [
-            [
-                'id' => 'cash',
-                'name' => 'Cash',
-                'description' => 'Cash payment',
-                'requires_reference' => false,
-                'is_active' => true,
-            ],
-            [
-                'id' => 'card',
-                'name' => 'Credit/Debit Card',
-                'description' => 'Card payment via EDC',
-                'requires_reference' => true,
-                'is_active' => true,
-            ],
-            [
-                'id' => 'qris',
-                'name' => 'QRIS',
-                'description' => 'QR Code payment',
-                'requires_reference' => true,
-                'is_active' => true,
-            ],
-            [
-                'id' => 'bank_transfer',
-                'name' => 'Bank Transfer',
-                'description' => 'Direct bank transfer',
-                'requires_reference' => true,
-                'is_active' => true,
-            ],
-            [
-                'id' => 'e_wallet',
-                'name' => 'E-Wallet',
-                'description' => 'Digital wallet payment',
-                'requires_reference' => true,
-                'is_active' => true,
-            ],
-        ];
+        $methods = PaymentMethodEnum::getAll();
 
         return response()->json([
             'success' => true,
@@ -285,8 +218,9 @@ class PaymentController extends Controller
             'failed_payments' => (clone $baseQuery)->where('status', 'failed')->count(),
             'total_amount' => (clone $baseQuery)->where('status', 'completed')->sum('amount'),
             'cash_payments' => (clone $baseQuery)->where('payment_method', 'cash')->where('status', 'completed')->sum('amount'),
-            'card_payments' => (clone $baseQuery)->where('payment_method', 'card')->where('status', 'completed')->sum('amount'),
+            'card_payments' => (clone $baseQuery)->whereIn('payment_method', ['credit_card', 'debit_card'])->where('status', 'completed')->sum('amount'),
             'digital_payments' => (clone $baseQuery)->whereIn('payment_method', ['qris', 'e_wallet'])->where('status', 'completed')->sum('amount'),
+            'bank_transfer_payments' => (clone $baseQuery)->where('payment_method', 'bank_transfer')->where('status', 'completed')->sum('amount'),
         ];
 
         return response()->json([
@@ -388,7 +322,8 @@ class PaymentController extends Controller
             case 'cash':
                 $this->processCashPayment($payment, $data);
                 break;
-            case 'card':
+            case 'credit_card':
+            case 'debit_card':
                 $this->processCardPayment($payment, $data);
                 break;
             case 'qris':
@@ -453,4 +388,90 @@ class PaymentController extends Controller
         // For now, we'll simulate successful processing
         $payment->markAsProcessed();
     }
-}
+}    /**
+
+     * Process refund for a payment.
+     */
+    public function refund(Request $request, string $id): JsonResponse
+    {
+        $payment = Payment::findOrFail($id);
+        $this->authorize('update', $payment);
+
+        $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+            'reason' => 'required|string|max:255',
+        ]);
+
+        // Validate refund using PaymentValidationService
+        $validationService = app(PaymentValidationService::class);
+        $validation = $validationService->validateRefund($payment, $request->input('amount'));
+
+        if (!$validation['valid']) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'REFUND_VALIDATION_FAILED',
+                    'message' => 'Refund validation failed.',
+                    'details' => $validation['errors']
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Create refund record
+            $refund = $payment->refunds()->create([
+                'store_id' => $payment->store_id,
+                'order_id' => $payment->order_id,
+                'user_id' => auth()->id(),
+                'amount' => $request->input('amount'),
+                'reason' => $request->input('reason'),
+                'status' => 'completed', // Auto-approve for now
+                'approved_by' => auth()->id(),
+                'approved_at' => now(),
+                'processed_at' => now(),
+                'processed_by' => auth()->id(),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'data' => $refund,
+                'message' => 'Refund processed successfully',
+                'meta' => [
+                    'refunded_amount' => $request->input('amount'),
+                    'remaining_refundable' => $payment->fresh()->getRefundableAmount(),
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Refund processing failed', [
+                'payment_id' => $payment->id,
+                'amount' => $request->input('amount'),
+                'error' => $e->getMessage(),
+                'user_id' => auth()->id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'REFUND_PROCESSING_FAILED',
+                    'message' => 'Failed to process refund. Please try again.',
+                    'details' => config('app.debug') ? $e->getMessage() : null
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 500);
+        }
+    }
