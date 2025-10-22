@@ -21,7 +21,7 @@ return new class extends Migration
             $table->boolean('track_inventory')->default(false);
             $table->integer('stock')->default(0);
             $table->integer('min_stock_level')->default(0);
-            $table->json('variants')->nullable();
+            // Variants handled by product_options table
             $table->boolean('status')->default(true);
             $table->boolean('is_favorite')->default(false);
             $table->integer('sort_order')->default(0);

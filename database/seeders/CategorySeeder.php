@@ -20,7 +20,7 @@ class CategorySeeder extends Seeder
                 'name' => 'Coffee',
                 'slug' => 'coffee',
                 'description' => 'Various coffee drinks',
-                'is_active' => true,
+                'status' => true,
                 'sort_order' => 1,
             ],
             [
@@ -28,7 +28,7 @@ class CategorySeeder extends Seeder
                 'name' => 'Tea',
                 'slug' => 'tea',
                 'description' => 'Tea and herbal drinks',
-                'is_active' => true,
+                'status' => true,
                 'sort_order' => 2,
             ],
             [
@@ -36,7 +36,7 @@ class CategorySeeder extends Seeder
                 'name' => 'Pastry',
                 'slug' => 'pastry',
                 'description' => 'Fresh baked goods',
-                'is_active' => true,
+                'status' => true,
                 'sort_order' => 3,
             ],
             [
@@ -44,7 +44,7 @@ class CategorySeeder extends Seeder
                 'name' => 'Snacks',
                 'slug' => 'snacks',
                 'description' => 'Light snacks and appetizers',
-                'is_active' => true,
+                'status' => true,
                 'sort_order' => 4,
             ],
         ];

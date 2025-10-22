@@ -18,12 +18,12 @@ class Category extends Model
         'slug',
         'description',
         'image',
-        'is_active',
+        'status',
         'sort_order',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'status' => 'boolean',
     ];
 
 
@@ -41,7 +41,7 @@ class Category extends Model
      */
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        return $query->where('status', true);
     }
 
     /**

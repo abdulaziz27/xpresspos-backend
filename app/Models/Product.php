@@ -24,7 +24,7 @@ class Product extends Model
         'track_inventory',
         'stock',
         'min_stock_level',
-        'variants',
+        // 'variants', // Removed - use product_options relationship instead
         'status',
         'is_favorite',
         'sort_order',
@@ -36,7 +36,7 @@ class Product extends Model
         'track_inventory' => 'boolean',
         'status' => 'boolean',
         'is_favorite' => 'boolean',
-        'variants' => 'array',
+        // 'variants' => 'array', // Removed - use product_options relationship instead
     ];
 
 

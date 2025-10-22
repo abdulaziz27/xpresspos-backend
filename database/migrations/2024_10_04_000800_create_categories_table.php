@@ -15,11 +15,11 @@ return new class extends Migration
             $table->string('slug')->nullable();
             $table->text('description')->nullable();
             $table->string('image')->nullable();
-            $table->boolean('is_active')->default(true);
+            $table->boolean('status')->default(true);
             $table->integer('sort_order')->default(0);
             $table->timestamps();
 
-            $table->index(['store_id', 'is_active']);
+            $table->index(['store_id', 'status']);
             $table->index('sort_order');
         });
     }
