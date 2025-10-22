@@ -20,6 +20,8 @@ return new class extends Migration
 
             $table->unique(['store_id', 'user_id']);
             $table->index(['user_id', 'assignment_role']);
+            $table->index(['store_id', 'assignment_role'], 'idx_store_assignments_role');
+            $table->index(['user_id', 'store_id'], 'idx_user_store_assignments');
         });
 
         // Seed assignment data from existing users.store_id if available

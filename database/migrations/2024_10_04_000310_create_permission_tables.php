@@ -29,14 +29,16 @@ return new class extends Migration
         Schema::create($tableNames['roles'], static function (Blueprint $table) use ($teams, $columnNames) {
             $table->bigIncrements('id');
             if ($teams || config('permission.testing')) {
-                $table->unsignedBigInteger($columnNames['team_foreign_key'])->nullable();
-                $table->index($columnNames['team_foreign_key'], 'roles_team_foreign_key_index');
+                // Use char(36) for UUID store_id instead of unsignedBigInteger
+                $table->char('store_id', 36)->nullable();
+                $table->index('store_id', 'roles_store_id_index');
             }
             $table->string('name');
             $table->string('guard_name');
             $table->timestamps();
             if ($teams || config('permission.testing')) {
-                $table->unique([$columnNames['team_foreign_key'], 'name', 'guard_name']);
+                $table->unique(['store_id', 'name', 'guard_name']);
+                $table->foreign('store_id')->references('id')->on('stores')->onDelete('cascade');
             } else {
                 $table->unique(['name', 'guard_name']);
             }
@@ -54,11 +56,16 @@ return new class extends Migration
                 ->onDelete('cascade');
 
             if ($teams) {
-                $table->unsignedBigInteger($columnNames['team_foreign_key']);
-                $table->index($columnNames['team_foreign_key'], 'model_has_permissions_team_foreign_key_index');
+                // Use char(36) for UUID store_id instead of unsignedBigInteger
+                $table->char('store_id', 36)->nullable();
+                $table->index('store_id', 'model_has_permissions_store_id_index');
+                $table->foreign('store_id')->references('id')->on('stores')->onDelete('cascade');
+
+                // Add performance index for permission lookup
+                $table->index(['model_id', 'model_type', 'store_id'], 'idx_model_permissions_lookup');
 
                 $table->primary([
-                    $columnNames['team_foreign_key'],
+                    'store_id',
                     $pivotPermission,
                     $columnNames['model_morph_key'],
                     'model_type',
@@ -84,11 +91,16 @@ return new class extends Migration
                 ->onDelete('cascade');
 
             if ($teams) {
-                $table->unsignedBigInteger($columnNames['team_foreign_key']);
-                $table->index($columnNames['team_foreign_key'], 'model_has_roles_team_foreign_key_index');
+                // Use char(36) for UUID store_id instead of unsignedBigInteger
+                $table->char('store_id', 36)->nullable();
+                $table->index('store_id', 'model_has_roles_store_id_index');
+                $table->foreign('store_id')->references('id')->on('stores')->onDelete('cascade');
+
+                // Add performance index for role lookup
+                $table->index(['model_id', 'model_type', 'store_id'], 'idx_model_roles_lookup');
 
                 $table->primary([
-                    $columnNames['team_foreign_key'],
+                    'store_id',
                     $pivotRole,
                     $columnNames['model_morph_key'],
                     'model_type',
@@ -119,6 +131,30 @@ return new class extends Migration
             $table->primary([$pivotPermission, $pivotRole], 'role_has_permissions_permission_id_role_id_primary');
         });
 
+        // Create permission audit logs table
+        Schema::create('permission_audit_logs', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->char('store_id', 36);
+            $table->unsignedBigInteger('user_id'); // User yang permissions-nya diubah
+            $table->unsignedBigInteger('changed_by'); // User yang melakukan perubahan
+            $table->string('action'); // 'granted', 'revoked', 'role_changed', 'reset_to_default'
+            $table->string('permission')->nullable(); // Permission yang diubah (null untuk role changes)
+            $table->string('old_value')->nullable(); // Role lama atau permission sebelumnya
+            $table->string('new_value')->nullable(); // Role baru atau permission baru
+            $table->text('notes')->nullable();
+            $table->timestamps();
+
+            $table->foreign('store_id')->references('id')->on('stores')->onDelete('cascade');
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('changed_by')->references('id')->on('users')->onDelete('cascade');
+            
+            $table->index(['store_id', 'user_id']);
+            $table->index(['changed_by']);
+            $table->index('created_at');
+            $table->index(['store_id', 'created_at'], 'idx_audit_store_date');
+            $table->index(['user_id', 'store_id', 'created_at'], 'idx_audit_user_store_date');
+        });
+
         app('cache')
             ->store(config('permission.cache.store') !== 'default' ? config('permission.cache.store') : null)
             ->forget(config('permission.cache.key'));
@@ -132,6 +168,7 @@ return new class extends Migration
             throw new \Exception('Error: config/permission.php not found and defaults could not be merged. Please publish the package configuration before proceeding, or drop the tables manually.');
         }
 
+        Schema::dropIfExists('permission_audit_logs');
         Schema::drop($tableNames['role_has_permissions']);
         Schema::drop($tableNames['model_has_roles']);
         Schema::drop($tableNames['model_has_permissions']);
