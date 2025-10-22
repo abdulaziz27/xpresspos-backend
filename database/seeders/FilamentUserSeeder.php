@@ -15,6 +15,9 @@ class FilamentUserSeeder extends Seeder
      */
     public function run(): void
     {
+        // Ensure dependencies exist first
+        $this->ensureDependencies();
+        
         // Create System Admin user
         $admin = User::firstOrCreate(
             ['email' => 'admin@xpresspos.com'],
@@ -80,5 +83,25 @@ class FilamentUserSeeder extends Seeder
                 'is_primary' => true,
             ]
         );
+    }
+    
+    private function ensureDependencies(): void
+    {
+        // Check if we have stores
+        if (!Store::exists()) {
+            $this->command->info('No stores found. Creating default store...');
+            $this->call(StoreSeeder::class);
+        }
+        
+        // Check if we have roles and permissions
+        $hasRoles = \Spatie\Permission\Models\Role::exists();
+        $hasPermissions = \Spatie\Permission\Models\Permission::exists();
+        
+        if (!$hasRoles || !$hasPermissions) {
+            $this->command->info('Roles and permissions not found. Creating them...');
+            $this->call(PermissionsAndRolesSeeder::class);
+        }
+        
+        $this->command->info('✅ All dependencies are ready!');
     }
 }

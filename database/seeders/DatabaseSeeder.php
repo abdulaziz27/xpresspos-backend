@@ -126,6 +126,11 @@ class DatabaseSeeder extends Seeder
             $this->assignUserToStore($user, $storeId, 'staff'); // Use staff for StoreUserAssignment
         });
 
+        // Create Filament users (admin and owner)
+        $this->call([
+            FilamentUserSeeder::class,
+        ]);
+        
         $this->call([
             CategorySeeder::class,
             ProductSeeder::class,
