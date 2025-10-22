@@ -25,6 +25,13 @@ class EnsureStoreContext
         if ($user) {
             $currentStoreId = $storeContext->current($user);
 
+            // If no store context, try to get from user's store_id first
+            if (!$currentStoreId && $user->store_id) {
+                $currentStoreId = $user->store_id;
+                $storeContext->set($currentStoreId);
+            }
+
+            // If still no store context, try primary store assignment
             if (!$currentStoreId) {
                 $primaryStore = $user->primaryStore();
 
@@ -35,17 +42,21 @@ class EnsureStoreContext
             }
 
             if ($currentStoreId) {
+                // Ensure user has the current store_id attribute
                 $user->setAttribute('store_id', $currentStoreId);
 
-                $store = $user->stores()
-                    ->where('stores.id', $currentStoreId)
-                    ->first();
+                // Load store relation if not already loaded
+                if (!$user->relationLoaded('store') || !$user->store || $user->store->id !== $currentStoreId) {
+                    $store = $user->stores()
+                        ->where('stores.id', $currentStoreId)
+                        ->first();
 
-                if ($store) {
-                    $user->setRelation('store', $store);
+                    if ($store) {
+                        $user->setRelation('store', $store);
+                    }
                 }
                 
-                // Set team context for permissions
+                // CRITICAL: Set team context for permissions
                 setPermissionsTeamId($currentStoreId);
             }
         }

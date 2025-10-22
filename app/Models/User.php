@@ -84,6 +84,28 @@ class User extends Authenticatable
     {
         return StoreContext::instance()->current($this);
     }
+    
+    /**
+     * Get roles with proper team context.
+     */
+    public function getRolesWithContext()
+    {
+        if ($this->store_id) {
+            setPermissionsTeamId($this->store_id);
+        }
+        return $this->roles;
+    }
+    
+    /**
+     * Get permissions with proper team context.
+     */
+    public function getPermissionsWithContext()
+    {
+        if ($this->store_id) {
+            setPermissionsTeamId($this->store_id);
+        }
+        return $this->permissions;
+    }
 
     /**
      * Get the orders created by the user.

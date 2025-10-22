@@ -84,8 +84,8 @@ class AuthController extends Controller
                         'name' => $user->store->name,
                         'status' => $user->store->status,
                     ] : null,
-                    'roles' => $user->getRoleNames(),
-                    'permissions' => $user->getAllPermissions()->pluck('name'),
+                    'roles' => $user->getRolesWithContext()->pluck('name'),
+                    'permissions' => $user->getPermissionsWithContext()->pluck('name'),
                 ],
                 'token' => $token,
                 'token_type' => 'Bearer',
@@ -146,6 +146,12 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
+        
+        // Ensure team context is set before loading roles & permissions
+        if ($user->store_id) {
+            setPermissionsTeamId($user->store_id);
+        }
+        
         $user->load(['store', 'roles', 'permissions']);
 
         return response()->json([
@@ -161,8 +167,8 @@ class AuthController extends Controller
                         'name' => $user->store->name,
                         'status' => $user->store->status,
                     ] : null,
-                    'roles' => $user->getRoleNames(),
-                    'permissions' => $user->getAllPermissions()->pluck('name'),
+                    'roles' => $user->getRolesWithContext()->pluck('name'),
+                    'permissions' => $user->getPermissionsWithContext()->pluck('name'),
                     'created_at' => $user->created_at->toISOString(),
                     'updated_at' => $user->updated_at->toISOString(),
                 ],
