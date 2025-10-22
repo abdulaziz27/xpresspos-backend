@@ -64,12 +64,13 @@ return new class extends Migration
                 // Add performance index for permission lookup
                 $table->index(['model_id', 'model_type', 'store_id'], 'idx_model_permissions_lookup');
 
-                $table->primary([
-                    'store_id',
+                // Create unique index instead of primary key since store_id is nullable
+                $table->unique([
                     $pivotPermission,
                     $columnNames['model_morph_key'],
                     'model_type',
-                ], 'model_has_permissions_permission_model_type_primary');
+                    'store_id',
+                ], 'model_has_permissions_permission_model_type_unique');
             } else {
                 $table->primary([
                     $pivotPermission,
@@ -99,12 +100,13 @@ return new class extends Migration
                 // Add performance index for role lookup
                 $table->index(['model_id', 'model_type', 'store_id'], 'idx_model_roles_lookup');
 
-                $table->primary([
-                    'store_id',
+                // Create unique index instead of primary key since store_id is nullable
+                $table->unique([
                     $pivotRole,
                     $columnNames['model_morph_key'],
                     'model_type',
-                ], 'model_has_roles_role_model_type_primary');
+                    'store_id',
+                ], 'model_has_roles_role_model_type_unique');
             } else {
                 $table->primary([
                     $pivotRole,
