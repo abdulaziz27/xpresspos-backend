@@ -63,13 +63,8 @@ class AuthController extends Controller
         $deviceName = $request->device_name ?? 'API Token';
         $token = $user->createToken($deviceName, ['*'], now()->addWeek())->plainTextToken;
 
-        // Set team context for permissions
-        if ($user->store_id) {
-            setPermissionsTeamId($user->store_id);
-        }
-
-        // Load user relationships
-        $user->load(['store', 'roles', 'permissions']);
+        // Load store relationship
+        $user->load(['store']);
 
         return response()->json([
             'success' => true,
@@ -147,12 +142,8 @@ class AuthController extends Controller
     {
         $user = $request->user();
         
-        // Ensure team context is set before loading roles & permissions
-        if ($user->store_id) {
-            setPermissionsTeamId($user->store_id);
-        }
-        
-        $user->load(['store', 'roles', 'permissions']);
+        // Load store relation first
+        $user->load(['store']);
 
         return response()->json([
             'success' => true,
