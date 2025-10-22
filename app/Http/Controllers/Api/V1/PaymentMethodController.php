@@ -20,22 +20,9 @@ class PaymentMethodController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $user = Auth::user() ?? request()->user();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'error' => [
-                    'code' => 'UNAUTHENTICATED',
-                    'message' => 'User not authenticated',
-                ],
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'version' => 'v1',
-                    'request_id' => $request->header('X-Request-ID', uniqid()),
-                ]
-            ], 401);
-        }
+        $this->authorize('viewAny', PaymentMethod::class);
+        
+        $user = auth()->user() ?? request()->user();
 
         $paymentMethods = $user->paymentMethods()
             ->orderBy('is_default', 'desc')
@@ -118,6 +105,8 @@ class PaymentMethodController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', PaymentMethod::class);
+        
         $request->validate([
             'payment_data' => 'required|array',
             'set_as_default' => 'sometimes|boolean',
@@ -188,6 +177,8 @@ class PaymentMethodController extends Controller
      */
     public function setDefault(Request $request, PaymentMethod $paymentMethod): JsonResponse
     {
+        $this->authorize('update', $paymentMethod);
+        
         // Ensure payment method belongs to authenticated user
         if ($paymentMethod->user_id !== Auth::id()) {
             return response()->json([
@@ -228,6 +219,8 @@ class PaymentMethodController extends Controller
      */
     public function destroy(Request $request, PaymentMethod $paymentMethod): JsonResponse
     {
+        $this->authorize('delete', $paymentMethod);
+        
         // Ensure payment method belongs to authenticated user
         if ($paymentMethod->user_id !== Auth::id()) {
             return response()->json([

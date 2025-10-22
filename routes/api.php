@@ -426,11 +426,11 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::get('invoices/{invoice}/status', [SubscriptionPaymentController::class, 'paymentStatus'])->name('api.v1.subscription-payments.payment-status');
         });
     });
+});
 
-    // Webhooks
-    Route::prefix('webhooks')->group(function (): void {
-        Route::post('midtrans', [MidtransWebhookController::class, 'handle'])->name('api.v1.webhooks.midtrans');
-    });
+// Public webhooks (outside protected middleware)
+Route::prefix('v1/webhooks')->group(function (): void {
+    Route::post('midtrans', [MidtransWebhookController::class, 'handle'])->name('api.v1.webhooks.midtrans');
 });
 
 Route::fallback(function () {

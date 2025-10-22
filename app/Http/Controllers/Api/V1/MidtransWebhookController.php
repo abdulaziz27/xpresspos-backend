@@ -20,9 +20,22 @@ class MidtransWebhookController extends Controller
     public function handle(Request $request): JsonResponse
     {
         try {
+            // Validate Midtrans signature for security
+            $serverKey = config('midtrans.server_key');
+            $hashed = hash('sha512', $request->input('order_id') . $request->input('status_code') . $request->input('gross_amount') . $serverKey);
+            
+            if ($hashed !== $request->input('signature_key')) {
+                Log::warning('Invalid Midtrans signature', [
+                    'expected' => $hashed,
+                    'received' => $request->input('signature_key')
+                ]);
+                
+                return response()->json(['status' => 'error', 'message' => 'Invalid signature'], 401);
+            }
+            
             Log::info('Midtrans webhook received', [
-                'headers' => $request->headers->all(),
-                'body' => $request->all(),
+                'order_id' => $request->input('order_id'),
+                'transaction_status' => $request->input('transaction_status'),
             ]);
 
             $notification = $request->all();
