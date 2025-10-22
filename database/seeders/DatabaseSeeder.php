@@ -53,6 +53,7 @@ class DatabaseSeeder extends Seeder
             ->where('store_id', $storeId)
             ->first();
         if ($ownerRole) {
+            setPermissionsTeamId($storeId);
             $ownerUser->assignRole($ownerRole);
         }
         $this->assignUserToStore($ownerUser, $storeId, 'owner', isPrimary: true);
@@ -65,6 +66,7 @@ class DatabaseSeeder extends Seeder
             'store_id' => $storeId,
         ]);
         if ($ownerRole) {
+            setPermissionsTeamId($storeId);
             $testOwner->assignRole($ownerRole);
         }
         $this->assignUserToStore($testOwner, $storeId, 'owner', isPrimary: false);
@@ -82,6 +84,7 @@ class DatabaseSeeder extends Seeder
             ->where('store_id', $storeId)
             ->first();
         if ($managerRole) {
+            setPermissionsTeamId($storeId);
             $managerUser->assignRole($managerRole);
         }
         $this->assignUserToStore($managerUser, $storeId, 'manager');
@@ -97,6 +100,7 @@ class DatabaseSeeder extends Seeder
             ->where('store_id', $storeId)
             ->first();
         if ($staffRole) {
+            setPermissionsTeamId($storeId);
             $staffUser->assignRole($staffRole);
         }
         $this->assignUserToStore($staffUser, $storeId, 'staff');
@@ -109,6 +113,7 @@ class DatabaseSeeder extends Seeder
                 ->where('store_id', $storeId)
                 ->first();
             if ($staffRole) {
+                setPermissionsTeamId($storeId);
                 $user->assignRole($staffRole);
             }
             $this->assignUserToStore($user, $storeId, 'staff');
@@ -121,6 +126,7 @@ class DatabaseSeeder extends Seeder
                 ->where('store_id', $storeId)
                 ->first();
             if ($cashierRole) {
+                setPermissionsTeamId($storeId);
                 $user->assignRole($cashierRole);
             }
             $this->assignUserToStore($user, $storeId, 'staff'); // Use staff for StoreUserAssignment

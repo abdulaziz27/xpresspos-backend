@@ -104,7 +104,7 @@ class User extends Authenticatable
         if ($this->store_id) {
             setPermissionsTeamId($this->store_id);
         }
-        return $this->permissions;
+        return $this->getAllPermissions();
     }
 
     /**

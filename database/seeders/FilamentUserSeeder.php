@@ -60,6 +60,8 @@ class FilamentUserSeeder extends Seeder
             ->first();
         
         if ($ownerRole && !$owner->hasRole($ownerRole)) {
+            // Set team context before assigning role
+            setPermissionsTeamId($primaryStoreId);
             $owner->assignRole($ownerRole);
         }
 
