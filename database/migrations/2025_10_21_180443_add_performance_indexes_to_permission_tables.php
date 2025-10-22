@@ -9,8 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         // Add indexes for better permission checking performance
+        // Note: model_has_permissions doesn't have store_id column, only model_has_roles does
         Schema::table('model_has_permissions', function (Blueprint $table) {
-            $table->index(['model_id', 'model_type', 'store_id'], 'idx_model_permissions_lookup');
+            $table->index(['model_id', 'model_type'], 'idx_model_permissions_lookup');
         });
 
         Schema::table('model_has_roles', function (Blueprint $table) {
