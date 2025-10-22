@@ -33,21 +33,27 @@ class DatabaseSeeder extends Seeder
         $storeId = config('demo.store_id');
 
         // Create a system admin user (skip role assignment for now)
-        $systemAdmin = User::factory()->create([
-            'name' => 'System Admin',
-            'email' => 'admin@posxpress.com',
-            'password' => Hash::make('password'),
-            'store_id' => null, // System admin doesn't belong to any store
-        ]);
+        $systemAdmin = User::firstOrCreate(
+            ['email' => 'admin@posxpress.com'],
+            [
+                'name' => 'System Admin',
+                'password' => Hash::make('password'),
+                'store_id' => null, // System admin doesn't belong to any store
+                'email_verified_at' => now(),
+            ]
+        );
         // Note: admin_sistem role will be assigned manually or through different mechanism
 
         // Create owner users for Filament login
-        $ownerUser = User::factory()->create([
-            'name' => 'Abdul Aziz',
-            'email' => 'aziz@xpress.com',
-            'password' => Hash::make('password'),
-            'store_id' => $storeId,
-        ]);
+        $ownerUser = User::firstOrCreate(
+            ['email' => 'aziz@xpress.com'],
+            [
+                'name' => 'Abdul Aziz',
+                'password' => Hash::make('password'),
+                'store_id' => $storeId,
+                'email_verified_at' => now(),
+            ]
+        );
         // Find the owner role for this specific store
         $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
             ->where('store_id', $storeId)
@@ -59,12 +65,15 @@ class DatabaseSeeder extends Seeder
         $this->assignUserToStore($ownerUser, $storeId, 'owner', isPrimary: true);
 
         // Create additional owner user for easy testing
-        $testOwner = User::factory()->create([
-            'name' => 'Test Owner',
-            'email' => 'owner@test.com',
-            'password' => Hash::make('password'),
-            'store_id' => $storeId,
-        ]);
+        $testOwner = User::firstOrCreate(
+            ['email' => 'owner@test.com'],
+            [
+                'name' => 'Test Owner',
+                'password' => Hash::make('password'),
+                'store_id' => $storeId,
+                'email_verified_at' => now(),
+            ]
+        );
         if ($ownerRole) {
             setPermissionsTeamId($storeId);
             $testOwner->assignRole($ownerRole);
@@ -74,12 +83,15 @@ class DatabaseSeeder extends Seeder
         // Create test users with different roles and easy credentials
         
         // Create manager user for testing
-        $managerUser = User::factory()->create([
-            'name' => 'Test Manager',
-            'email' => 'manager@test.com',
-            'password' => Hash::make('password'),
-            'store_id' => $storeId,
-        ]);
+        $managerUser = User::firstOrCreate(
+            ['email' => 'manager@test.com'],
+            [
+                'name' => 'Test Manager',
+                'password' => Hash::make('password'),
+                'store_id' => $storeId,
+                'email_verified_at' => now(),
+            ]
+        );
         $managerRole = \Spatie\Permission\Models\Role::where('name', 'manager')
             ->where('store_id', $storeId)
             ->first();
@@ -90,12 +102,15 @@ class DatabaseSeeder extends Seeder
         $this->assignUserToStore($managerUser, $storeId, 'manager');
 
         // Create staff user for testing
-        $staffUser = User::factory()->create([
-            'name' => 'Test Staff',
-            'email' => 'staff@test.com',
-            'password' => Hash::make('password'),
-            'store_id' => $storeId,
-        ]);
+        $staffUser = User::firstOrCreate(
+            ['email' => 'staff@test.com'],
+            [
+                'name' => 'Test Staff',
+                'password' => Hash::make('password'),
+                'store_id' => $storeId,
+                'email_verified_at' => now(),
+            ]
+        );
         $staffRole = \Spatie\Permission\Models\Role::where('name', 'staff')
             ->where('store_id', $storeId)
             ->first();
@@ -105,10 +120,23 @@ class DatabaseSeeder extends Seeder
         }
         $this->assignUserToStore($staffUser, $storeId, 'staff');
 
-        // Create additional random users
-        User::factory(2)->create([
-            'store_id' => $storeId,
-        ])->each(function ($user) use ($storeId) {
+        // Create additional staff users for testing
+        $additionalStaff = [
+            ['name' => 'Staff User 1', 'email' => 'staff1@test.com'],
+            ['name' => 'Staff User 2', 'email' => 'staff2@test.com'],
+        ];
+
+        foreach ($additionalStaff as $staffData) {
+            $user = User::firstOrCreate(
+                ['email' => $staffData['email']],
+                [
+                    'name' => $staffData['name'],
+                    'password' => Hash::make('password'),
+                    'store_id' => $storeId,
+                    'email_verified_at' => now(),
+                ]
+            );
+
             $staffRole = \Spatie\Permission\Models\Role::where('name', 'staff')
                 ->where('store_id', $storeId)
                 ->first();
@@ -117,11 +145,25 @@ class DatabaseSeeder extends Seeder
                 $user->assignRole($staffRole);
             }
             $this->assignUserToStore($user, $storeId, 'staff');
-        });
+        }
 
-        User::factory(2)->create([
-            'store_id' => $storeId,
-        ])->each(function ($user) use ($storeId) {
+        // Create additional cashier users for testing
+        $additionalCashiers = [
+            ['name' => 'Cashier User 1', 'email' => 'cashier1@test.com'],
+            ['name' => 'Cashier User 2', 'email' => 'cashier2@test.com'],
+        ];
+
+        foreach ($additionalCashiers as $cashierData) {
+            $user = User::firstOrCreate(
+                ['email' => $cashierData['email']],
+                [
+                    'name' => $cashierData['name'],
+                    'password' => Hash::make('password'),
+                    'store_id' => $storeId,
+                    'email_verified_at' => now(),
+                ]
+            );
+
             $cashierRole = \Spatie\Permission\Models\Role::where('name', 'cashier')
                 ->where('store_id', $storeId)
                 ->first();
@@ -130,7 +172,7 @@ class DatabaseSeeder extends Seeder
                 $user->assignRole($cashierRole);
             }
             $this->assignUserToStore($user, $storeId, 'staff'); // Use staff for StoreUserAssignment
-        });
+        }
 
         // Create Filament users (admin and owner)
         $this->call([
