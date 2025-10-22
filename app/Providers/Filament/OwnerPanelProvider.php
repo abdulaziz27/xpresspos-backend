@@ -70,7 +70,9 @@ class OwnerPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
                 EnsureStoreContext::class,
+                \App\Http\Middleware\EnsureFilamentTeamContext::class,
                 FilamentRoleMiddleware::class . ':owner',
+                \App\Http\Middleware\LogSecurityEvents::class,
             ])
             ->authMiddleware([
                 Authenticate::class,

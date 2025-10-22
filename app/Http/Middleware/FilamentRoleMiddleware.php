@@ -24,8 +24,38 @@ class FilamentRoleMiddleware
             return redirect()->route('filament.admin.auth.login');
         }
 
-        if (!auth()->user()->hasRole($role)) {
-            abort(403, 'Unauthorized access to this panel.');
+        $user = auth()->user();
+        
+        // For owner panel, check if user has owner role in any store or has store assignment as owner
+        if ($role === 'owner') {
+            // Set team context first
+            if ($user->store_id) {
+                setPermissionsTeamId($user->store_id);
+            }
+            
+            $hasOwnerRole = $user->roles()->where('name', 'owner')->exists();
+            $hasOwnerAssignment = $user->storeAssignments()
+                ->where('assignment_role', 'owner')
+                ->exists();
+            
+            // Debug logging
+            \Log::info('FilamentRoleMiddleware owner check', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'store_id' => $user->store_id,
+                'has_owner_role' => $hasOwnerRole,
+                'has_owner_assignment' => $hasOwnerAssignment,
+                'url' => $request->fullUrl(),
+            ]);
+                
+            if (!$hasOwnerRole && !$hasOwnerAssignment) {
+                abort(403, 'Unauthorized access to this panel.');
+            }
+        } else {
+            // For other roles, use standard check
+            if (!$user->hasRole($role)) {
+                abort(403, 'Unauthorized access to this panel.');
+            }
         }
 
         return $next($request);

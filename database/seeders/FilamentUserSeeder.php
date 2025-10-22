@@ -25,8 +25,19 @@ class FilamentUserSeeder extends Seeder
             ]
         );
 
-        if (!$admin->hasRole('admin_sistem')) {
-            $admin->assignRole('admin_sistem');
+        // Assign admin_sistem role (global role without store_id)
+        $adminSistemRole = \Spatie\Permission\Models\Role::where('name', 'admin_sistem')
+            ->whereNull('store_id')
+            ->first();
+        if ($adminSistemRole && !$admin->hasRole($adminSistemRole)) {
+            $admin->assignRole($adminSistemRole);
+        }
+
+        // Get primary store ID
+        $primaryStoreId = Store::value('id');
+        if (!$primaryStoreId) {
+            $this->command->error('No store found! Please run StoreSeeder first.');
+            return;
         }
 
         // Create Store Owner user
@@ -36,22 +47,21 @@ class FilamentUserSeeder extends Seeder
                 'name' => 'Store Owner',
                 'password' => Hash::make('password123'),
                 'email_verified_at' => now(),
+                'store_id' => $primaryStoreId,
             ]
         );
 
-        if (!$owner->hasRole('owner')) {
-            $owner->assignRole('owner');
+        // Assign owner role for the specific store
+        $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
+            ->where('store_id', $primaryStoreId)
+            ->first();
+        
+        if ($ownerRole && !$owner->hasRole($ownerRole)) {
+            $owner->assignRole($ownerRole);
         }
 
-        // Ensure owner user has a store context for API access
-        if (!$owner->store_id) {
-            if ($primaryStoreId = Store::value('id')) {
-                $owner->forceFill(['store_id' => $primaryStoreId])->save();
-                $this->assignUserToStore($owner, $primaryStoreId, 'owner');
-            }
-        } else {
-            $this->assignUserToStore($owner, $owner->store_id, 'owner');
-        }
+        // Ensure owner user has store context
+        $this->assignUserToStore($owner, $primaryStoreId, 'owner');
 
         $this->command->info('Filament users created successfully!');
         $this->command->info('Admin: admin@xpresspos.com / password123');

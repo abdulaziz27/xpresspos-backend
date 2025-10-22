@@ -18,7 +18,7 @@ class MemberResource extends Resource
 {
     protected static ?string $model = Member::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
 
     protected static ?string $navigationLabel = 'Members';
 
@@ -27,6 +27,8 @@ class MemberResource extends Resource
     protected static ?string $pluralModelLabel = 'Members';
 
     protected static ?int $navigationSort = 1;
+
+
 
 
     public static function form(Schema $schema): Schema
@@ -53,5 +55,19 @@ class MemberResource extends Resource
             'create' => CreateMember::route('/create'),
             'edit' => EditMember::route('/{record}/edit'),
         ];
+    }
+
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->store_id) {
+            setPermissionsTeamId($user->store_id);
+        }
+
+        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager', 'cashier']);
     }
 }

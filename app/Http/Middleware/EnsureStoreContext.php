@@ -19,14 +19,10 @@ class EnsureStoreContext
             ?? $request->query('store_id');
 
         if ($requestedStoreId && $user) {
-            if ($user->hasRole('admin_sistem')) {
-                $storeContext->set($requestedStoreId);
-            } else {
-                $storeContext->setForUser($user, $requestedStoreId);
-            }
+            $storeContext->setForUser($user, $requestedStoreId);
         }
 
-        if ($user && !$user->hasRole('admin_sistem')) {
+        if ($user) {
             $currentStoreId = $storeContext->current($user);
 
             if (!$currentStoreId) {
@@ -48,6 +44,9 @@ class EnsureStoreContext
                 if ($store) {
                     $user->setRelation('store', $store);
                 }
+                
+                // Set team context for permissions
+                setPermissionsTeamId($currentStoreId);
             }
         }
 

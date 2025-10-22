@@ -35,7 +35,7 @@ class StoreUserAssignment extends Model
     {
         return $this->belongsTo(User::class);
     }
-}
+
     /**
      * Get the display name for the assignment role.
      */
@@ -103,3 +103,4 @@ class StoreUserAssignment extends Model
             AssignmentRoleEnum::OWNER->value,
         ]);
     }
+}

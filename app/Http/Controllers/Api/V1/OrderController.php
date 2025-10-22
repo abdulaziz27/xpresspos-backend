@@ -730,7 +730,7 @@ class OrderController extends Controller
 
         return $orderItem;
     }
-}
+
     /**
      * Cancel an order.
      */
@@ -838,4 +838,4 @@ class OrderController extends Controller
                 ]
             ], 500);
         }
-    }
+    }}

@@ -18,7 +18,7 @@ class CategoryResource extends Resource
 {
     protected static ?string $model = Category::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-tag';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;
 
     protected static ?string $navigationLabel = 'Categories';
 
@@ -27,6 +27,8 @@ class CategoryResource extends Resource
     protected static ?string $pluralModelLabel = 'Categories';
 
     protected static ?int $navigationSort = 2;
+
+
 
 
     public static function form(Schema $schema): Schema
@@ -53,5 +55,19 @@ class CategoryResource extends Resource
             'create' => CreateCategory::route('/create'),
             'edit' => EditCategory::route('/{record}/edit'),
         ];
+    }
+
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->store_id) {
+            setPermissionsTeamId($user->store_id);
+        }
+
+        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager', 'cashier']);
     }
 }

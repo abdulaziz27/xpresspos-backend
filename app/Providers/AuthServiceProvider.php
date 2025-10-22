@@ -20,6 +20,7 @@ use App\Policies\PaymentPolicy;
 use App\Policies\ProductPolicy;
 use App\Policies\RefundPolicy;
 use App\Policies\StoreUserAssignmentPolicy;
+use App\Policies\StoreUserPermissionPolicy;
 use App\Policies\TablePolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
@@ -39,7 +40,7 @@ class AuthServiceProvider extends ServiceProvider
         Payment::class => PaymentPolicy::class,
         Product::class => ProductPolicy::class,
         Refund::class => RefundPolicy::class,
-        StoreUserAssignment::class => StoreUserAssignmentPolicy::class,
+        StoreUserAssignment::class => StoreUserPermissionPolicy::class,
         Table::class => TablePolicy::class,
         User::class => UserPolicy::class,
     ];

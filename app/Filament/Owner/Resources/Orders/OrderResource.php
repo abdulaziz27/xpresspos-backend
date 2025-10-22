@@ -11,12 +11,13 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Filament\Support\Icons\Heroicon;
 
 class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
     protected static ?string $navigationLabel = 'Orders';
 
@@ -25,6 +26,8 @@ class OrderResource extends Resource
     protected static ?string $pluralModelLabel = 'Orders';
 
     protected static ?int $navigationSort = 1;
+
+
 
 
     public static function form(Schema $schema): Schema
@@ -79,5 +82,19 @@ class OrderResource extends Resource
     public static function canForceDeleteAny(): bool
     {
         return false;
+    }
+
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->store_id) {
+            setPermissionsTeamId($user->store_id);
+        }
+
+        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager', 'cashier']);
     }
 }

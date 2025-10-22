@@ -60,7 +60,15 @@ class OwnerDemoSeeder extends Seeder
                 'password' => bcrypt('password'),
                 'store_id' => $store->id,
             ]);
-            $owner->assignRole('owner');
+            
+            // Assign role with team context
+            setPermissionsTeamId($store->id);
+            $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
+                ->where('store_id', $store->id)
+                ->first();
+            if ($ownerRole) {
+                $owner->assignRole($ownerRole);
+            }
         }
         if ($owner) {
             StoreUserAssignment::updateOrCreate(
@@ -70,7 +78,11 @@ class OwnerDemoSeeder extends Seeder
         }
 
         // Pick a manager and cashier for sample data
-        $manager = User::role('manager')->where('store_id', $store->id)->first();
+        $manager = User::where('store_id', $store->id)
+            ->whereHas('storeAssignments', function($q) use ($store) {
+                $q->where('store_id', $store->id)->where('assignment_role', 'manager');
+            })->first();
+        
         if (!$manager) {
             $manager = User::create([
                 'name' => 'Store Manager',
@@ -78,14 +90,26 @@ class OwnerDemoSeeder extends Seeder
                 'password' => bcrypt('password'),
                 'store_id' => $store->id,
             ]);
-            $manager->assignRole('manager');
+            
+            // Assign role with team context
+            setPermissionsTeamId($store->id);
+            $managerRole = \Spatie\Permission\Models\Role::where('name', 'manager')
+                ->where('store_id', $store->id)
+                ->first();
+            if ($managerRole) {
+                $manager->assignRole($managerRole);
+            }
         }
         StoreUserAssignment::updateOrCreate(
             ['store_id' => $store->id, 'user_id' => $manager->id],
             ['assignment_role' => 'manager', 'is_primary' => false]
         );
 
-        $cashier = User::role('cashier')->where('store_id', $store->id)->first();
+        $cashier = User::where('store_id', $store->id)
+            ->whereHas('storeAssignments', function($q) use ($store) {
+                $q->where('store_id', $store->id)->where('assignment_role', 'staff');
+            })->first();
+            
         if (!$cashier) {
             $cashier = User::create([
                 'name' => 'Demo Cashier',
@@ -93,11 +117,19 @@ class OwnerDemoSeeder extends Seeder
                 'password' => bcrypt('password'),
                 'store_id' => $store->id,
             ]);
-            $cashier->assignRole('cashier');
+            
+            // Assign role with team context
+            setPermissionsTeamId($store->id);
+            $cashierRole = \Spatie\Permission\Models\Role::where('name', 'cashier')
+                ->where('store_id', $store->id)
+                ->first();
+            if ($cashierRole) {
+                $cashier->assignRole($cashierRole);
+            }
         }
         StoreUserAssignment::updateOrCreate(
             ['store_id' => $store->id, 'user_id' => $cashier->id],
-            ['assignment_role' => 'cashier', 'is_primary' => false]
+            ['assignment_role' => 'staff', 'is_primary' => false]
         );
 
         // Ensure default tiers exist
@@ -236,7 +268,6 @@ class OwnerDemoSeeder extends Seeder
                 'discount_amount' => 0,
                 'service_charge' => 1500,
                 'total_amount' => 29000,
-                'total_items' => 1,
                 'notes' => 'Morning order',
                 'completed_at' => now()->subHour(),
             ]

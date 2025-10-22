@@ -16,3 +16,5 @@ Route::get('/healthz', function () {
         'timestamp' => now()->toISOString(),
     ]);
 })->name('healthz');
+
+require __DIR__.'/debug.php';

@@ -388,8 +388,8 @@ class PaymentController extends Controller
         // For now, we'll simulate successful processing
         $payment->markAsProcessed();
     }
-}    /**
 
+    /**
      * Process refund for a payment.
      */
     public function refund(Request $request, string $id): JsonResponse
@@ -474,4 +474,4 @@ class PaymentController extends Controller
                 ]
             ], 500);
         }
-    }
+    }}

@@ -11,12 +11,13 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Filament\Support\Icons\Heroicon;
 
 class PaymentResource extends Resource
 {
     protected static ?string $model = Payment::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-credit-card';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
 
     protected static ?string $navigationLabel = 'Payments';
 
@@ -25,6 +26,8 @@ class PaymentResource extends Resource
     protected static ?string $pluralModelLabel = 'Payments';
 
     protected static ?int $navigationSort = 2;
+
+
 
 
     public static function form(Schema $schema): Schema
@@ -79,5 +82,19 @@ class PaymentResource extends Resource
     public static function canForceDeleteAny(): bool
     {
         return false;
+    }
+
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->store_id) {
+            setPermissionsTeamId($user->store_id);
+        }
+
+        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager', 'cashier']);
     }
 }

@@ -15,11 +15,15 @@ class OwnerDashboardService
 {
     public function summaryFor(?User $user): array
     {
-        if (! $user || ! $user->store_id) {
+        if (! $user) {
             return $this->emptySummary();
         }
 
-        $storeId = $user->store_id;
+        $storeId = $user->currentStoreId();
+        
+        if (! $storeId) {
+            return $this->emptySummary();
+        }
         $now = CarbonImmutable::now();
 
         $paymentsQuery = Payment::query()

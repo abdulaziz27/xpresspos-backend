@@ -67,6 +67,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'domain.routing' => \App\Http\Middleware\DomainRoutingMiddleware::class,
             'store.permission' => \App\Http\Middleware\CheckStorePermission::class,
             'store.context' => \App\Http\Middleware\EnsureStoreContext::class,
+            'log.security' => \App\Http\Middleware\LogSecurityEvents::class,
         ]);
 
         $middleware->web([

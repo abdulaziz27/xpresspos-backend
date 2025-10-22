@@ -18,7 +18,7 @@ class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cube';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCube;
 
     protected static ?string $navigationLabel = 'Products';
 
@@ -27,6 +27,8 @@ class ProductResource extends Resource
     protected static ?string $pluralModelLabel = 'Products';
 
     protected static ?int $navigationSort = 1;
+
+
 
 
     public static function form(Schema $schema): Schema
@@ -53,5 +55,22 @@ class ProductResource extends Resource
             'create' => CreateProduct::route('/create'),
             'edit' => EditProduct::route('/{record}/edit'),
         ];
+    }
+
+    public static function canViewAny(): bool
+    {
+        // Temporary bypass for debugging
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+
+        // Set team context if not set
+        if ($user->store_id) {
+            setPermissionsTeamId($user->store_id);
+        }
+
+        // Check if user has owner role
+        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager', 'cashier']);
     }
 }
