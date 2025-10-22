@@ -63,6 +63,11 @@ class AuthController extends Controller
         $deviceName = $request->device_name ?? 'API Token';
         $token = $user->createToken($deviceName, ['*'], now()->addWeek())->plainTextToken;
 
+        // Set team context for permissions
+        if ($user->store_id) {
+            setPermissionsTeamId($user->store_id);
+        }
+
         // Load user relationships
         $user->load(['store', 'roles', 'permissions']);
 
