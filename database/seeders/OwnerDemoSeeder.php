@@ -166,7 +166,7 @@ class OwnerDemoSeeder extends Seeder
             [
                 'name' => 'Coffee',
                 'description' => 'Signature coffee drinks',
-                'is_active' => true,
+                'status' => true,
                 'sort_order' => 1,
             ]
         );
