@@ -20,9 +20,23 @@ class OrderCalculationService
             $subtotal += $this->calculateItemTotal($item);
         }
         
-        // Calculate tax (10% default, can be configurable per store)
-        $taxRate = $order->store->settings['tax_rate'] ?? 0.10;
-        $taxAmount = $subtotal * $taxRate;
+        // Calculate tax (configurable per store, default 0)
+        $taxSettings = $order->store->settings['tax_settings'] ?? [];
+        $taxRate = $taxSettings['tax_rate'] ?? 0;
+        $taxInclusive = $taxSettings['tax_inclusive'] ?? false;
+        
+        if ($taxRate == 0) {
+            $taxAmount = 0;
+        } else {
+            if ($taxInclusive) {
+                // Tax sudah termasuk dalam harga
+                $taxAmount = $subtotal - ($subtotal / (1 + $taxRate));
+                $subtotal = $subtotal - $taxAmount;
+            } else {
+                // Tax ditambahkan ke harga
+                $taxAmount = $subtotal * $taxRate;
+            }
+        }
         
         // Service charge (from order or default 0)
         $serviceCharge = $order->service_charge ?? 0;
@@ -42,7 +56,6 @@ class OrderCalculationService
             'service_charge' => round($serviceCharge, 2),
             'discount_amount' => round($discountAmount, 2),
             'total_amount' => round($totalAmount, 2),
-            'total_items' => $order->items->sum('quantity'),
         ];
     }
     

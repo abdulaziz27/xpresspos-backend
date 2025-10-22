@@ -151,7 +151,7 @@ class Member extends Model
     public function updateStats(float $amount): void
     {
         $this->increment('total_spent', $amount);
-        $this->increment('visit_count');
+        $this->increment('visit_count', 1);
         $this->update(['last_visit_at' => now()]);
     }
 
@@ -243,7 +243,7 @@ class Member extends Model
         // Apply tier multiplier if available
         $tierMultiplier = $this->tier?->benefits['points_multiplier'] ?? 1;
         
-        return (int) floor($amount * $pointsPerDollar * $tierMultiplier);
+        return intval(floor($amount * $pointsPerDollar * $tierMultiplier));
     }
 
     /**

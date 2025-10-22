@@ -95,11 +95,21 @@ class OrderController extends Controller
             DB::beginTransaction();
 
             $user = auth()->user() ?? request()->user();
+            $store = $user->store;
+            
+            // Resolve customer information
+            $customerService = app(\App\Services\CustomerResolutionService::class);
+            $customerData = $customerService->resolveCustomer($request->all(), $store);
+            
             $order = Order::create([
                 'store_id' => $user->store_id,
-                'user_id' => $user->id,
-                'member_id' => $request->input('member_id'),
+                'user_id' => $user->id,  // Staff who created the order
+                'member_id' => $customerData['customer_id'],
+                'customer_name' => $customerData['customer_name'],
+                'customer_type' => $customerData['customer_type'],
                 'table_id' => $request->input('table_id'),
+                'operation_mode' => $request->input('operation_mode', 'dine_in'),
+                'payment_mode' => $request->input('payment_mode', 'direct'),
                 'status' => $request->input('status', 'draft'),
                 'service_charge' => $request->input('service_charge', 0),
                 'discount_amount' => $request->input('discount_amount', 0),
@@ -680,7 +690,9 @@ class OrderController extends Controller
             'draft_orders' => (clone $baseQuery)->byStatus('draft')->count(),
             'total_revenue' => (clone $baseQuery)->completed()->sum('total_amount'),
             'average_order_value' => (clone $baseQuery)->completed()->avg('total_amount') ?? 0,
-            'total_items_sold' => (clone $baseQuery)->completed()->sum('total_items'),
+            'total_items_sold' => (clone $baseQuery)->completed()
+                ->join('order_items', 'orders.id', '=', 'order_items.order_id')
+                ->sum('order_items.quantity'),
         ];
 
         return response()->json([

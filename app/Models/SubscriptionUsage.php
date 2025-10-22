@@ -66,10 +66,10 @@ class SubscriptionUsage extends Model
     public function getUsagePercentage(): float
     {
         if (!$this->annual_quota) {
-            return 0;
+            return 0.0;
         }
 
-        return ($this->current_usage / $this->annual_quota) * 100;
+        return round(($this->current_usage / $this->annual_quota) * 100, 2);
     }
 
     /**
@@ -79,7 +79,7 @@ class SubscriptionUsage extends Model
     {
         return !$this->soft_cap_triggered && 
                $this->annual_quota && 
-               $this->getUsagePercentage() >= 80;
+               $this->getUsagePercentage() >= 80.0;
     }
 
     /**

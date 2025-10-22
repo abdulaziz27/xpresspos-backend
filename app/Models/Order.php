@@ -15,17 +15,20 @@ class Order extends Model
 
     protected $fillable = [
         'store_id',
-        'user_id',
-        'member_id',
+        'user_id',           // Staff who created the order
+        'member_id',         // Customer (can be member or guest)
+        'customer_name',     // Customer name for receipt
+        'customer_type',     // 'member', 'guest', 'walk_in'
         'table_id',
         'order_number',
+        'operation_mode',    // 'dine_in', 'takeaway', 'delivery'
+        'payment_mode',      // 'direct', 'open_bill'
         'status',
         'subtotal',
         'tax_amount',
         'discount_amount',
         'service_charge',
         'total_amount',
-        'total_items',
         'notes',
         'completed_at',
     ];
@@ -36,7 +39,7 @@ class Order extends Model
         'discount_amount' => 'decimal:2',
         'service_charge' => 'decimal:2',
         'total_amount' => 'decimal:2',
-        'total_items' => 'integer',
+
         'completed_at' => 'datetime',
     ];
 

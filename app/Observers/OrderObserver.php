@@ -29,9 +29,52 @@ class OrderObserver
      */
     public function updated(Order $order): void
     {
-        // Check if order status changed to completed
-        if ($order->isDirty('status') && $order->status === 'completed') {
-            $this->handleOrderCompletion($order);
+        // Handle status changes
+        if ($order->isDirty('status')) {
+            $this->handleStatusChange($order);
+        }
+    }
+    
+    /**
+     * Handle order status changes.
+     */
+    private function handleStatusChange(Order $order): void
+    {
+        $oldStatus = $order->getOriginal('status');
+        $newStatus = $order->status;
+        
+        Log::info('Order status changed', [
+            'order_id' => $order->id,
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus,
+            'operation_mode' => $order->operation_mode,
+            'payment_mode' => $order->payment_mode,
+        ]);
+        
+        // Process inventory based on new status
+        $inventoryService = app(\App\Services\FlexibleInventoryService::class);
+        
+        switch ($newStatus) {
+            case 'confirmed':
+                $inventoryService->processOrderInventory($order, 'order_confirmed');
+                break;
+                
+            case 'ready':
+                $inventoryService->processOrderInventory($order, 'order_ready');
+                break;
+                
+            case 'served':
+                $inventoryService->processOrderInventory($order, 'order_served');
+                break;
+                
+            case 'completed':
+                $inventoryService->processOrderInventory($order, 'order_completed');
+                $this->handleOrderCompletion($order);
+                break;
+                
+            case 'cancelled':
+                $inventoryService->processOrderInventory($order, 'order_cancelled');
+                break;
         }
     }
 
@@ -62,8 +105,7 @@ class OrderObserver
                 return;
             }
             
-            // Process inventory deduction for tracked products
-            $this->processInventoryDeduction($order);
+            // Inventory is handled by handleStatusChange method
             
             // Increment transaction usage
             $planLimitService = app(PlanLimitValidationService::class);
@@ -105,59 +147,7 @@ class OrderObserver
         }
     }
 
-    /**
-     * Process inventory deduction for order items.
-     */
-    private function processInventoryDeduction(Order $order): void
-    {
-        try {
-            $inventoryService = app(InventoryService::class);
-            
-            // Load order items with products
-            $order->load(['items.product']);
-            
-            foreach ($order->items as $item) {
-                $product = $item->product;
-                
-                // Skip if product doesn't track inventory
-                if (!$product || !$product->track_inventory) {
-                    continue;
-                }
-                
-                // Process sale for inventory tracking
-                try {
-                    $inventoryService->processSale(
-                        $product->id,
-                        $item->quantity,
-                        $order->id
-                    );
-                    
-                    Log::info('Inventory deducted for order item', [
-                        'order_id' => $order->id,
-                        'product_id' => $product->id,
-                        'product_name' => $product->name,
-                        'quantity' => $item->quantity,
-                    ]);
-                    
-                } catch (\Exception $e) {
-                    Log::error('Failed to deduct inventory for order item', [
-                        'order_id' => $order->id,
-                        'product_id' => $product->id,
-                        'product_name' => $product->name,
-                        'quantity' => $item->quantity,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            }
-            
-        } catch (\Exception $e) {
-            Log::error('Error processing inventory deduction for order', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-        }
-    }
+
 
     /**
      * Handle the Order "deleted" event.

@@ -108,7 +108,11 @@ class TrialProvisioningService
             'settings' => [
                 'currency' => 'IDR',
                 'timezone' => 'Asia/Jakarta',
-                'tax_rate' => 10,
+                'tax_settings' => [
+                    'tax_rate' => 0,           // Default 0, owner can configure
+                    'tax_inclusive' => false,   // Tax separate from price
+                    'tax_per_item' => false,   // Tax calculated at order level
+                ],
                 'service_charge_rate' => 0,
                 'source' => 'landing',
             ],
