@@ -30,8 +30,8 @@ class CategoryController extends Controller
             });
         }
 
-        if ($request->filled('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
+        if ($request->filled('status')) {
+            $query->where('status', $request->boolean('status'));
         }
 
         // Apply sorting
@@ -75,7 +75,7 @@ class CategoryController extends Controller
             'slug' => Str::slug($request->input('name')),
             'description' => $request->input('description'),
             'image' => $request->input('image'),
-            'is_active' => $request->input('is_active', true),
+            'status' => $request->input('status', true),
             'sort_order' => $request->input('sort_order', 0)
         ]);
 
@@ -119,7 +119,7 @@ class CategoryController extends Controller
             'slug' => Str::slug($request->input('name')),
             'description' => $request->input('description'),
             'image' => $request->input('image'),
-            'is_active' => $request->input('is_active', $category->is_active),
+            'status' => $request->input('status', $category->status),
             'sort_order' => $request->input('sort_order', $category->sort_order)
         ]);
 

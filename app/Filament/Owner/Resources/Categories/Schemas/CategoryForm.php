@@ -53,7 +53,7 @@ class CategoryForm
                                     ->default(0)
                                     ->minValue(0),
 
-                                Toggle::make('is_active')
+                                Toggle::make('status')
                                     ->label('Active')
                                     ->default(true),
                             ]),

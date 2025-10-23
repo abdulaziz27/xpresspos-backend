@@ -46,7 +46,7 @@ class CategoriesTable
                     ->sortable()
                     ->alignCenter(),
 
-                IconColumn::make('is_active')
+                IconColumn::make('status')
                     ->label('Active')
                     ->boolean()
                     ->trueIcon('heroicon-o-check-circle')
@@ -61,7 +61,7 @@ class CategoriesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                TernaryFilter::make('is_active')
+                TernaryFilter::make('status')
                     ->label('Status')
                     ->placeholder('All categories')
                     ->trueLabel('Active only')
