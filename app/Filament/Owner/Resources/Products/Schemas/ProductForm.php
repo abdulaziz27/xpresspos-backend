@@ -121,7 +121,7 @@ class ProductForm
 
                                         return Category::query()
                                             ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                            ->where('is_active', true)
+                                            ->where('status', true)
                                             ->pluck('name', 'id');
                                     })
                                     ->searchable()
@@ -132,7 +132,7 @@ class ProductForm
                                             ->maxLength(255),
                                         TextInput::make('description')
                                             ->maxLength(500),
-                                        Toggle::make('is_active')
+                                        Toggle::make('status')
                                             ->default(true),
                                     ])
                                     ->createOptionUsing(function (array $data): int {

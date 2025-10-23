@@ -98,7 +98,7 @@ class ProductsTable
 
                         return Category::query()
                             ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                            ->where('is_active', true)
+                            ->where('status', true)
                             ->pluck('name', 'id');
                     })
                     ->searchable()
