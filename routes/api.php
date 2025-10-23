@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\PaymentMethodController;
 use App\Http\Controllers\Api\V1\PlanController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProductOptionController;
+use App\Http\Controllers\Api\V1\ProductVariantController;
 use App\Http\Controllers\Api\V1\RecipeController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\StaffController;
@@ -140,12 +141,16 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::get('{product}', [ProductController::class, 'show'])->name('api.v1.products.show');
             Route::put('{product}', [ProductController::class, 'update'])->name('api.v1.products.update');
             Route::delete('{product}', [ProductController::class, 'destroy'])->name('api.v1.products.destroy');
-            Route::get('{product}/options', [ProductOptionController::class, 'index'])->name('api.v1.products.options');
-            Route::post('{product}/options', [ProductOptionController::class, 'store'])->name('api.v1.products.options.store');
-            Route::get('{product}/options/{option}', [ProductOptionController::class, 'show'])->name('api.v1.products.options.show');
-            Route::put('{product}/options/{option}', [ProductOptionController::class, 'update'])->name('api.v1.products.options.update');
-            Route::delete('{product}/options/{option}', [ProductOptionController::class, 'destroy'])->name('api.v1.products.options.destroy');
-            Route::post('{product}/calculate-price', [ProductOptionController::class, 'calculatePrice'])->name('api.v1.products.calculate-price');
+            // Product Variants (F&B optimized)
+            Route::get('{product}/variants', [ProductVariantController::class, 'index'])->name('api.v1.products.variants');
+            Route::post('{product}/variants', [ProductVariantController::class, 'store'])->name('api.v1.products.variants.store');
+            Route::put('{product}/variants/{variant}', [ProductVariantController::class, 'update'])->name('api.v1.products.variants.update');
+            Route::delete('{product}/variants/{variant}', [ProductVariantController::class, 'destroy'])->name('api.v1.products.variants.destroy');
+            Route::post('{product}/calculate-price', [ProductVariantController::class, 'calculatePrice'])->name('api.v1.products.calculate-price');
+            
+            // Backwards compatibility (deprecated)
+            Route::get('{product}/options', [ProductVariantController::class, 'index'])->name('api.v1.products.options');
+            Route::post('{product}/options', [ProductVariantController::class, 'store'])->name('api.v1.products.options.store');
             Route::get('{product}/option-groups', function ($productId) {
                 return response()->json([
                     'success' => true,

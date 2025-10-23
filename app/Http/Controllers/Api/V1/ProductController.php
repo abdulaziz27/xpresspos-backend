@@ -23,7 +23,7 @@ class ProductController extends Controller
     {
         $this->authorize('viewAny', Product::class);
 
-        $query = Product::with(['category:id,name', 'options']);
+        $query = Product::with(['category:id,name', 'variants']);
 
         // Apply filters
         if ($request->filled('search')) {
@@ -107,7 +107,7 @@ class ProductController extends Controller
             'sort_order' => $request->input('sort_order', 0)
         ]);
 
-        $product->load(['category:id,name', 'options']);
+        $product->load(['category:id,name', 'variants']);
 
         return response()->json([
             'success' => true,
@@ -125,7 +125,7 @@ class ProductController extends Controller
      */
     public function show(string $id): JsonResponse
     {
-        $product = Product::with(['category:id,name', 'options', 'priceHistory' => function ($query) {
+        $product = Product::with(['category:id,name', 'variants', 'priceHistory' => function ($query) {
             $query->with('changedBy:id,name')->latest()->limit(10);
         }])->findOrFail($id);
 
@@ -252,11 +252,11 @@ class ProductController extends Controller
 
         $product->update($updateData);
 
-        $product->load(['category:id,name', 'options']);
+        $product->load(['category:id,name', 'variants']);
 
         return response()->json([
             'success' => true,
-            'data' => $product->fresh(['category:id,name', 'options']),
+            'data' => $product->fresh(['category:id,name', 'variants']),
             'message' => 'Product updated successfully',
             'meta' => [
                 'timestamp' => now()->toISOString(),
@@ -301,8 +301,8 @@ class ProductController extends Controller
             // Delete recipes that use this product
             $product->recipes()->delete();
 
-            // Delete product options
-            $product->options()->delete();
+            // Delete product variants
+            $product->variants()->delete();
 
             // Delete inventory movements
             $product->inventoryMovements()->delete();
@@ -491,7 +491,7 @@ class ProductController extends Controller
 
         $search = $request->input('q');
 
-        $products = Product::with(['category:id,name', 'options'])
+        $products = Product::with(['category:id,name', 'variants'])
             ->active()
             ->where(function ($query) use ($search) {
                 $query->where('name', 'like', "%{$search}%")

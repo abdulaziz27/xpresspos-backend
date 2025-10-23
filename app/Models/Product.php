@@ -50,11 +50,19 @@ class Product extends Model
     }
 
     /**
-     * Get the options for the product.
+     * Get the variants for the product.
+     */
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ProductVariant::class);
+    }
+
+    /**
+     * Alias for backwards compatibility
      */
     public function options(): HasMany
     {
-        return $this->hasMany(ProductOption::class);
+        return $this->variants();
     }
 
     /**
@@ -236,7 +244,7 @@ class Product extends Model
         $selectedOptions = [];
 
         if (!empty($optionIds)) {
-            $options = ProductOption::withoutGlobalScopes()
+            $options = ProductVariant::withoutGlobalScopes()
                 ->whereIn('id', $optionIds)
                 ->where('product_id', $this->id)
                 ->where('is_active', true)
@@ -266,7 +274,7 @@ class Product extends Model
      */
     public function getOptionGroups(): array
     {
-        $options = ProductOption::withoutGlobalScopes()
+        $options = ProductVariant::withoutGlobalScopes()
             ->where('product_id', $this->id)
             ->where('is_active', true)
             ->orderBy('sort_order')
@@ -300,7 +308,7 @@ class Product extends Model
         }
 
         // Get all valid options for this product
-        $validOptions = ProductOption::withoutGlobalScopes()
+        $validOptions = ProductVariant::withoutGlobalScopes()
             ->whereIn('id', $optionIds)
             ->where('product_id', $this->id)
             ->where('is_active', true)

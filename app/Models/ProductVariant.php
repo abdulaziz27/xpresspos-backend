@@ -8,10 +8,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Scopes\StoreScope;
 
-class ProductOption extends Model
+class ProductVariant extends Model
 {
     use HasFactory, HasUuids;
 
+    protected $table = 'product_variants';
+    
     protected $fillable = [
         'store_id',
         'product_id',
