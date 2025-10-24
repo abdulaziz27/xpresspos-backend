@@ -25,7 +25,7 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        $adminDomain = config('domains.admin');
+        $adminDomain = env('ADMIN_DOMAIN');
 
         $panel = $panel
             ->id('admin')
@@ -77,7 +77,7 @@ class AdminPanelProvider extends PanelProvider
         if ($this->shouldUseDomain($adminDomain)) {
             $panel->domain($adminDomain)->path('/');
         } else {
-            $panel->path('admin');
+            $panel->path('admin-panel');
         }
 
         return $panel;

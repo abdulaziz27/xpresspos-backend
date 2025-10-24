@@ -16,4 +16,17 @@ class ListProducts extends ListRecords
             CreateAction::make(),
         ];
     }
+
+    public function mount(): void
+    {
+        // Pastikan store context diset dengan benar
+        $user = auth()->user();
+        if ($user && $user->store_id) {
+            $storeContext = \App\Services\StoreContext::instance();
+            $storeContext->set($user->store_id);
+            setPermissionsTeamId($user->store_id);
+        }
+
+        parent::mount();
+    }
 }

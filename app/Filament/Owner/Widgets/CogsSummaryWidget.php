@@ -15,7 +15,7 @@ class CogsSummaryWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $storeId = auth()->user()?->currentStoreId();
+        $storeId = auth()->user()?->store_id;
         if (!$storeId) {
             return [
                 Stat::make('Today\'s COGS', 'Rp 0')

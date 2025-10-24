@@ -15,7 +15,7 @@ class LowStockWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
-        $storeId = auth()->user()?->currentStoreId();
+        $storeId = auth()->user()?->store_id;
 
         $query = Product::query()
             ->where('track_inventory', true)

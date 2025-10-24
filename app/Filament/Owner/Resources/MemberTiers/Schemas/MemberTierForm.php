@@ -58,6 +58,8 @@ class MemberTierForm
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('sort_order')
+                                    ->label('Urutan Level')
+                                    ->helperText('Angka kecil = level rendah, angka besar = level tinggi')
                                     ->numeric()
                                     ->default(0),
 

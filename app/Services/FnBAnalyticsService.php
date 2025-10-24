@@ -9,6 +9,13 @@ use Illuminate\Support\Facades\DB;
 
 class FnBAnalyticsService
 {
+    private ?string $storeId;
+
+    public function __construct()
+    {
+        $this->storeId = auth()->user()?->store_id;
+    }
+
     /**
      * Get F&B specific sales analytics
      */
@@ -32,7 +39,8 @@ class FnBAnalyticsService
     {
         $dateRange = $this->getDateRange($period);
         
-        $products = OrderItem::whereBetween('created_at', $dateRange)
+        $products = OrderItem::whereBetween('order_items.created_at', $dateRange)
+            ->when($this->storeId, fn($query) => $query->where('order_items.store_id', $this->storeId))
             ->with('product')
             ->get()
             ->groupBy('product_id');
@@ -113,19 +121,23 @@ class FnBAnalyticsService
     {
         $orders = Order::whereBetween('created_at', $dateRange)
             ->where('status', 'completed')
+            ->when($this->storeId, fn($query) => $query->where('store_id', $this->storeId))
             ->get();
 
         return [
             'total_orders' => $orders->count(),
             'total_revenue' => $orders->sum('total_amount'),
             'average_order_value' => $orders->count() > 0 ? $orders->sum('total_amount') / $orders->count() : 0,
-            'total_items_sold' => OrderItem::whereBetween('created_at', $dateRange)->sum('quantity'),
+            'total_items_sold' => OrderItem::whereBetween('order_items.created_at', $dateRange)
+                ->when($this->storeId, fn($query) => $query->where('order_items.store_id', $this->storeId))
+                ->sum('quantity'),
         ];
     }
 
     private function getTopProducts(array $dateRange, int $limit = 10): array
     {
-        return OrderItem::whereBetween('created_at', $dateRange)
+        return OrderItem::whereBetween('order_items.created_at', $dateRange)
+            ->when($this->storeId, fn($query) => $query->where('order_items.store_id', $this->storeId))
             ->select('product_id', DB::raw('SUM(quantity) as total_sold'), DB::raw('SUM(total_price) as revenue'))
             ->with('product:id,name,price')
             ->groupBy('product_id')
@@ -153,6 +165,7 @@ class FnBAnalyticsService
     {
         $sales = Order::whereBetween('created_at', $dateRange)
             ->where('status', 'completed')
+            ->when($this->storeId, fn($query) => $query->where('store_id', $this->storeId))
             ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('COUNT(*) as orders'), DB::raw('SUM(total_amount) as revenue'))
             ->groupBy('hour')
             ->orderBy('hour')
@@ -174,7 +187,8 @@ class FnBAnalyticsService
 
     private function getCategoryPerformance(array $dateRange): array
     {
-        return OrderItem::whereBetween('created_at', $dateRange)
+        return OrderItem::whereBetween('order_items.created_at', $dateRange)
+            ->when($this->storeId, fn($query) => $query->where('order_items.store_id', $this->storeId))
             ->join('products', 'order_items.product_id', '=', 'products.id')
             ->join('categories', 'products.category_id', '=', 'categories.id')
             ->select('categories.name as category_name', DB::raw('SUM(order_items.quantity) as total_sold'), DB::raw('SUM(order_items.total_price) as revenue'))
@@ -188,6 +202,7 @@ class FnBAnalyticsService
     {
         return Product::whereRaw('(price - cost_price) / price < 0.3')
             ->where('cost_price', '>', 0)
+            ->when($this->storeId, fn($query) => $query->where('store_id', $this->storeId))
             ->select('name', 'price', 'cost_price', DB::raw('((price - cost_price) / price * 100) as margin'))
             ->get()
             ->toArray();
@@ -198,9 +213,10 @@ class FnBAnalyticsService
         $sevenDaysAgo = now()->subDays(7);
         
         return Product::whereDoesntHave('orderItems', function ($query) use ($sevenDaysAgo) {
-            $query->where('created_at', '>=', $sevenDaysAgo);
+            $query->where('order_items.created_at', '>=', $sevenDaysAgo);
         })
         ->where('status', true)
+        ->when($this->storeId, fn($query) => $query->where('store_id', $this->storeId))
         ->select('id', 'name', 'price', 'stock')
         ->get()
         ->toArray();

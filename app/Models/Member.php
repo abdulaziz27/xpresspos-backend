@@ -68,7 +68,7 @@ class Member extends Model
     /**
      * Add loyalty points with transaction tracking.
      */
-    public function addLoyaltyPoints(int $points, string $reason = null, array $metadata = []): LoyaltyPointTransaction
+    public function addLoyaltyPoints(int $points, ?string $reason = null, array $metadata = []): LoyaltyPointTransaction
     {
         $balanceBefore = $this->loyalty_points;
         $this->increment('loyalty_points', $points);
@@ -93,7 +93,7 @@ class Member extends Model
     /**
      * Redeem loyalty points with transaction tracking.
      */
-    public function redeemLoyaltyPoints(int $points, string $reason = null, array $metadata = []): bool
+    public function redeemLoyaltyPoints(int $points, ?string $reason = null, array $metadata = []): bool
     {
         if ($this->loyalty_points < $points) {
             return false;

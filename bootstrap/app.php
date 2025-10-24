@@ -31,14 +31,34 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
         then: function () {
-            // Load domain-specific routes
-            Route::middleware(['web', 'auth'])->group(function () {
-                require base_path('routes/owner.php');
-            });
+            // Check if we're in production with domain routing
+            if (app()->environment('production') && env('LANDING_DOMAIN')) {
+                // Domain-specific routing for production
+                Route::domain(env('LANDING_DOMAIN'))->middleware(['web', 'domain.routing'])->group(function () {
+                    require base_path('routes/landing.php');
+                });
 
-            Route::middleware('web')->group(function () {
-                require base_path('routes/admin.php');
-            });
+                Route::domain(env('OWNER_DOMAIN'))->middleware(['web', 'domain.routing', 'auth'])->group(function () {
+                    require base_path('routes/owner.php');
+                });
+
+                Route::domain(env('ADMIN_DOMAIN'))->middleware(['web', 'domain.routing'])->group(function () {
+                    require base_path('routes/admin.php');
+                });
+            } else {
+                // Path-based routing for local development
+                Route::middleware(['web'])->prefix('landing')->group(function () {
+                    require base_path('routes/landing.php');
+                });
+
+                Route::middleware(['web', 'auth'])->prefix('owner')->group(function () {
+                    require base_path('routes/owner.php');
+                });
+
+                Route::middleware(['web'])->prefix('admin')->group(function () {
+                    require base_path('routes/admin.php');
+                });
+            }
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -68,6 +88,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'store.permission' => \App\Http\Middleware\CheckStorePermission::class,
             'store.context' => \App\Http\Middleware\EnsureStoreContext::class,
             'log.security' => \App\Http\Middleware\LogSecurityEvents::class,
+            'api.only' => \App\Http\Middleware\ApiOnlyMiddleware::class,
         ]);
 
         $middleware->web([
@@ -82,6 +103,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->api([
             SubstituteBindings::class,
+            'api.only',
         ]);
 
         $middleware->statefulApi();

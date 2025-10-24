@@ -161,10 +161,10 @@ class PaymentsTable
                     ->label('This Month')
                     ->query(fn(Builder $query): Builder => $query->whereMonth('created_at', now()->month)),
             ])
-            ->recordActions([
+            ->actions([
                 ViewAction::make(),
             ])
-            ->toolbarActions([])
+            ->bulkActions([])
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50, 100]);

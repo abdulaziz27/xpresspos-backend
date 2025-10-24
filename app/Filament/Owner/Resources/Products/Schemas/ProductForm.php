@@ -37,7 +37,8 @@ class ProductForm
                                     }),
 
                                 TextInput::make('sku')
-                                    ->label('SKU')
+                                    ->label('Kode Produk')
+                                    ->helperText('Kode unik untuk identifikasi produk (contoh: ESP001, CAP001)')
                                     ->required()
                                     ->maxLength(255)
                                     ->unique(ignoreRecord: true)
@@ -65,7 +66,8 @@ class ProductForm
                                     ->minValue(0),
 
                                 TextInput::make('sort_order')
-                                    ->label('Sort Order')
+                                    ->label('Urutan di Menu')
+                                    ->helperText('Angka kecil akan tampil lebih dulu di menu (1, 2, 3...)')
                                     ->numeric()
                                     ->default(0)
                                     ->minValue(0),
@@ -117,7 +119,8 @@ class ProductForm
                                 Select::make('category_id')
                                     ->label('Category')
                                     ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
+                                        $user = auth()->user();
+                                        $storeId = $user ? $user->store_id : null;
 
                                         return Category::query()
                                             ->when($storeId, fn($query) => $query->where('store_id', $storeId))
@@ -136,7 +139,8 @@ class ProductForm
                                             ->default(true),
                                     ])
                                     ->createOptionUsing(function (array $data): int {
-                                        $data['store_id'] = auth()->user()?->currentStoreId();
+                                        $user = auth()->user();
+                                        $data['store_id'] = $user ? $user->store_id : null;
                                         return Category::create($data)->getKey();
                                     }),
 

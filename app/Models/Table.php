@@ -100,7 +100,7 @@ class Table extends Model
     /**
      * Mark table as occupied with detailed tracking.
      */
-    public function occupy(Order $order = null, int $partySize = null, $userId = null): TableOccupancyHistory
+    public function occupy(?Order $order = null, ?int $partySize = null, $userId = null): TableOccupancyHistory
     {
         $occupiedAt = now();
         $user = $userId ?? (auth()->id() ?? (request()->user()?->id));

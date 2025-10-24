@@ -111,11 +111,11 @@ class MembersTable
                     ->falseLabel('No points')
                     ->query(fn($query) => $query->where('loyalty_points', '>', 0)),
             ])
-            ->recordActions([
+            ->actions([
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

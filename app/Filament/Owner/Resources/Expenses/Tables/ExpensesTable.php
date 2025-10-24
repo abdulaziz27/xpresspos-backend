@@ -151,11 +151,11 @@ class ExpensesTable
                     ->label('Has Vendor')
                     ->query(fn(Builder $query): Builder => $query->whereNotNull('vendor')),
             ])
-            ->recordActions([
+            ->actions([
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

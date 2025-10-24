@@ -443,3 +443,37 @@ Route::fallback(function () {
         'message' => 'Endpoint not found.',
     ], Response::HTTP_NOT_FOUND);
 });
+
+// API Info and Documentation routes
+Route::get('/', function () {
+    return response()->json([
+        'message' => 'XpressPOS API',
+        'version' => '1.0',
+        'status' => 'active',
+        'documentation' => env('API_URL') . '/docs',
+        'endpoints' => [
+            'auth' => env('API_URL') . '/api/v1/auth',
+            'products' => env('API_URL') . '/api/v1/products',
+            'orders' => env('API_URL') . '/api/v1/orders',
+            'categories' => env('API_URL') . '/api/v1/categories',
+        ]
+    ]);
+});
+
+Route::get('/docs', function () {
+    return response()->json([
+        'message' => 'XpressPOS API Documentation',
+        'version' => '1.0',
+        'base_url' => env('API_URL') . '/api/v1',
+        'authentication' => 'Bearer Token (Sanctum)',
+        'endpoints' => [
+            'POST /api/v1/auth/login' => 'User login',
+            'POST /api/v1/auth/logout' => 'User logout',
+            'GET /api/v1/products' => 'List products',
+            'POST /api/v1/products' => 'Create product',
+            'GET /api/v1/orders' => 'List orders',
+            'POST /api/v1/orders' => 'Create order',
+            'GET /api/v1/categories' => 'List categories',
+        ]
+    ]);
+});

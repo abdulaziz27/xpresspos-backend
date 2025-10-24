@@ -41,7 +41,7 @@ class CategoriesTable
                     ->color('info'),
 
                 TextColumn::make('sort_order')
-                    ->label('Sort Order')
+                    ->label('Urutan')
                     ->numeric()
                     ->sortable()
                     ->alignCenter(),
@@ -67,11 +67,11 @@ class CategoriesTable
                     ->trueLabel('Active only')
                     ->falseLabel('Inactive only'),
             ])
-            ->recordActions([
+            ->actions([
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

@@ -144,11 +144,11 @@ class InventoryMovementsTable
                     ->label('This Month')
                     ->query(fn(Builder $query): Builder => $query->whereMonth('created_at', now()->month)),
             ])
-            ->recordActions([
+            ->actions([
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

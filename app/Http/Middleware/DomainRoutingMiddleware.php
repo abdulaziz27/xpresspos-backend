@@ -18,12 +18,12 @@ class DomainRoutingMiddleware
     {
         $host = $request->getHost();
 
-        // Map domains to route prefixes
+        // Map domains to route prefixes using env config
         $domainMap = [
-            config('domains.landing') => 'landing',
-            config('domains.owner') => 'owner',
-            config('domains.admin') => 'admin',
-            config('domains.api') => 'api',
+            env('LANDING_DOMAIN') => 'landing',
+            env('OWNER_DOMAIN') => 'owner', 
+            env('ADMIN_DOMAIN') => 'admin',
+            env('API_DOMAIN') => 'api',
         ];
 
         // Check if the host matches any configured domain
@@ -31,6 +31,17 @@ class DomainRoutingMiddleware
             if ($host === $domain || $host === $domain . ':8000') {
                 // Set the route prefix based on domain
                 $request->attributes->set('domain_prefix', $prefix);
+                
+                // For API domain, ensure only API responses
+                if ($prefix === 'api' && !$request->is('api/*')) {
+                    return response()->json([
+                        'message' => 'XpressPOS API',
+                        'version' => '1.0',
+                        'status' => 'active',
+                        'documentation' => env('API_URL') . '/docs'
+                    ]);
+                }
+                
                 break;
             }
         }

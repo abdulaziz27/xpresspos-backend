@@ -142,11 +142,11 @@ class TablesTable
                     ->falseLabel('Available only')
                     ->query(fn($query) => $query->occupied()),
             ])
-            ->recordActions([
+            ->actions([
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

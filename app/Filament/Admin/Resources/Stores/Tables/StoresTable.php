@@ -97,11 +97,11 @@ class StoresTable
                     ->falseLabel('No subscription')
                     ->query(fn($query) => $query->has('activeSubscription')),
             ])
-            ->recordActions([
+            ->actions([
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

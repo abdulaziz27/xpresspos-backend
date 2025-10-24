@@ -25,9 +25,10 @@ class OwnerPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        return $panel
+        $ownerDomain = env('OWNER_DOMAIN');
+
+        $panel = $panel
             ->id('owner')
-            ->path('owner')
             ->login()
             ->brandName('POS Xpress Store')
             ->brandLogo(fn () => view('filament.brand-logo'))
@@ -54,7 +55,10 @@ class OwnerPanelProvider extends PanelProvider
                 AccountWidget::class,
                 FilamentInfoWidget::class,
                 \App\Filament\Owner\Widgets\OwnerStatsWidget::class,
+                \App\Filament\Owner\Widgets\AdvancedAnalyticsWidget::class,
                 \App\Filament\Owner\Widgets\CogsSummaryWidget::class,
+                \App\Filament\Owner\Widgets\ProfitAnalysisWidget::class,
+                \App\Filament\Owner\Widgets\BusinessRecommendationsWidget::class,
                 \App\Filament\Owner\Widgets\RecentOrdersWidget::class,
                 \App\Filament\Owner\Widgets\LowStockWidget::class,
                 \App\Filament\Owner\Widgets\RecipePerformanceWidget::class,
@@ -79,5 +83,22 @@ class OwnerPanelProvider extends PanelProvider
             ])
             ->authGuard('web')
             ->authPasswordBroker('users');
+
+        if ($this->shouldUseDomain($ownerDomain)) {
+            $panel->domain($ownerDomain)->path('/');
+        } else {
+            $panel->path('owner-panel');
+        }
+
+        return $panel;
+    }
+
+    protected function shouldUseDomain(?string $domain): bool
+    {
+        if (blank($domain)) {
+            return false;
+        }
+
+        return ! \Illuminate\Support\Str::contains($domain, ['localhost', '127.0.0.1']);
     }
 }

@@ -22,7 +22,7 @@ class RecipePerformanceWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
-        $storeId = auth()->user()?->currentStoreId();
+        $storeId = auth()->user()?->store_id;
 
         $query = Recipe::query()
             ->with(['product', 'items'])

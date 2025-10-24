@@ -19,7 +19,7 @@ class CashSessionsTable
         return $table
             ->columns([
                 TextColumn::make('id')
-                    ->label('Session ID')
+                    ->label('ID Sesi')
                     ->searchable()
                     ->sortable()
                     ->weight('medium')
@@ -142,11 +142,11 @@ class CashSessionsTable
                     ->label('This Month')
                     ->query(fn(Builder $query): Builder => $query->whereMonth('opened_at', now()->month)),
             ])
-            ->recordActions([
+            ->actions([
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

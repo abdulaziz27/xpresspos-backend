@@ -48,7 +48,8 @@ class CategoryForm
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('sort_order')
-                                    ->label('Sort Order')
+                                    ->label('Urutan Kategori')
+                                    ->helperText('Angka kecil akan tampil lebih dulu (1, 2, 3...)')
                                     ->numeric()
                                     ->default(0)
                                     ->minValue(0),

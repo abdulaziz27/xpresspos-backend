@@ -60,7 +60,7 @@ class StoreUserAssignmentsTable
                     ->label('Role')
                     ->options(AssignmentRoleEnum::options()),
             ])
-            ->recordActions([
+            ->actions([
                 \Filament\Actions\Action::make('preview_permissions')
                     ->label('Preview Permissions')
                     ->icon('heroicon-o-eye')
@@ -82,7 +82,7 @@ class StoreUserAssignmentsTable
             ])
             ->defaultPaginationPageOption(25)
             ->paginationPageOptions([10, 25, 50, 100])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     \Filament\Actions\BulkAction::make('reset_permissions')
                         ->label('Reset ke Default')

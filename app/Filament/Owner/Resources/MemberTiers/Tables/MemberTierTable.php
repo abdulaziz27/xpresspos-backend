@@ -81,11 +81,11 @@ class MemberTierTable
                     ->query(fn($query, $state) => $query->when($state === 'true', fn($q) => $q->where('discount_percentage', '>', 0))
                         ->when($state === 'false', fn($q) => $q->where('discount_percentage', '=', 0))),
             ])
-            ->recordActions([
+            ->actions([
                 EditAction::make(),
                 DeleteAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
