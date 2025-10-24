@@ -1,15 +1,9 @@
 <?php
 
-// Owner routes - redirect to Filament panel
-Route::get('/', function () {
-    if (app()->environment('production') && env('OWNER_DOMAIN')) {
-        return redirect('/');  // Filament panel di root domain
-    } else {
-        return redirect('/owner-panel');  // Filament panel di path
-    }
-})->name('owner.dashboard');
+// Owner routes - Filament panel handles all routes at root domain
+// This file is kept for any additional owner-specific routes if needed
 
-// Logout route
+// Logout route for custom logout handling
 Route::post('/logout', function () {
     auth()->logout();
     if (app()->environment('production') && env('FRONTEND_URL')) {

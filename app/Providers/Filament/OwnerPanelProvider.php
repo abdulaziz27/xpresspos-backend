@@ -99,6 +99,7 @@ class OwnerPanelProvider extends PanelProvider
             return false;
         }
 
-        return ! \Illuminate\Support\Str::contains($domain, ['localhost', '127.0.0.1']);
+        // Only use domain routing in production environment
+        return app()->environment('production') && ! \Illuminate\Support\Str::contains($domain, ['localhost', '127.0.0.1']);
     }
 }

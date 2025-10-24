@@ -89,6 +89,7 @@ class AdminPanelProvider extends PanelProvider
             return false;
         }
 
-        return ! Str::contains($domain, ['localhost', '127.0.0.1']);
+        // Only use domain routing in production environment
+        return app()->environment('production') && ! Str::contains($domain, ['localhost', '127.0.0.1']);
     }
 }

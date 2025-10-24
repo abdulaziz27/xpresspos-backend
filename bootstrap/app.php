@@ -38,7 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     require base_path('routes/landing.php');
                 });
 
-                Route::domain(env('OWNER_DOMAIN'))->middleware(['web', 'domain.routing', 'auth'])->group(function () {
+                Route::domain(env('OWNER_DOMAIN'))->middleware(['web', 'domain.routing'])->group(function () {
                     require base_path('routes/owner.php');
                 });
 
