@@ -20,16 +20,16 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
-                    <a href="{{ route('landing.home') }}" class="text-xl font-bold text-gray-900">
+                    <a href="{{ route('home') }}" class="text-xl font-bold text-gray-900">
                         XpressPOS
                     </a>
                 </div>
                 
                 <div class="hidden md:flex items-center space-x-8">
-                    <a href="{{ route('landing.home') }}" class="text-gray-700 hover:text-gray-900">Home</a>
-                    <a href="{{ route('landing.features') }}" class="text-gray-700 hover:text-gray-900">Features</a>
-                    <a href="{{ route('landing.pricing') }}" class="text-gray-700 hover:text-gray-900">Pricing</a>
-                    <a href="{{ route('landing.contact') }}" class="text-gray-700 hover:text-gray-900">Contact</a>
+                    <a href="{{ route('home') }}" class="text-gray-700 hover:text-gray-900">Home</a>
+                    <a href="{{ route('home') }}#features" class="text-gray-700 hover:text-gray-900">Features</a>
+                    <a href="{{ route('home') }}#pricing" class="text-gray-700 hover:text-gray-900">Pricing</a>
+                    <a href="{{ route('home') }}#testimonial" class="text-gray-700 hover:text-gray-900">Contact</a>
                 </div>
 
                 <div class="flex items-center space-x-4">
@@ -43,13 +43,13 @@
                                 Dashboard
                             </a>
                         @endif
-                        <form method="POST" action="{{ route('landing.logout') }}" class="inline">
+                        <form method="POST" action="#" class="inline">
                             @csrf
                             <button type="submit" class="text-gray-700 hover:text-gray-900">Logout</button>
                         </form>
                     @else
-                        <a href="{{ route('landing.login') }}" class="text-gray-700 hover:text-gray-900">Login</a>
-                        <a href="{{ route('landing.register') }}" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                        <a href="{{ route('login') }}" class="text-gray-700 hover:text-gray-900">Login</a>
+                        <a href="{{ route('register') }}" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
                             Get Started
                         </a>
                     @endauth
@@ -74,14 +74,14 @@
                 <div>
                     <h4 class="font-semibold mb-4">Product</h4>
                     <ul class="space-y-2 text-gray-400">
-                        <li><a href="{{ route('landing.features') }}" class="hover:text-white">Features</a></li>
-                        <li><a href="{{ route('landing.pricing') }}" class="hover:text-white">Pricing</a></li>
+                        <li><a href="{{ route('home') }}#features" class="hover:text-white">Features</a></li>
+                        <li><a href="{{ route('home') }}#pricing" class="hover:text-white">Pricing</a></li>
                     </ul>
                 </div>
                 <div>
                     <h4 class="font-semibold mb-4">Support</h4>
                     <ul class="space-y-2 text-gray-400">
-                        <li><a href="{{ route('landing.contact') }}" class="hover:text-white">Contact</a></li>
+                        <li><a href="{{ route('home') }}#testimonial" class="hover:text-white">Contact</a></li>
                     </ul>
                 </div>
                 <div>

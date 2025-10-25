@@ -15,20 +15,7 @@ class LandingController extends Controller
         return view('landing.home');
     }
 
-    public function pricing()
-    {
-        return view('landing.pricing');
-    }
 
-    public function features()
-    {
-        return view('landing.features');
-    }
-
-    public function contact()
-    {
-        return view('landing.contact');
-    }
 
     public function showLogin()
     {
