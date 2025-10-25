@@ -13,26 +13,27 @@ class TrustHosts extends Middleware
     {
         $hosts = [];
 
-        $hosts[] = $this->allSubdomainsOfApplicationUrl();
+        if ($pattern = $this->allSubdomainsOfApplicationUrl()) {
+            $hosts[] = $pattern;
+        }
 
-        $domains = array_filter(config('domains', []));
+        foreach (config('domains', []) as $domain) {
+            if (! is_string($domain)) {
+                continue;
+            }
 
-        foreach ($domains as $domain) {
-            $domain = trim((string) $domain);
+            $domain = trim($domain);
 
             if ($domain === '') {
                 continue;
             }
 
-            $escaped = preg_quote($domain, '/');
-            $hosts[] = '^' . $escaped . '$';
+            $hosts[] = '^' . preg_quote($domain, '/') . '$';
+        }
 
-            $parts = explode('.', $domain);
-            if (count($parts) >= 2) {
-                $root = implode('.', array_slice($parts, -2));
-                $escapedRoot = preg_quote($root, '/');
-                $hosts[] = '^([A-Za-z0-9-]+\.)?' . $escapedRoot . '$';
-            }
+        $appHost = parse_url(config('app.url'), PHP_URL_HOST);
+        if (is_string($appHost) && $appHost !== '') {
+            $hosts[] = '^' . preg_quote($appHost, '/') . '$';
         }
 
         $hosts[] = '^127\.0\.0\.1$';
