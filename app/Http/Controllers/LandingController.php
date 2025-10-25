@@ -12,10 +12,31 @@ class LandingController extends Controller
 {
     public function index()
     {
-        return view('landing.home');
+        return view('landing.xpresspos', [
+            'title' => 'XpressPOS - AI Maksimalkan Bisnismu'
+        ]);
     }
 
+    public function pricing()
+    {
+        return view('landing.pricing', [
+            'title' => 'Pricing - XpressPOS'
+        ]);
+    }
 
+    public function features()
+    {
+        return view('landing.features', [
+            'title' => 'Features - XpressPOS'
+        ]);
+    }
+
+    public function contact()
+    {
+        return view('landing.contact', [
+            'title' => 'Contact - XpressPOS'
+        ]);
+    }
 
     public function showLogin()
     {
