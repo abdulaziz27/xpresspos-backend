@@ -101,10 +101,6 @@ Route::get('/register', function () {
     return view('landing.auth.register');
 })->name('register');
 
-Route::get('/cart', function () {
-    return view('landing.cart');
-})->name('cart');
-
 Route::get('/forgot-password', function () {
     return view('landing.auth.forgot-password');
 })->name('forgot-password');
