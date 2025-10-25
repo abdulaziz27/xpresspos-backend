@@ -15,7 +15,7 @@ class Payment extends Model
 
     protected $fillable = [
         'store_id',
-        'order_id',
+        'order_id', // Required for POS customer transactions
         'payment_method', // Enum: cash, credit_card, debit_card, qris, bank_transfer, e_wallet (match migration)
         'amount',
         'reference_number',
@@ -25,9 +25,9 @@ class Payment extends Model
         'gateway',
         'gateway_transaction_id',
         'payment_method_id', // Optional: Link to saved PaymentMethod for recurring payments
-        'invoice_id',
         'gateway_fee',
         'gateway_response',
+        // NOTE: No invoice_id, xendit_invoice_id, or external_id - these are for subscription payments only
     ];
 
     protected $casts = [
@@ -64,11 +64,19 @@ class Payment extends Model
     }
 
     /**
-     * Get the invoice this payment is for.
+     * Check if this is a store order payment (always true for this model).
      */
-    public function invoice(): BelongsTo
+    public function isOrderPayment(): bool
     {
-        return $this->belongsTo(Invoice::class);
+        return !empty($this->order_id);
+    }
+
+    /**
+     * Get payment method display name.
+     */
+    public function getPaymentMethodDisplayName(): string
+    {
+        return ucfirst(str_replace('_', ' ', $this->payment_method));
     }
 
     /**
@@ -113,6 +121,14 @@ class Payment extends Model
     public function scopeCompleted($query)
     {
         return $query->where('status', 'completed');
+    }
+
+    /**
+     * Scope to get order payments (all payments in this model are order payments).
+     */
+    public function scopeOrderPayments($query)
+    {
+        return $query->whereNotNull('order_id');
     }
 
     /**

@@ -44,11 +44,11 @@ class Invoice extends Model
     }
 
     /**
-     * Get the payments for this invoice.
+     * Get the subscription payments for this invoice.
      */
-    public function payments(): HasMany
+    public function subscriptionPayments(): HasMany
     {
-        return $this->hasMany(Payment::class);
+        return $this->hasMany(SubscriptionPayment::class);
     }
 
     /**
@@ -131,8 +131,8 @@ class Invoice extends Model
      */
     public function getTotalPaidAttribute(): float
     {
-        return $this->payments()
-                   ->where('status', 'completed')
+        return $this->subscriptionPayments()
+                   ->where('status', 'paid')
                    ->sum('amount');
     }
 

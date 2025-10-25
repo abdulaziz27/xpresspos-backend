@@ -54,4 +54,28 @@ class LandingSubscription extends Model
     {
         return $this->belongsTo(User::class, 'provisioned_user_id');
     }
+
+    /**
+     * Get the subscription payments for this landing subscription.
+     */
+    public function subscriptionPayments()
+    {
+        return $this->hasMany(SubscriptionPayment::class);
+    }
+
+    /**
+     * Get the latest subscription payment.
+     */
+    public function latestSubscriptionPayment()
+    {
+        return $this->hasOne(SubscriptionPayment::class)->latest();
+    }
+
+    /**
+     * Get the activated subscription.
+     */
+    public function subscription()
+    {
+        return $this->belongsTo(Subscription::class);
+    }
 }

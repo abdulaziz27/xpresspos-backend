@@ -47,7 +47,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 });
             } else {
                 // Path-based routing for local development
-                // Landing routes are now handled in web.php directly
+                // Include landing routes for local development
+                Route::middleware(['web'])->group(function () {
+                    require base_path('routes/landing.php');
+                });
                 
                 Route::middleware(['web', 'auth'])->prefix('owner')->group(function () {
                     require base_path('routes/owner.php');

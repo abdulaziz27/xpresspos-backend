@@ -65,6 +65,14 @@ class Subscription extends Model
     }
 
     /**
+     * Get the subscription payments for this subscription.
+     */
+    public function subscriptionPayments(): HasMany
+    {
+        return $this->hasMany(SubscriptionPayment::class);
+    }
+
+    /**
      * Check if subscription is active.
      */
     public function isActive(): bool

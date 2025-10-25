@@ -42,6 +42,7 @@ class OwnerPanelProvider extends PanelProvider
                 'Order Management' => 'heroicon-o-shopping-cart',
                 'Customer Management' => 'heroicon-o-users',
                 'Financial Management' => 'heroicon-o-banknotes',
+                'Billing' => 'heroicon-o-credit-card',
                 'Inventory Management' => 'heroicon-o-arrow-path',
                 'Store Operations' => 'heroicon-o-building-storefront',
             ])
@@ -55,6 +56,9 @@ class OwnerPanelProvider extends PanelProvider
                 AccountWidget::class,
                 FilamentInfoWidget::class,
                 \App\Filament\Owner\Widgets\OwnerStatsWidget::class,
+                \App\Filament\Owner\Widgets\SubscriptionDashboardWidget::class,
+                \App\Filament\Owner\Widgets\PaymentAnalyticsWidget::class,
+                \App\Filament\Owner\Widgets\PaymentMethodBreakdownWidget::class,
                 \App\Filament\Owner\Widgets\AdvancedAnalyticsWidget::class,
                 \App\Filament\Owner\Widgets\CogsSummaryWidget::class,
                 \App\Filament\Owner\Widgets\ProfitAnalysisWidget::class,

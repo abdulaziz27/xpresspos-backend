@@ -2393,15 +2393,11 @@
                     </a></li>
                     <li><a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm flex items-center group">
                         <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-                        AI Analytics
+                        Monitoring Dashboard
                     </a></li>
                     <li><a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm flex items-center group">
                         <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-                        Multi-Location
-                    </a></li>
-                    <li><a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm flex items-center group">
-                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-                        API Integration
+                        Multi-Branches
                     </a></li>
                 </ul>
             </div>

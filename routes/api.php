@@ -433,9 +433,32 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
     });
 });
 
+// Public subscription payment routes (no auth required for landing page)
+Route::prefix('v1/subscription-payments')->group(function (): void {
+    Route::post('create', [\App\Http\Controllers\SubscriptionPaymentController::class, 'createSubscriptionPayment'])->name('api.v1.subscription-payments.create');
+    Route::get('status/{xenditInvoiceId}', [\App\Http\Controllers\SubscriptionPaymentController::class, 'getPaymentStatus'])->name('api.v1.subscription-payments.status');
+    Route::get('history', [\App\Http\Controllers\SubscriptionPaymentController::class, 'getPaymentHistory'])->name('api.v1.subscription-payments.history');
+});
+
+// Protected subscription payment routes
+Route::middleware(['auth:sanctum'])->prefix('v1/subscription-payments')->group(function (): void {
+    Route::get('download/{subscriptionPaymentId}', [\App\Http\Controllers\SubscriptionPaymentController::class, 'downloadInvoice'])->name('api.v1.subscription-payments.download');
+    Route::post('retry/{subscriptionPaymentId}', [\App\Http\Controllers\SubscriptionPaymentController::class, 'retryPayment'])->name('api.v1.subscription-payments.retry');
+    Route::post('activate/{subscriptionPaymentId}', [\App\Http\Controllers\SubscriptionPaymentController::class, 'activateSubscription'])->name('api.v1.subscription-payments.activate');
+    Route::get('activation-status', [\App\Http\Controllers\SubscriptionPaymentController::class, 'getActivationStatus'])->name('api.v1.subscription-payments.activation-status');
+    
+    // Renewal management
+    Route::post('process-renewals', [\App\Http\Controllers\SubscriptionPaymentController::class, 'processRenewals'])->name('api.v1.subscription-payments.process-renewals');
+    Route::post('create-renewal', [\App\Http\Controllers\SubscriptionPaymentController::class, 'createRenewalPayment'])->name('api.v1.subscription-payments.create-renewal');
+    Route::get('renewal-stats', [\App\Http\Controllers\SubscriptionPaymentController::class, 'getRenewalStats'])->name('api.v1.subscription-payments.renewal-stats');
+});
+
 // Public webhooks (outside protected middleware)
 Route::prefix('v1/webhooks')->group(function (): void {
     Route::post('midtrans', [MidtransWebhookController::class, 'handle'])->name('api.v1.webhooks.midtrans');
+    Route::post('xendit/invoice', [\App\Http\Controllers\XenditWebhookController::class, 'handleInvoiceCallback'])->name('api.v1.webhooks.xendit.invoice');
+    Route::post('xendit/recurring', [\App\Http\Controllers\XenditWebhookController::class, 'handleRecurringCallback'])->name('api.v1.webhooks.xendit.recurring');
+    Route::get('xendit/info', [\App\Http\Controllers\XenditWebhookController::class, 'getWebhookInfo'])->name('api.v1.webhooks.xendit.info');
 });
 
 Route::fallback(function () {
