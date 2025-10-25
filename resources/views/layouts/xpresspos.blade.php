@@ -9,8 +9,13 @@
     @livewireStyles
 </head>
 <body class="bg-gray-50">
-    {{-- Main Content --}}
-    @yield('content')
+    {{-- Modern Responsive Navbar --}}
+    @include('components.navbar')
+    
+    {{-- Main Content with top padding to account for fixed navbar --}}
+    <div class="pt-16">
+        @yield('content')
+    </div>
     
     @livewireScripts
 </body>
