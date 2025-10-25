@@ -2,33 +2,48 @@
 
 use Illuminate\Support\Facades\Route;
 
-// Default fallback route
-Route::get('/', function () {
-    $host = request()->getHost();
+// Main domain routing (xpresspos.id)
+Route::domain(config('domains.main'))->group(function () {
+    Route::get('/', function () {
+        return view('landing.xpresspos-invezgo', [
+            'title' => 'XpressPOS - AI Maksimalkan Bisnismu'
+        ]);
+    })->name('landing.main');
     
-    // Production domain routing
-    if (app()->environment('production') && env('LANDING_DOMAIN')) {
-        if (str_contains($host, 'api.')) {
-            return response()->json([
-                'message' => 'XpressPOS API',
-                'version' => '1.0',
-                'status' => 'active',
-                'documentation' => env('API_URL') . '/docs'
+    Route::get('/company', function () {
+        return view('company', [
+            'title' => 'Company - XpressPOS'
+        ]);
+    })->name('company');
+});
+
+// Local development domains
+if (app()->environment('local')) {
+    Route::domain(config('domains.local.main'))->group(function () {
+        Route::get('/', function () {
+            return view('landing.xpresspos-invezgo', [
+                'title' => 'XpressPOS - AI Maksimalkan Bisnismu'
             ]);
-        }
-        
-        if (str_contains($host, 'user.')) {
-            return redirect('/');  // Filament owner panel di root
-        }
-        
-        if (str_contains($host, 'admin.')) {
-            return redirect('/');  // Filament admin panel di root
-        }
-        
-        // Default ke landing page
-        return view('landing.home');
-    }
-    
-    // Local development - show navigation page
-    return view('local-nav');
+        })->name('landing.main.local');
+    });
+}
+
+// Test route (optional)
+Route::get('/test', function () {
+    return view('test-simple');
+})->name('test.simple');
+
+// Test route for debugging
+Route::get('/test-navbar', function () {
+    return view('landing.xpresspos-invezgo', [
+        'title' => 'XpressPOS - AI Maksimalkan Bisnismu'
+    ]);
+});
+
+// Default fallback route for other domains (including localhost)
+Route::get('/', function () {
+    // Force show XpressPOS landing page for all localhost requests
+    return view('landing.xpresspos-invezgo', [
+        'title' => 'XpressPOS - AI Maksimalkan Bisnismu'
+    ]);
 });

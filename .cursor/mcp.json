@@ -1,0 +1,11 @@
+{
+    "mcpServers": {
+      "firecrawl": {
+        "command": "npx",
+        "args": ["-y", "firecrawl-mcp"],
+        "env": {
+          "FIRECRAWL_API_KEY": "fc-231af541e8fb42eb85d71f8174fc44bf"
+        }
+      }
+    }
+  }
