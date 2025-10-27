@@ -1,23 +1,40 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\LandingController;
 
 // Main domain routing (xpresspos.id)
 Route::domain(config('domains.main'))->group(function () {
-    Route::get('/', function () {
-        return view('landing.xpresspos', [
-            'title' => 'XpressPOS - POS Maksimalkan Bisnismu'
-        ]);
-    })->name('landing.main');
+    Route::get('/', [LandingController::class, 'index'])->name('landing.main');
     
-    // Auth routes
-    Route::get('/login', function () {
-        return view('landing.auth.login');
-    })->name('web.auth.login');
-    
-    Route::get('/register', function () {
-        return view('landing.auth.register');
-    })->name('web.auth.register');
+    // Auth routes untuk landing (redirect ke owner dashboard setelah login)
+    Route::middleware('guest')->group(function () {
+        Route::get('/login', [LandingController::class, 'showLogin'])->name('login');
+        Route::post('/login', [LandingController::class, 'login'])->name('login.post');
+        Route::get('/register', [LandingController::class, 'showRegister'])->name('register');
+        Route::post('/register', [LandingController::class, 'register'])->name('register.post');
+    });
+
+    Route::middleware('auth')->group(function () {
+        Route::post('/logout', [LandingController::class, 'logout'])->name('landing.logout');
+        // Redirect authenticated users to owner dashboard
+        Route::get('/dashboard', function () {
+            return redirect()->to(config('app.owner_url') . '/dashboard');
+        })->name('landing.dashboard.redirect');
+    });
+
+    // Subscription and payment routes
+    Route::get('/pricing', [LandingController::class, 'showPricing'])->name('landing.pricing');
+
+    // Multi-step checkout
+    Route::get('/checkout', [LandingController::class, 'showCheckout'])->name('landing.checkout');
+    Route::get('/checkout/business-info', [LandingController::class, 'showCheckoutStep2'])->name('landing.checkout.step2');
+    Route::post('/checkout/business-info', [LandingController::class, 'processCheckoutStep2'])->name('landing.checkout.step2.process');
+    Route::get('/checkout/payment-method', [LandingController::class, 'showCheckoutStep3'])->name('landing.checkout.step3');
+    Route::post('/checkout/payment-method', [LandingController::class, 'processCheckoutStep3'])->name('landing.checkout.step3.process');
+
+    // Legacy routes (keep for backward compatibility)
+    Route::post('/subscription', [LandingController::class, 'processSubscription'])->name('landing.subscription.process');
     
     // Cart route
     Route::get('/cart', function () {
@@ -85,7 +102,7 @@ Route::domain(config('domains.admin'))->group(function () {
 });
 
 // Include landing routes for localhost development
-require __DIR__.'/landing.php';
+// require __DIR__.'/landing.php'; // Commented out to avoid route conflicts
 
 // Localhost fallback routes (for development without domain setup)
 Route::get('/', function () {
@@ -93,14 +110,6 @@ Route::get('/', function () {
         'title' => 'XpressPOS - AI Maksimalkan Bisnismu'
     ]);
 })->name('home');
-
-Route::get('/login', function () {
-    return view('landing.auth.login');
-})->name('web.login');
-
-Route::get('/register', function () {
-    return view('landing.auth.register');
-})->name('web.register');
 
 Route::get('/forgot-password', function () {
     return view('landing.auth.forgot-password');
@@ -119,14 +128,6 @@ Route::prefix('main')->group(function () {
             'title' => 'XpressPOS - AI Maksimalkan Bisnismu'
         ]);
     })->name('main.home');
-    
-    Route::get('/login', function () {
-        return view('landing.auth.login');
-    })->name('main.web.login');
-    
-    Route::get('/register', function () {
-        return view('landing.auth.register');
-    })->name('main.web.register');
     
     Route::get('/cart', function () {
         return view('landing.cart');

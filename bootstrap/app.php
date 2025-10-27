@@ -35,7 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if (app()->environment('production') && env('LANDING_DOMAIN')) {
                 // Domain-specific routing for production
                 Route::domain(env('LANDING_DOMAIN', 'xpresspos.id'))->middleware(['web', 'domain.routing'])->group(function () {
-                    require base_path('routes/landing.php');
+                    // Landing routes are now handled in routes/web.php for domain xpresspos.id
                 });
 
                 Route::domain(env('OWNER_DOMAIN', 'dashboard.xpresspos.id'))->middleware(['web', 'domain.routing'])->group(function () {
@@ -47,10 +47,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 });
             } else {
                 // Path-based routing for local development
-                // Include landing routes for local development
-                Route::middleware(['web'])->group(function () {
-                    require base_path('routes/landing.php');
-                });
+                // Landing routes are now handled in routes/web.php for localhost
                 
                 Route::middleware(['web', 'auth'])->prefix('owner')->group(function () {
                     require base_path('routes/owner.php');
