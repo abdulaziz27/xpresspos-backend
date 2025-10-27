@@ -34,15 +34,15 @@ return Application::configure(basePath: dirname(__DIR__))
             // Check if we're in production with domain routing
             if (app()->environment('production') && env('LANDING_DOMAIN')) {
                 // Domain-specific routing for production
-                Route::domain(env('LANDING_DOMAIN'))->middleware(['web', 'domain.routing'])->group(function () {
+                Route::domain(env('LANDING_DOMAIN', 'xpresspos.id'))->middleware(['web', 'domain.routing'])->group(function () {
                     require base_path('routes/landing.php');
                 });
 
-                Route::domain(env('OWNER_DOMAIN'))->middleware(['web', 'domain.routing'])->group(function () {
+                Route::domain(env('OWNER_DOMAIN', 'dashboard.xpresspos.id'))->middleware(['web', 'domain.routing'])->group(function () {
                     require base_path('routes/owner.php');
                 });
 
-                Route::domain(env('ADMIN_DOMAIN'))->middleware(['web', 'domain.routing'])->group(function () {
+                Route::domain(env('ADMIN_DOMAIN', 'admin.xpresspos.id'))->middleware(['web', 'domain.routing'])->group(function () {
                     require base_path('routes/admin.php');
                 });
             } else {

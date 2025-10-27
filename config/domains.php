@@ -15,7 +15,7 @@ return [
     'main' => env('MAIN_DOMAIN', 'xpresspos.id'),
     
     // Owner dashboard subdomain
-    'owner' => env('OWNER_DOMAIN', 'owner.xpresspos.id'),
+    'owner' => env('OWNER_DOMAIN', 'dashboard.xpresspos.id'),
     
     // Admin panel subdomain  
     'admin' => env('ADMIN_DOMAIN', 'admin.xpresspos.id'),

@@ -72,18 +72,16 @@ Route::domain(config('domains.api'))->group(function () {
     })->name('api.home');
 });
 
-// Owner domain routing (owner.xpresspos.id) - redirect to Filament
+// Owner domain routing (dashboard.xpresspos.id) - Filament handles all routes
 Route::domain(config('domains.owner'))->group(function () {
-    Route::get('/', function () {
-        return redirect('/owner-panel');
-    })->name('owner.home');
+    // Filament panel handles all routes at root domain
+    // No additional routes needed here
 });
 
-// Admin domain routing (admin.xpresspos.id) - redirect to Filament  
+// Admin domain routing (admin.xpresspos.id) - Filament handles all routes
 Route::domain(config('domains.admin'))->group(function () {
-    Route::get('/', function () {
-        return redirect('/admin-panel');
-    })->name('admin.home');
+    // Filament panel handles all routes at root domain
+    // No additional routes needed here
 });
 
 // Include landing routes for localhost development

@@ -9,6 +9,6 @@ Route::post('/logout', function () {
     if (app()->environment('production') && env('FRONTEND_URL')) {
         return redirect()->to(env('FRONTEND_URL'));
     } else {
-        return redirect('/landing');
+        return redirect('/');
     }
 })->name('owner.logout');

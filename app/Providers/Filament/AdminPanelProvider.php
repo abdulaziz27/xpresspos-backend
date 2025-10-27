@@ -25,7 +25,7 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        $adminDomain = env('ADMIN_DOMAIN');
+        $adminDomain = env('ADMIN_DOMAIN', 'admin.xpresspos.id');
 
         $panel = $panel
             ->id('admin')

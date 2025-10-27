@@ -25,7 +25,7 @@ class OwnerPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        $ownerDomain = env('OWNER_DOMAIN');
+        $ownerDomain = env('OWNER_DOMAIN', 'dashboard.xpresspos.id');
 
         $panel = $panel
             ->id('owner')
