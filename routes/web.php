@@ -55,11 +55,6 @@ if (app()->environment('local')) {
     });
 }
 
-// Test route (optional)
-Route::get('/test', function () {
-    return view('test-simple');
-})->name('test.simple');
-
 // Test route for debugging
 Route::get('/test-navbar', function () {
     return view('landing.xpresspos', [
@@ -102,6 +97,8 @@ Route::domain(config('domains.admin'))->group(function () {
 
 // Localhost fallback routes (for development without domain setup)
 Route::get('/', [LandingController::class, 'index'])->name('home');
+Route::get('/pricing', [LandingController::class, 'showPricing'])->name('pricing');
+Route::get('/checkout', [LandingController::class, 'showCheckout'])->name('checkout');
 
 Route::get('/forgot-password', function () {
     return view('landing.auth.forgot-password');

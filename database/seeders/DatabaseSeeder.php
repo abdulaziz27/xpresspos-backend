@@ -20,6 +20,16 @@ class DatabaseSeeder extends Seeder
             PlanSeeder::class,
         ]);
 
+        // Create roles and permissions
+        $this->call([
+            RoleSeeder::class,
+        ]);
+
+        // Create users
+        $this->call([
+            UserSeeder::class,
+        ]);
+
         // Create stores and subscriptions
         $this->call([
             StoreSeeder::class,
