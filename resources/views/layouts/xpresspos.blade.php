@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'XpressPOS - AI-Powered POS System')</title>
     <meta name="description" content="@yield('description', 'Kelola toko, restoran, dan bisnis dengan AI. Tidak perlu keahlian akuntansi dan manajemen khusus.')">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>

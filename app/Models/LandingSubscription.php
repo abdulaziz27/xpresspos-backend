@@ -31,6 +31,15 @@ class LandingSubscription extends Model
         'provisioned_user_id',
         'provisioned_at',
         'onboarding_url',
+        'xendit_invoice_id',
+        'payment_status',
+        'payment_amount',
+        'paid_at',
+        'subscription_id',
+        'business_name',
+        'business_type',
+        'plan_id',
+        'billing_cycle',
     ];
 
     protected $casts = [
@@ -38,6 +47,8 @@ class LandingSubscription extends Model
         'processed_at' => 'datetime',
         'follow_up_logs' => 'array',
         'provisioned_at' => 'datetime',
+        'paid_at' => 'datetime',
+        'payment_amount' => 'decimal:2',
     ];
 
     public function processor(): BelongsTo

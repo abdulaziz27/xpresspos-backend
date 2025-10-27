@@ -6,10 +6,42 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Services\PaymentAuditService;
 
 class SubscriptionPayment extends Model
 {
     use HasFactory, HasUuids;
+
+    /**
+     * Boot the model and register audit logging events.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::created(function ($model) {
+            app(PaymentAuditService::class)->logSubscriptionPaymentCreated($model);
+        });
+
+        static::updating(function ($model) {
+            // Store original data for audit logging
+            $model->_originalData = $model->getOriginal();
+        });
+
+        static::updated(function ($model) {
+            $auditService = app(PaymentAuditService::class);
+            
+            // Check if status changed
+            if (isset($model->_originalData['status']) && 
+                $model->_originalData['status'] !== $model->status) {
+                $auditService->logSubscriptionPaymentStatusChange(
+                    $model,
+                    $model->_originalData['status'],
+                    $model->gateway_response ?? []
+                );
+            }
+        });
+    }
 
     protected $fillable = [
         'landing_subscription_id',

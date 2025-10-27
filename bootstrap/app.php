@@ -90,6 +90,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'store.context' => \App\Http\Middleware\EnsureStoreContext::class,
             'log.security' => \App\Http\Middleware\LogSecurityEvents::class,
             'api.only' => \App\Http\Middleware\ApiOnlyMiddleware::class,
+            'xendit.webhook.security' => \App\Http\Middleware\XenditWebhookSecurity::class,
+            'dev.payment' => \App\Http\Middleware\DevelopmentPaymentMiddleware::class,
         ]);
 
         $middleware->web([

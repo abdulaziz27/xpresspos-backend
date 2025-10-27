@@ -4,7 +4,7 @@
 @section('description', 'Kelola toko, restoran, dan bisnis dengan mudah. Sistem POS modern dengan inventory management, analytics, dan multi-location support. Mulai gratis hari ini!')
 
 @section('content')
-<main class="overflow-hidden">
+<main class="overflow-visible">
     <!-- Hero Section -->
     <section id="hero" class="relative w-full hero-gradient">
         <!-- Gradient Orbs -->
@@ -21,7 +21,7 @@
                 <div class="text-center sm:mx-auto lg:mr-auto lg:mt-0 animate-fade-in-up">
                     <!-- Badge -->
                     <div class="mb-8 animate-fade-in-up relative z-50" style="animation-delay: 0.2s">
-                        <a class="group mx-auto flex w-fit items-center gap-4 rounded-full border bg-blue-100 p-1 pl-4 shadow-md shadow-black/5 transition-all duration-300 hover:bg-blue-200 border-blue-200 relative z-50" href="{{ config('domains.owner', 'http://owner.xpresspos.id') }}" style="pointer-events: auto;">
+                        <a class="group mx-auto flex w-fit items-center gap-4 rounded-full border bg-blue-100 p-1 pl-4 shadow-md shadow-black/5 transition-all duration-300 hover:bg-blue-200 border-blue-200 relative z-50" href="{{ route('landing.pricing') }}" style="pointer-events: auto;">
                             <span class="text-sm text-blue-800">Smart POS System</span>
                             <span class="block h-4 w-0.5 border-l bg-blue-300"></span>
                             <div class="size-6 overflow-hidden rounded-full bg-white duration-500 group-hover:bg-blue-50">
@@ -60,7 +60,7 @@
                     
                     <!-- CTA Button -->
                     <div class="mt-12 flex flex-col items-center justify-center gap-2 md:flex-row animate-fade-in-up relative z-50" style="animation-delay: 1s">
-                        <a class="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-base font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-11 px-8 relative z-50" href="{{ config('domains.owner', 'http://owner.xpresspos.id') }}" style="pointer-events: auto;">
+                        <a class="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-base font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-11 px-8 relative z-50" href="{{ route('landing.pricing') }}" style="pointer-events: auto;">
                             Mulai Sekarang
                         </a>
                     </div>
@@ -159,7 +159,7 @@
                         <h2 class="text-balance text-3xl font-semibold leading-tight md:text-left lg:text-4xl">Kelola Inventori Cerdas</h2>
                         <p class="text-lg leading-relaxed text-gray-600 md:text-left">Pantau stok, prediksi kebutuhan, dan kelola supplier dengan mudah. Sistem akan memberikan alert otomatis saat stok menipis.</p>
                         <div class="flex justify-center md:justify-start">
-                            <a class="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-10 px-6" href="{{ config('domains.owner', 'http://owner.xpresspos.id') }}">
+                            <a class="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-10 px-6" href="{{ route('landing.pricing') }}">
                                 Coba Sekarang
                             </a>
                         </div>
@@ -197,7 +197,7 @@
                         <h2 class="text-balance text-3xl font-semibold leading-tight md:text-left lg:text-4xl">Analisa Bisnis Mendalam</h2>
                         <p class="text-lg leading-relaxed text-gray-600 md:text-left">Dapatkan insight mendalam tentang performa bisnis dengan laporan analisa yang komprehensif dan mudah dipahami</p>
                         <div class="flex justify-center md:justify-start">
-                            <a class="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-10 px-6" href="{{ config('domains.owner', 'http://owner.xpresspos.id') }}">
+                            <a class="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-10 px-6" href="{{ route('landing.pricing') }}">
                                 Coba Sekarang
                             </a>
                         </div>
@@ -236,7 +236,7 @@
                         <h2 class="text-balance text-3xl font-semibold leading-tight md:text-left lg:text-4xl">Laporan Otomatis</h2>
                         <p class="text-lg leading-relaxed text-gray-600 md:text-left">Laporan keuangan, penjualan, dan operasional otomatis setiap hari. Export ke PDF atau Excel dengan satu klik.</p>
                         <div class="flex justify-center md:justify-start">
-                            <a class="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-10 px-6" href="{{ config('domains.owner', 'http://owner.xpresspos.id') }}">
+                            <a class="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-10 px-6" href="{{ route('landing.pricing') }}">
                                 Coba Sekarang
                             </a>
                         </div>
@@ -385,256 +385,108 @@
         <div class="mx-auto max-w-5xl pt-6">
             <div class="overflow-visible rounded-2xl border border-gray-200 bg-white shadow-lg">
                 <!-- Header Row -->
-                <div class="grid grid-cols-4 bg-gray-50 relative">
+                <div class="grid grid-cols-{{ count($plans) + 1 }} bg-gray-50 relative">
                     <div class="p-6 text-left">
                         <h3 class="text-lg font-semibold text-gray-900">Fitur</h3>
                     </div>
-                    <div class="p-6 text-center border-l border-gray-200 pricing-card">
-                        <div class="mb-2">
-                            <h3 class="text-lg font-semibold text-gray-900">Basic</h3>
-                            <p class="text-sm text-gray-500">Akses semua fitur belum termasuk premium</p>
-                        </div>
-                        <div class="mt-4">
-                            <div class="flex items-center justify-center gap-2 mb-2">
-                                <span class="bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">Diskon 31%</span>
-                            </div>
-                            <p class="text-sm text-gray-400 line-through" id="basic-original">100.000</p>
-                            <p class="text-2xl font-bold text-gray-900" id="basic-price">69.000</p>
-                            <button class="mt-3 w-full bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors">
-                                Beli
-                            </button>
-                        </div>
-                    </div>
-                    <div class="p-6 text-center border-l border-gray-200 bg-blue-50 relative pricing-card">
+                    @foreach($plans as $index => $plan)
+                    <div class="p-6 text-center border-l border-gray-200 {{ $index === 1 ? 'bg-blue-50 relative' : '' }} pricing-card">
+                        @if($index === 1)
                         <div class="pricing-badge bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-semibold shadow-lg">Populer</div>
-                        <div class="mb-2 pt-4">
-                            <h3 class="text-lg font-semibold text-gray-900">Pro</h3>
-                            <p class="text-sm text-gray-500">Akses semua fitur termasuk premium</p>
+                        @endif
+                        <div class="mb-2 {{ $index === 1 ? 'pt-4' : '' }}">
+                            <h3 class="text-lg font-semibold text-gray-900">{{ $plan->name }}</h3>
+                            <p class="text-sm text-gray-500">{{ Str::limit($plan->description, 50) }}</p>
                         </div>
                         <div class="mt-4">
-                            <div class="flex items-center justify-center gap-2 mb-2">
-                                <span class="bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">Diskon 50%</span>
+                            <div class="monthly-price">
+                                <p class="text-2xl font-bold text-gray-900">{{ number_format($plan->price, 0, ',', '.') }}</p>
+                                <p class="text-xs text-gray-500">/bulan</p>
                             </div>
-                            <p class="text-sm text-gray-400 line-through" id="pro-original">299.000</p>
-                            <p class="text-2xl font-bold text-gray-900" id="pro-price">149.000</p>
-                            <button class="mt-3 w-full bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors">
+                            <div class="yearly-price hidden">
+                                <p class="text-2xl font-bold text-gray-900">{{ number_format($plan->annual_price, 0, ',', '.') }}</p>
+                                <p class="text-xs text-gray-500">/tahun</p>
+                            </div>
+                            <a href="{{ route('landing.checkout') }}?plan={{ $plan->slug }}&billing=monthly" class="mt-3 w-full {{ $index === 1 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-900 hover:bg-gray-800' }} text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors inline-block text-center">
                                 Beli
-                            </button>
+                            </a>
                         </div>
                     </div>
-                    <div class="p-6 text-center border-l border-gray-200 pricing-card">
-                        <div class="mb-2">
-                            <h3 class="text-lg font-semibold text-gray-900">Enterprise</h3>
-                            <p class="text-sm text-gray-500">Akses semua fitur termasuk premium + priority support</p>
-                        </div>
-                        <div class="mt-4">
-                            <p class="text-2xl font-bold text-gray-900" id="enterprise-price">499.000</p>
-                            <button class="mt-3 w-full bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors">
-                                Beli
-                            </button>
-                        </div>
-                    </div>
+                    @endforeach
                 </div>
 
                 <!-- Feature Rows -->
                 <div class="divide-y divide-gray-200">
-                    <!-- POS System -->
-                    <div class="grid grid-cols-4 hover:bg-gray-50">
-                        <div class="p-4 text-left font-medium text-gray-900">Sistem POS</div>
-                        <div class="p-4 text-center border-l border-gray-200">
-                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
+                    @php
+                        $allFeatures = collect($plans)->pluck('features')->flatten()->unique()->values();
+                    @endphp
+                    
+                    @foreach($allFeatures as $feature)
+                    <div class="grid grid-cols-{{ count($plans) + 1 }} hover:bg-gray-50">
+                        <div class="p-4 text-left font-medium text-gray-900">{{ ucwords(str_replace('_', ' ', $feature)) }}</div>
+                        @foreach($plans as $index => $plan)
+                        <div class="p-4 text-center border-l border-gray-200 {{ $index === 1 ? 'bg-blue-50' : '' }}">
+                            @if(in_array($feature, $plan->features))
+                                <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            @else
+                                <svg class="w-5 h-5 text-red-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                            @endif
                         </div>
-                        <div class="p-4 text-center border-l border-gray-200 bg-blue-50">
-                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                        <div class="p-4 text-center border-l border-gray-200">
-                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
+                        @endforeach
                     </div>
-
-                    <!-- Inventory Management -->
-                    <div class="grid grid-cols-4 hover:bg-gray-50">
-                        <div class="p-4 text-left font-medium text-gray-900">Manajemen Inventori</div>
-                        <div class="p-4 text-center border-l border-gray-200">
-                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                        <div class="p-4 text-center border-l border-gray-200 bg-blue-50">
-                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                        <div class="p-4 text-center border-l border-gray-200">
-                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                    </div>
-
-                    <!-- Smart Analytics -->
-                    <div class="grid grid-cols-4 hover:bg-gray-50">
-                        <div class="p-4 text-left font-medium text-gray-900">Smart Analytics</div>
-                        <div class="p-4 text-center border-l border-gray-200">
-                            <svg class="w-5 h-5 text-red-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                        <div class="p-4 text-center border-l border-gray-200 bg-blue-50">
-                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                        <div class="p-4 text-center border-l border-gray-200">
-                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                    </div>
-
-                    <!-- Multi Outlet -->
-                    <div class="grid grid-cols-4 hover:bg-gray-50">
-                        <div class="p-4 text-left font-medium text-gray-900">Multi Outlet</div>
-                        <div class="p-4 text-center border-l border-gray-200">
-                            <span class="text-sm text-gray-500">1 Outlet</span>
-                        </div>
-                        <div class="p-4 text-center border-l border-gray-200 bg-blue-50">
-                            <span class="text-sm text-gray-500">5 Outlets</span>
-                        </div>
-                        <div class="p-4 text-center border-l border-gray-200">
-                            <span class="text-sm text-gray-500">Unlimited</span>
-                        </div>
-                    </div>
-
-                    <!-- Mobile App -->
-                    <div class="grid grid-cols-4 hover:bg-gray-50">
-                        <div class="p-4 text-left font-medium text-gray-900">Mobile App</div>
-                        <div class="p-4 text-center border-l border-gray-200">
-                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                        <div class="p-4 text-center border-l border-gray-200 bg-blue-50">
-                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                        <div class="p-4 text-center border-l border-gray-200">
-                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                    </div>
-
-                    <!-- Priority Support -->
-                    <div class="grid grid-cols-4 hover:bg-gray-50">
-                        <div class="p-4 text-left font-medium text-gray-900">Priority Support</div>
-                        <div class="p-4 text-center border-l border-gray-200">
-                            <svg class="w-5 h-5 text-red-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                        <div class="p-4 text-center border-l border-gray-200 bg-blue-50">
-                            <svg class="w-5 h-5 text-red-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                        <div class="p-4 text-center border-l border-gray-200">
-                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                    </div>
+                    @endforeach
                 </div>
             </div>
         </div>
 
         <!-- JavaScript for Toggle -->
         <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const monthlyBtn = document.getElementById('monthly-btn');
-                const yearlyBtn = document.getElementById('yearly-btn');
-                const basicPrice = document.getElementById('basic-price');
-                const proPrice = document.getElementById('pro-price');
-                const enterprisePrice = document.getElementById('enterprise-price');
-                const basicOriginal = document.getElementById('basic-original');
-                const proOriginal = document.getElementById('pro-original');
-
-                // Monthly prices
-                const monthlyPrices = {
-                    basic: '69.000',
-                    basicOriginal: '100.000',
-                    pro: '149.000',
-                    proOriginal: '299.000',
-                    enterprise: '499.000'
-                };
-
-                // Yearly prices (with 2 months free = 10 months price)
-                const yearlyPrices = {
-                    basic: '690.000',
-                    basicOriginal: '1.000.000',
-                    pro: '1.490.000',
-                    proOriginal: '2.990.000',
-                    enterprise: '4.990.000'
-                };
-
-                function animatePrice(element, newPrice) {
-                    element.style.opacity = '0.7';
-                    
-                    setTimeout(() => {
-                        element.textContent = newPrice;
-                        element.style.opacity = '1';
-                    }, 100);
-                }
-
-                monthlyBtn.addEventListener('click', function() {
-                    if (monthlyBtn.classList.contains('bg-white')) return;
-                    
-                    // Button animations - Simplified
-                    monthlyBtn.classList.add('bg-white', 'text-gray-700', 'shadow-sm');
-                    monthlyBtn.classList.remove('text-gray-500');
-                    yearlyBtn.classList.remove('bg-white', 'text-gray-700', 'shadow-sm');
-                    yearlyBtn.classList.add('text-gray-500');
-
-                    // Price animations
-                    if (basicPrice) animatePrice(basicPrice, monthlyPrices.basic);
-                    if (proPrice) animatePrice(proPrice, monthlyPrices.pro);
-                    if (enterprisePrice) animatePrice(enterprisePrice, monthlyPrices.enterprise);
-                    if (basicOriginal) animatePrice(basicOriginal, monthlyPrices.basicOriginal);
-                    if (proOriginal) animatePrice(proOriginal, monthlyPrices.proOriginal);
-                });
-
-                yearlyBtn.addEventListener('click', function() {
-                    if (yearlyBtn.classList.contains('bg-white')) return;
-                    
-                    // Button animations - Simplified
-                    yearlyBtn.classList.add('bg-white', 'text-gray-700', 'shadow-sm');
-                    yearlyBtn.classList.remove('text-gray-500');
-                    monthlyBtn.classList.remove('bg-white', 'text-gray-700', 'shadow-sm');
-                    monthlyBtn.classList.add('text-gray-500');
-
-                    // Price animations
-                    if (basicPrice) animatePrice(basicPrice, yearlyPrices.basic);
-                    if (proPrice) animatePrice(proPrice, yearlyPrices.pro);
-                    if (enterprisePrice) animatePrice(enterprisePrice, yearlyPrices.enterprise);
-                    if (basicOriginal) animatePrice(basicOriginal, yearlyPrices.basicOriginal);
-                    if (proOriginal) animatePrice(proOriginal, yearlyPrices.proOriginal);
-                });
-
-                // Add CSS transitions - Simplified
-                const priceElements = [basicPrice, proPrice, enterprisePrice, basicOriginal, proOriginal];
-                priceElements.forEach(element => {
-                    if (element) {
-                        element.style.transition = 'opacity 0.2s ease-in-out';
-                    }
-                });
+        document.addEventListener('DOMContentLoaded', function() {
+            const monthlyBtn = document.getElementById('monthly-btn');
+            const yearlyBtn = document.getElementById('yearly-btn');
+            
+            monthlyBtn.addEventListener('click', function() {
+                switchToMonthly();
             });
+            
+            yearlyBtn.addEventListener('click', function() {
+                switchToYearly();
+            });
+            
+            function switchToMonthly() {
+                monthlyBtn.classList.add('bg-white', 'text-gray-700', 'shadow-sm');
+                monthlyBtn.classList.remove('text-gray-500');
+                yearlyBtn.classList.remove('bg-white', 'text-gray-700', 'shadow-sm');
+                yearlyBtn.classList.add('text-gray-500');
+                
+                // Show monthly prices
+                document.querySelectorAll('.monthly-price').forEach(el => {
+                    el.classList.remove('hidden');
+                });
+                document.querySelectorAll('.yearly-price').forEach(el => {
+                    el.classList.add('hidden');
+                });
+            }
+            
+            function switchToYearly() {
+                yearlyBtn.classList.add('bg-white', 'text-gray-700', 'shadow-sm');
+                yearlyBtn.classList.remove('text-gray-500');
+                monthlyBtn.classList.remove('bg-white', 'text-gray-700', 'shadow-sm');
+                monthlyBtn.classList.add('text-gray-500');
+                
+                // Show yearly prices
+                document.querySelectorAll('.yearly-price').forEach(el => {
+                    el.classList.remove('hidden');
+                });
+                document.querySelectorAll('.monthly-price').forEach(el => {
+                    el.classList.add('hidden');
+                });
+            }
+        });
         </script>
         </div>
     </section>
@@ -732,16 +584,16 @@
                 Bergabunglah dengan <span data-count="10">0</span>+ bisnis yang telah merasakan transformasi dengan XpressPOS
             </p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center items-center scroll-animate" style="animation-delay: 0.4s">
-                <a href="{{ config('domains.owner', 'http://owner.xpresspos.id') }}" 
+                <a href="{{ route('landing.pricing') }}" 
                    class="inline-flex items-center px-8 py-4 text-lg font-semibold text-blue-600 bg-white rounded-full hover:bg-gray-50 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 btn-magnetic">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                     </svg>
                     Mulai Gratis Sekarang
                 </a>
-                <a href="#pricing" 
+                <a href="{{ route('login') }}" 
                    class="inline-flex items-center px-8 py-4 text-lg font-semibold text-white border-2 border-white rounded-full hover:bg-white hover:text-blue-600 transition-all duration-300 btn-magnetic">
-                    Lihat Harga
+                    Login
                 </a>
             </div>
             
@@ -2173,7 +2025,7 @@
         function addDarkModeToggle() {
             const toggle = document.createElement('button');
             toggle.innerHTML = '🌙';
-            toggle.className = 'fixed bottom-4 right-4 w-12 h-12 bg-gray-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 z-50';
+            toggle.className = 'fixed bottom-4 left-4 w-12 h-12 bg-gray-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 z-50';
             toggle.style.display = 'none'; // Hidden by default
             
             toggle.addEventListener('click', () => {
@@ -2307,7 +2159,7 @@
 </script>
 
 <!-- Footer -->
-<footer class="relative w-full bg-gray-900 text-white overflow-hidden">
+<footer class="relative w-full bg-gray-900 text-white overflow-visible">
     <!-- Background Pattern -->
     <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23374151" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="1"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-40"></div>
     
@@ -2372,9 +2224,9 @@
                         <span class="w-1.5 h-1.5 bg-blue-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                         Testimoni
                     </a></li>
-                    <li><a href="{{ config('domains.owner', 'http://owner.xpresspos.id') }}" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm flex items-center group">
+                    <li><a href="{{ route('login') }}" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm flex items-center group">
                         <span class="w-1.5 h-1.5 bg-blue-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-                        Dashboard
+                        Login
                     </a></li>
                 </ul>
             </div>
@@ -2479,14 +2331,14 @@
             </div>
         </div>
     </div>
-    
-    <!-- Scroll to Top Button -->
-    <button id="scrollToTop" class="fixed bottom-8 right-8 w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 opacity-0 invisible z-50">
-        <svg class="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
-        </svg>
-    </button>
 </footer>
+
+<!-- Scroll to Top Button -->
+<button id="scrollToTop" class="fixed bottom-4 right-4 w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 opacity-0 invisible z-50" style="position: fixed !important; bottom: 16px !important; right: 16px !important; z-index: 9999 !important;">
+    <svg class="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+    </svg>
+</button>
 
 <script>
     // Scroll to top functionality

@@ -29,6 +29,28 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        // Custom rate limiter for Xendit webhooks
+        RateLimiter::for('xendit-webhook', function (Request $request) {
+            $maxAttempts = config('xendit.security.rate_limit.max_attempts', 60);
+            $decayMinutes = config('xendit.security.rate_limit.decay_minutes', 1);
+            
+            return Limit::perMinutes($decayMinutes, $maxAttempts)
+                ->by('xendit-webhook:' . $request->ip())
+                ->response(function (Request $request, array $headers) {
+                    // Log rate limit exceeded for security monitoring
+                    app(\App\Services\PaymentSecurityService::class)->logWebhookSecurityEvent(
+                        'rate_limit_exceeded',
+                        $request,
+                        ['max_attempts' => config('xendit.security.rate_limit.max_attempts', 60)]
+                    );
+                    
+                    return response()->json([
+                        'error' => 'Rate limit exceeded',
+                        'retry_after' => $headers['Retry-After'] ?? 60
+                    ], 429, $headers);
+                });
+        });
+
         $domains = config('domains', []);
 
         $this->routes(function () use ($domains) {

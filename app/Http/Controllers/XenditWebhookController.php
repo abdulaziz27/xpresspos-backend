@@ -9,6 +9,7 @@ use App\Services\XenditService;
 use App\Services\SubscriptionActivationService;
 use App\Services\SubscriptionRenewalService;
 use App\Services\SubscriptionPaymentNotificationService;
+use App\Services\PaymentSecurityService;
 use App\Jobs\SendPaymentNotificationJob;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -20,17 +21,20 @@ class XenditWebhookController extends Controller
     protected SubscriptionActivationService $activationService;
     protected SubscriptionRenewalService $renewalService;
     protected SubscriptionPaymentNotificationService $notificationService;
+    protected PaymentSecurityService $securityService;
 
     public function __construct(
         XenditService $xenditService, 
         SubscriptionActivationService $activationService,
         SubscriptionRenewalService $renewalService,
-        SubscriptionPaymentNotificationService $notificationService
+        SubscriptionPaymentNotificationService $notificationService,
+        PaymentSecurityService $securityService
     ) {
         $this->xenditService = $xenditService;
         $this->activationService = $activationService;
         $this->renewalService = $renewalService;
         $this->notificationService = $notificationService;
+        $this->securityService = $securityService;
     }
 
     /**
@@ -39,12 +43,21 @@ class XenditWebhookController extends Controller
     public function handleInvoiceCallback(Request $request): JsonResponse
     {
         try {
-            // Validate webhook signature
+            // Enhanced security logging
+            $this->securityService->logWebhookSecurityEvent(
+                'webhook_received',
+                $request,
+                ['webhook_type' => 'invoice'],
+                'info'
+            );
+
+            // Validate webhook signature (enhanced validation is handled by middleware)
             if (!$this->validateSignature($request)) {
-                Log::warning('Invalid webhook signature', [
-                    'headers' => $request->headers->all(),
-                    'body' => $request->getContent()
-                ]);
+                $this->securityService->logWebhookSecurityEvent(
+                    'invalid_signature',
+                    $request,
+                    ['signature_header' => $request->header('x-callback-token')]
+                );
                 
                 return response()->json(['message' => 'Invalid signature'], 401);
             }
@@ -61,10 +74,14 @@ class XenditWebhookController extends Controller
             $subscriptionPayment = SubscriptionPayment::where('xendit_invoice_id', $payload['id'])->first();
 
             if (!$subscriptionPayment) {
-                Log::warning('Subscription payment not found for webhook', [
-                    'xendit_invoice_id' => $payload['id'],
-                    'external_id' => $payload['external_id'] ?? null,
-                ]);
+                $this->securityService->logWebhookSecurityEvent(
+                    'payment_not_found',
+                    $request,
+                    [
+                        'xendit_invoice_id' => $payload['id'],
+                        'external_id' => $payload['external_id'] ?? null,
+                    ]
+                );
                 
                 return response()->json(['message' => 'Payment not found'], 404);
             }
@@ -95,20 +112,28 @@ class XenditWebhookController extends Controller
             // Send real-time payment notification if status changed
             $this->handlePaymentStatusNotification($subscriptionPayment, $previousStatus);
 
-            Log::info('Webhook processed successfully', [
-                'subscription_payment_id' => $subscriptionPayment->id,
-                'status' => $subscriptionPayment->status,
-                'previous_status' => $previousStatus,
-            ]);
+            $this->securityService->logWebhookSecurityEvent(
+                'webhook_processed_successfully',
+                $request,
+                [
+                    'subscription_payment_id' => $subscriptionPayment->id,
+                    'status' => $subscriptionPayment->status,
+                    'previous_status' => $previousStatus,
+                ],
+                'info'
+            );
 
             return response()->json(['message' => 'Webhook processed successfully']);
 
         } catch (\Exception $e) {
-            Log::error('Failed to process Xendit webhook', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'payload' => $request->all(),
-            ]);
+            $this->securityService->logWebhookSecurityEvent(
+                'webhook_processing_failed',
+                $request,
+                [
+                    'error' => $e->getMessage(),
+                    'payload_keys' => array_keys($request->all()),
+                ]
+            );
 
             return response()->json(['message' => 'Webhook processing failed'], 500);
         }
@@ -120,11 +145,21 @@ class XenditWebhookController extends Controller
     public function handleRecurringCallback(Request $request): JsonResponse
     {
         try {
+            // Enhanced security logging
+            $this->securityService->logWebhookSecurityEvent(
+                'recurring_webhook_received',
+                $request,
+                ['webhook_type' => 'recurring'],
+                'info'
+            );
+
             // Validate webhook signature
             if (!$this->validateSignature($request)) {
-                Log::warning('Invalid recurring webhook signature', [
-                    'headers' => $request->headers->all(),
-                ]);
+                $this->securityService->logWebhookSecurityEvent(
+                    'invalid_recurring_signature',
+                    $request,
+                    ['signature_header' => $request->header('x-callback-token')]
+                );
                 
                 return response()->json(['message' => 'Invalid signature'], 401);
             }
@@ -194,6 +229,11 @@ class XenditWebhookController extends Controller
         }
 
         $landingSubscription->update($updateData);
+
+        // Trigger automatic account provisioning for successful payments
+        if ($subscriptionPayment->isPaid() && !$landingSubscription->provisioned_user_id) {
+            $this->triggerAccountProvisioning($landingSubscription);
+        }
 
         Log::info('Landing subscription status updated', [
             'landing_subscription_id' => $landingSubscription->id,
@@ -400,5 +440,34 @@ class XenditWebhookController extends Controller
                 'recurring_payment.failed',
             ]
         ]);
+    }
+
+    /**
+     * Trigger automatic account provisioning for successful payments.
+     */
+    private function triggerAccountProvisioning(LandingSubscription $landingSubscription): void
+    {
+        try {
+            $provisioningService = app(\App\Services\SubscriptionProvisioningService::class);
+            $result = $provisioningService->provisionSubscription($landingSubscription);
+            
+            if ($result['success']) {
+                Log::info('Account provisioning successful', [
+                    'landing_subscription_id' => $landingSubscription->id,
+                    'user_id' => $result['user']->id,
+                    'store_id' => $result['store']->id,
+                ]);
+            } else {
+                Log::error('Account provisioning failed', [
+                    'landing_subscription_id' => $landingSubscription->id,
+                    'error' => $result['error']
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Account provisioning exception', [
+                'landing_subscription_id' => $landingSubscription->id,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }

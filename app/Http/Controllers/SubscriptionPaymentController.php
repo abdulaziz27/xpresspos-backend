@@ -60,41 +60,40 @@ class SubscriptionPaymentController extends Controller
                 'external_id' => $externalId,
                 'amount' => $request->amount,
                 'description' => $request->description ?? "Subscription payment for {$landingSubscription->email}",
-                'invoice_duration' => config('xendit.invoice_expiry_hours', 24) * 3600, // Convert to seconds
-                'customer' => [
-                    'given_names' => $landingSubscription->name,
-                    'email' => $landingSubscription->email,
-                ],
-                'success_redirect_url' => url('/subscription/payment/success'),
-                'failure_redirect_url' => url('/subscription/payment/failed'),
-                'currency' => config('xendit.currency', 'IDR'),
+                'customer_name' => $landingSubscription->name,
+                'customer_email' => $landingSubscription->email,
+                'customer_phone' => $landingSubscription->phone,
                 'payment_methods' => [$request->payment_method],
             ];
 
             $xenditResponse = $this->xenditService->createInvoice($xenditInvoiceData);
 
+            if (!$xenditResponse['success']) {
+                throw new \Exception('Failed to create Xendit invoice: ' . ($xenditResponse['error'] ?? 'Unknown error'));
+            }
+
             // Create subscription payment record
             $subscriptionPayment = SubscriptionPayment::create([
                 'landing_subscription_id' => $landingSubscription->id,
-                'xendit_invoice_id' => $xenditResponse['id'],
+                'xendit_invoice_id' => $xenditResponse['data']['id'],
                 'external_id' => $externalId,
                 'payment_method' => $request->payment_method,
                 'amount' => $request->amount,
                 'status' => 'pending',
-                'expires_at' => now()->addHours(config('xendit.invoice_expiry_hours', 24)),
+                'expires_at' => now()->addHours((int) config('xendit.invoice_expiry_hours', 24)),
                 'gateway_response' => $xenditResponse,
             ]);
 
             // Update landing subscription with payment info
             $landingSubscription->update([
-                'xendit_invoice_id' => $xenditResponse['id'],
+                'xendit_invoice_id' => $xenditResponse['data']['id'],
                 'payment_status' => 'pending',
                 'payment_amount' => $request->amount,
             ]);
 
             Log::info('Subscription payment created', [
                 'subscription_payment_id' => $subscriptionPayment->id,
-                'xendit_invoice_id' => $xenditResponse['id'],
+                'xendit_invoice_id' => $xenditResponse['data']['id'],
                 'landing_subscription_id' => $landingSubscription->id,
             ]);
 
@@ -103,8 +102,8 @@ class SubscriptionPaymentController extends Controller
                 'message' => 'Subscription payment created successfully',
                 'data' => [
                     'subscription_payment_id' => $subscriptionPayment->id,
-                    'xendit_invoice_id' => $xenditResponse['id'],
-                    'payment_url' => $xenditResponse['invoice_url'],
+                    'xendit_invoice_id' => $xenditResponse['data']['id'],
+                    'payment_url' => $xenditResponse['data']['invoice_url'],
                     'expires_at' => $subscriptionPayment->expires_at,
                     'amount' => $subscriptionPayment->amount,
                     'status' => $subscriptionPayment->status,
@@ -133,11 +132,34 @@ class SubscriptionPaymentController extends Controller
         try {
             $subscriptionPayment = SubscriptionPayment::where('xendit_invoice_id', $xenditInvoiceId)->first();
 
+            // If no SubscriptionPayment found, check LandingSubscription
             if (!$subscriptionPayment) {
+                $landingSubscription = LandingSubscription::where('xendit_invoice_id', $xenditInvoiceId)->first();
+                
+                if (!$landingSubscription) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Payment not found'
+                    ], 404);
+                }
+
+                // Return status based on LandingSubscription
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Subscription payment not found'
-                ], 404);
+                    'success' => true,
+                    'data' => [
+                        'subscription_id' => $landingSubscription->id,
+                        'xendit_invoice_id' => $landingSubscription->xendit_invoice_id,
+                        'status' => $landingSubscription->payment_status ?? 'pending',
+                        'amount' => $landingSubscription->payment_amount,
+                        'payment_method' => null,
+                        'payment_channel' => null,
+                        'paid_at' => $landingSubscription->paid_at,
+                        'expires_at' => now()->addHours(24), // Default expiry
+                        'invoice_url' => null,
+                        'created_at' => $landingSubscription->created_at,
+                        'updated_at' => $landingSubscription->updated_at,
+                    ]
+                ]);
             }
 
             // Get latest status from Xendit
@@ -269,18 +291,22 @@ class SubscriptionPaymentController extends Controller
 
             $xenditResponse = $this->xenditService->createInvoice($xenditInvoiceData);
 
+            if (!$xenditResponse['success']) {
+                throw new \Exception('Failed to create Xendit invoice for retry: ' . ($xenditResponse['error'] ?? 'Unknown error'));
+            }
+
             // Update subscription payment with new Xendit invoice
             $subscriptionPayment->update([
-                'xendit_invoice_id' => $xenditResponse['id'],
+                'xendit_invoice_id' => $xenditResponse['data']['id'],
                 'external_id' => $externalId,
                 'status' => 'pending',
-                'expires_at' => now()->addHours(config('xendit.invoice_expiry_hours', 24)),
-                'gateway_response' => $xenditResponse,
+                'expires_at' => now()->addHours((int) config('xendit.invoice_expiry_hours', 24)),
+                'gateway_response' => $xenditResponse['data'],
             ]);
 
             Log::info('Subscription payment retried', [
                 'subscription_payment_id' => $subscriptionPayment->id,
-                'new_xendit_invoice_id' => $xenditResponse['id'],
+                'new_xendit_invoice_id' => $xenditResponse['data']['id'],
             ]);
 
             return response()->json([
@@ -288,8 +314,8 @@ class SubscriptionPaymentController extends Controller
                 'message' => 'Payment retry created successfully',
                 'data' => [
                     'subscription_payment_id' => $subscriptionPayment->id,
-                    'xendit_invoice_id' => $xenditResponse['id'],
-                    'payment_url' => $xenditResponse['invoice_url'],
+                    'xendit_invoice_id' => $xenditResponse['data']['id'],
+                    'payment_url' => $xenditResponse['data']['invoice_url'],
                     'expires_at' => $subscriptionPayment->expires_at,
                 ]
             ]);

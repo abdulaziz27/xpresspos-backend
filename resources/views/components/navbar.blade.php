@@ -1,5 +1,5 @@
 <!-- Modern Responsive Navbar -->
-<nav class="fixed top-0 w-full z-50 backdrop-blur-md bg-white/70 dark:bg-gray-900/50 border-b border-white/20 dark:border-gray-700/30 transition-all duration-300 ease-in-out">
+<nav class="fixed top-0 w-full z-50 backdrop-blur-md bg-gray-900/80 dark:bg-gray-900/50 border-b border-gray-700/30 dark:border-gray-700/30 transition-all duration-300 ease-in-out" style="background-color: rgba(17, 24, 39, 0.8) !important; backdrop-filter: blur(12px) !important;">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
             <!-- Logo -->
@@ -59,7 +59,7 @@
 
     <!-- Mobile menu -->
     <div id="mobile-menu" class="md:hidden hidden">
-        <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-white/20 dark:border-gray-700/30">
+        <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-900/95 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-700/30 dark:border-gray-700/30">
             <a href="#hero" 
                class="mobile-nav-link block px-3 py-2 rounded-lg text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300 ease-in-out">
                 Beranda
@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
 /* Backdrop blur fallback for older browsers */
 @supports not (backdrop-filter: blur(12px)) {
     nav {
-        background-color: rgba(255, 255, 255, 0.95);
+        background-color: rgba(17, 24, 39, 0.95);
     }
     
     .dark nav {

@@ -456,8 +456,13 @@ Route::middleware(['auth:sanctum'])->prefix('v1/subscription-payments')->group(f
 // Public webhooks (outside protected middleware)
 Route::prefix('v1/webhooks')->group(function (): void {
     Route::post('midtrans', [MidtransWebhookController::class, 'handle'])->name('api.v1.webhooks.midtrans');
-    Route::post('xendit/invoice', [\App\Http\Controllers\XenditWebhookController::class, 'handleInvoiceCallback'])->name('api.v1.webhooks.xendit.invoice');
-    Route::post('xendit/recurring', [\App\Http\Controllers\XenditWebhookController::class, 'handleRecurringCallback'])->name('api.v1.webhooks.xendit.recurring');
+    
+    // Xendit webhooks with enhanced security
+    Route::middleware(['xendit.webhook.security', 'throttle:xendit-webhook'])->group(function () {
+        Route::post('xendit/invoice', [\App\Http\Controllers\XenditWebhookController::class, 'handleInvoiceCallback'])->name('api.v1.webhooks.xendit.invoice');
+        Route::post('xendit/recurring', [\App\Http\Controllers\XenditWebhookController::class, 'handleRecurringCallback'])->name('api.v1.webhooks.xendit.recurring');
+    });
+    
     Route::get('xendit/info', [\App\Http\Controllers\XenditWebhookController::class, 'getWebhookInfo'])->name('api.v1.webhooks.xendit.info');
 });
 

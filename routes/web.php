@@ -86,6 +86,9 @@ Route::domain(config('domains.admin'))->group(function () {
     })->name('admin.home');
 });
 
+// Include landing routes for localhost development
+require __DIR__.'/landing.php';
+
 // Localhost fallback routes (for development without domain setup)
 Route::get('/', function () {
     return view('landing.xpresspos', [
