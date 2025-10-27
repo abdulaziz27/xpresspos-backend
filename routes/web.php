@@ -13,11 +13,11 @@ Route::domain(config('domains.main'))->group(function () {
     // Auth routes
     Route::get('/login', function () {
         return view('landing.auth.login');
-    })->name('auth.login');
+    })->name('web.auth.login');
     
     Route::get('/register', function () {
         return view('landing.auth.register');
-    })->name('auth.register');
+    })->name('web.auth.register');
     
     // Cart route
     Route::get('/cart', function () {
@@ -96,11 +96,11 @@ Route::get('/', function () {
 
 Route::get('/login', function () {
     return view('landing.auth.login');
-})->name('login');
+})->name('web.login');
 
 Route::get('/register', function () {
     return view('landing.auth.register');
-})->name('register');
+})->name('web.register');
 
 Route::get('/forgot-password', function () {
     return view('landing.auth.forgot-password');
@@ -122,11 +122,11 @@ Route::prefix('main')->group(function () {
     
     Route::get('/login', function () {
         return view('landing.auth.login');
-    })->name('main.login');
+    })->name('main.web.login');
     
     Route::get('/register', function () {
         return view('landing.auth.register');
-    })->name('main.register');
+    })->name('main.web.register');
     
     Route::get('/cart', function () {
         return view('landing.cart');
