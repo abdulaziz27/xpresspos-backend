@@ -385,11 +385,11 @@
         <div class="mx-auto max-w-5xl pt-6">
             <div class="overflow-visible rounded-2xl border border-gray-200 bg-white shadow-lg">
                 <!-- Header Row -->
-                <div class="grid grid-cols-{{ count($plans) + 1 }} bg-gray-50 relative">
+                <div class="grid grid-cols-{{ count($plans ?? []) + 1 }} bg-gray-50 relative">
                     <div class="p-6 text-left">
                         <h3 class="text-lg font-semibold text-gray-900">Fitur</h3>
                     </div>
-                    @foreach($plans as $index => $plan)
+                    @foreach($plans ?? [] as $index => $plan)
                     <div class="p-6 text-center border-l border-gray-200 {{ $index === 1 ? 'bg-blue-50 relative' : '' }} pricing-card">
                         @if($index === 1)
                         <div class="pricing-badge bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-semibold shadow-lg">Populer</div>
@@ -418,13 +418,13 @@
                 <!-- Feature Rows -->
                 <div class="divide-y divide-gray-200">
                     @php
-                        $allFeatures = collect($plans)->pluck('features')->flatten()->unique()->values();
+                        $allFeatures = collect($plans ?? [])->pluck('features')->flatten()->unique()->values();
                     @endphp
                     
                     @foreach($allFeatures as $feature)
-                    <div class="grid grid-cols-{{ count($plans) + 1 }} hover:bg-gray-50">
+                    <div class="grid grid-cols-{{ count($plans ?? []) + 1 }} hover:bg-gray-50">
                         <div class="p-4 text-left font-medium text-gray-900">{{ ucwords(str_replace('_', ' ', $feature)) }}</div>
-                        @foreach($plans as $index => $plan)
+                        @foreach($plans ?? [] as $index => $plan)
                         <div class="p-4 text-center border-l border-gray-200 {{ $index === 1 ? 'bg-blue-50' : '' }}">
                             @if(in_array($feature, $plan->features))
                                 <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">

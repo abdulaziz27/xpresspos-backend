@@ -51,11 +51,7 @@ Route::domain(config('domains.main'))->group(function () {
 // Local development domains
 if (app()->environment('local')) {
     Route::domain(config('domains.local.main'))->group(function () {
-        Route::get('/', function () {
-            return view('landing.xpresspos', [
-                'title' => 'XpressPOS - AI Maksimalkan Bisnismu'
-            ]);
-        })->name('landing.main.local');
+        Route::get('/', [LandingController::class, 'index'])->name('landing.main.local');
     });
 }
 
@@ -105,11 +101,7 @@ Route::domain(config('domains.admin'))->group(function () {
 // require __DIR__.'/landing.php'; // Commented out to avoid route conflicts
 
 // Localhost fallback routes (for development without domain setup)
-Route::get('/', function () {
-    return view('landing.xpresspos', [
-        'title' => 'XpressPOS - AI Maksimalkan Bisnismu'
-    ]);
-})->name('home');
+Route::get('/', [LandingController::class, 'index'])->name('home');
 
 Route::get('/forgot-password', function () {
     return view('landing.auth.forgot-password');
