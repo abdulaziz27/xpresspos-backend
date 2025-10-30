@@ -22,6 +22,8 @@ return new class extends Migration
             $table->timestamp('occupied_at')->nullable();
             $table->timestamp('last_cleared_at')->nullable();
             $table->uuid('current_order_id')->nullable();
+            $table->integer('total_occupancy_count')->default(0);
+            $table->decimal('average_occupancy_duration', 8, 2)->default(0);
             $table->text('notes')->nullable();
             $table->timestamps();
 

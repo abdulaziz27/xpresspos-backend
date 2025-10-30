@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\RecipeController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\StaffController;
 use App\Http\Controllers\Api\V1\StoreSwitchController;
+use App\Http\Controllers\Api\V1\StoreController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TableController;
@@ -103,6 +104,11 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::get('current', [StoreSwitchController::class, 'getCurrentContext'])->name('api.v1.admin.stores.current');
         });
 
+        // Store context endpoints
+        Route::prefix('stores')->group(function (): void {
+            Route::get('current', [StoreController::class, 'current'])->name('api.v1.stores.current');
+        });
+
         // Store User Assignments
         Route::prefix('store-assignments')->group(function (): void {
             Route::get('stores/{store}', [\App\Http\Controllers\Api\V1\StoreUserAssignmentController::class, 'index'])->name('api.v1.store-assignments.store.index');
@@ -147,7 +153,7 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::put('{product}/variants/{variant}', [ProductVariantController::class, 'update'])->name('api.v1.products.variants.update');
             Route::delete('{product}/variants/{variant}', [ProductVariantController::class, 'destroy'])->name('api.v1.products.variants.destroy');
             Route::post('{product}/calculate-price', [ProductVariantController::class, 'calculatePrice'])->name('api.v1.products.calculate-price');
-            
+
             // Backwards compatibility (deprecated)
             Route::get('{product}/options', [ProductVariantController::class, 'index'])->name('api.v1.products.options');
             Route::post('{product}/options', [ProductVariantController::class, 'store'])->name('api.v1.products.options.store');
@@ -230,6 +236,8 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
             Route::post('/', [MemberController::class, 'store'])->name('api.v1.members.store');
             Route::get('{member}', [MemberController::class, 'show'])->name('api.v1.members.show');
             Route::put('{member}', [MemberController::class, 'update'])->name('api.v1.members.update');
+            Route::post('{member}/loyalty-points/add', [MemberController::class, 'addLoyaltyPoints']);
+            Route::post('{member}/loyalty-points/redeem', [MemberController::class, 'redeemLoyaltyPoints']);
         });
 
         // Staff management
@@ -446,7 +454,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1/subscription-payments')->group(f
     Route::post('retry/{subscriptionPaymentId}', [\App\Http\Controllers\SubscriptionPaymentController::class, 'retryPayment'])->name('api.v1.subscription-payments.retry');
     Route::post('activate/{subscriptionPaymentId}', [\App\Http\Controllers\SubscriptionPaymentController::class, 'activateSubscription'])->name('api.v1.subscription-payments.activate');
     Route::get('activation-status', [\App\Http\Controllers\SubscriptionPaymentController::class, 'getActivationStatus'])->name('api.v1.subscription-payments.activation-status');
-    
+
     // Renewal management
     Route::post('process-renewals', [\App\Http\Controllers\SubscriptionPaymentController::class, 'processRenewals'])->name('api.v1.subscription-payments.process-renewals');
     Route::post('create-renewal', [\App\Http\Controllers\SubscriptionPaymentController::class, 'createRenewalPayment'])->name('api.v1.subscription-payments.create-renewal');
@@ -456,13 +464,13 @@ Route::middleware(['auth:sanctum'])->prefix('v1/subscription-payments')->group(f
 // Public webhooks (outside protected middleware)
 Route::prefix('v1/webhooks')->group(function (): void {
     Route::post('midtrans', [MidtransWebhookController::class, 'handle'])->name('api.v1.webhooks.midtrans');
-    
+
     // Xendit webhooks with enhanced security
     Route::middleware(['xendit.webhook.security', 'throttle:xendit-webhook'])->group(function () {
         Route::post('xendit/invoice', [\App\Http\Controllers\XenditWebhookController::class, 'handleInvoiceCallback'])->name('api.v1.webhooks.xendit.invoice');
         Route::post('xendit/recurring', [\App\Http\Controllers\XenditWebhookController::class, 'handleRecurringCallback'])->name('api.v1.webhooks.xendit.recurring');
     });
-    
+
     Route::get('xendit/info', [\App\Http\Controllers\XenditWebhookController::class, 'getWebhookInfo'])->name('api.v1.webhooks.xendit.info');
 });
 
