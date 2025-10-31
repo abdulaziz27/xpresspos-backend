@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use App\Support\Money;
 
 class ExpenseForm
 {
@@ -18,29 +19,29 @@ class ExpenseForm
     {
         return $schema
             ->components([
-                Section::make('Expense Information')
-                    ->description('Basic expense details and categorization')
+                Section::make('Informasi Pengeluaran')
+                    ->description('Detail pengeluaran dan kategorisasi')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('description')
-                                    ->label('Description')
+                                    ->label('Deskripsi')
                                     ->required()
                                     ->maxLength(255)
-                                    ->placeholder('e.g., Office supplies, Utilities'),
+                                    ->placeholder('mis: ATK, Utilitas'),
 
                                 Select::make('category')
-                                    ->label('Category')
+                                    ->label('Kategori')
                                     ->options([
-                                        'office_supplies' => 'Office Supplies',
-                                        'utilities' => 'Utilities',
-                                        'rent' => 'Rent',
+                                        'office_supplies' => 'ATK',
+                                        'utilities' => 'Utilitas',
+                                        'rent' => 'Sewa',
                                         'marketing' => 'Marketing',
-                                        'equipment' => 'Equipment',
-                                        'maintenance' => 'Maintenance',
-                                        'travel' => 'Travel',
-                                        'food' => 'Food & Beverage',
-                                        'other' => 'Other',
+                                        'equipment' => 'Peralatan',
+                                        'maintenance' => 'Perawatan',
+                                        'travel' => 'Perjalanan',
+                                        'food' => 'Makanan & Minuman',
+                                        'other' => 'Lainnya',
                                     ])
                                     ->searchable()
                                     ->required(),
@@ -49,38 +50,41 @@ class ExpenseForm
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('amount')
-                                    ->label('Amount')
+                                    ->label('Jumlah')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
                                     ->minValue(0.01)
+                                    ->placeholder('50.000')
+                                    ->helperText('Bisa input: 50000 atau 50.000')
+                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->required(),
 
                                 DatePicker::make('expense_date')
-                                    ->label('Expense Date')
+                                    ->label('Tanggal Pengeluaran')
                                     ->default(now())
                                     ->required(),
                             ]),
 
                         TextInput::make('receipt_number')
-                            ->label('Receipt Number')
+                            ->label('Nomor Kwitansi')
                             ->maxLength(255)
-                            ->placeholder('Receipt or invoice number'),
+                            ->placeholder('Nomor kwitansi atau invoice'),
                     ])
                     ->columns(1),
 
-                Section::make('Vendor & Cash Session')
-                    ->description('Vendor information and cash session association')
+                Section::make('Vendor & Sesi Kas')
+                    ->description('Informasi vendor dan asosiasi sesi kas')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('vendor')
                                     ->label('Vendor')
                                     ->maxLength(255)
-                                    ->placeholder('Vendor or supplier name'),
+                                    ->placeholder('Nama vendor / pemasok'),
 
                                 Select::make('cash_session_id')
-                                    ->label('Cash Session')
+                                    ->label('Sesi Kas')
                                     ->options(function () {
                                         $storeId = auth()->user()?->currentStoreId();
 
@@ -91,11 +95,11 @@ class ExpenseForm
                                     })
                                     ->searchable()
                                     ->preload()
-                                    ->helperText('Associate with open cash session'),
+                                    ->helperText('Hubungkan ke sesi kas yang sedang dibuka'),
                             ]),
 
                         Select::make('user_id')
-                            ->label('Recorded By')
+                            ->label('Dicatat Oleh')
                             ->options(function () {
                                 $storeId = auth()->user()?->currentStoreId();
 
@@ -110,14 +114,14 @@ class ExpenseForm
                     ])
                     ->columns(1),
 
-                Section::make('Notes')
-                    ->description('Additional expense notes and details')
+                Section::make('Catatan')
+                    ->description('Catatan tambahan pengeluaran')
                     ->schema([
                         Textarea::make('notes')
-                            ->label('Notes')
+                            ->label('Catatan')
                             ->rows(3)
                             ->maxLength(1000)
-                            ->placeholder('Additional notes about this expense'),
+                            ->placeholder('Catatan tambahan terkait pengeluaran ini'),
                     ])
                     ->columns(1),
             ]);

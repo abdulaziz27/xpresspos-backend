@@ -20,13 +20,15 @@ class MemberResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
 
-    protected static ?string $navigationLabel = 'Members';
+    protected static ?string $navigationLabel = 'Member';
 
     protected static ?string $modelLabel = 'Member';
 
-    protected static ?string $pluralModelLabel = 'Members';
+    protected static ?string $pluralModelLabel = 'Member';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 0;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Pelanggan & Loyalti';
 
 
 
@@ -59,15 +61,6 @@ class MemberResource extends Resource
 
     public static function canViewAny(): bool
     {
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->store_id) {
-            setPermissionsTeamId($user->store_id);
-        }
-
-        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager', 'cashier']);
+        return true;
     }
 }

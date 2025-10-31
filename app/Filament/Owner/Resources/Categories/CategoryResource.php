@@ -20,14 +20,15 @@ class CategoryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;
 
-    protected static ?string $navigationLabel = 'Categories';
+    protected static ?string $navigationLabel = 'Kategori';
 
-    protected static ?string $modelLabel = 'Category';
+    protected static ?string $modelLabel = 'Kategori';
 
-    protected static ?string $pluralModelLabel = 'Categories';
+    protected static ?string $pluralModelLabel = 'Kategori';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 1;
 
+    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
 
 
 
@@ -59,15 +60,6 @@ class CategoryResource extends Resource
 
     public static function canViewAny(): bool
     {
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->store_id) {
-            setPermissionsTeamId($user->store_id);
-        }
-
-        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager', 'cashier']);
+        return true;
     }
 }

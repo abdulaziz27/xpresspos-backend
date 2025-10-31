@@ -16,12 +16,13 @@ class CategoryForm
     {
         return $schema
             ->components([
-                Section::make('Category Information')
-                    ->description('Basic category details')
+                Section::make('Informasi Kategori')
+                    ->description('Detail dasar kategori')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('name')
+                                    ->label('Nama')
                                     ->required()
                                     ->maxLength(255)
                                     ->live(onBlur: true)
@@ -42,6 +43,7 @@ class CategoryForm
                             ]),
 
                         Textarea::make('description')
+                            ->label('Deskripsi')
                             ->rows(3)
                             ->maxLength(500),
 
@@ -55,17 +57,17 @@ class CategoryForm
                                     ->minValue(0),
 
                                 Toggle::make('status')
-                                    ->label('Active')
+                                    ->label('Aktif')
                                     ->default(true),
                             ]),
                     ])
                     ->columns(1),
 
-                Section::make('Category Image')
-                    ->description('Visual representation of the category')
+                Section::make('Gambar Kategori')
+                    ->description('Representasi visual kategori')
                     ->schema([
                         FileUpload::make('image')
-                            ->label('Category Image')
+                            ->label('Gambar Kategori')
                             ->image()
                             ->imageEditor()
                             ->imageEditorAspectRatios([

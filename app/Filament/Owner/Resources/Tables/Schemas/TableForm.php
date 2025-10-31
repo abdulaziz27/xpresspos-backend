@@ -16,73 +16,84 @@ class TableForm
     {
         return $schema
             ->components([
-                Section::make('Table Information')
-                    ->description('Basic table details and configuration')
+                Section::make('Informasi Meja')
+                    ->description('Detail meja dan konfigurasi dasar')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('table_number')
-                                    ->label('Table Number')
+                                    ->label('Nomor Meja')
                                     ->required()
                                     ->maxLength(50)
-                                    ->unique(ignoreRecord: true),
+                                    ->unique(ignoreRecord: true, modifyRuleUsing: function ($rule) {
+                                        $user = auth()->user();
+                                        if ($user && $user->store_id) {
+                                            $rule->where('store_id', $user->store_id);
+                                        }
+                                        return $rule;
+                                    }),
 
                                 TextInput::make('name')
+                                    ->label('Nama Meja')
                                     ->required()
                                     ->maxLength(255)
-                                    ->placeholder('e.g., Table 1, VIP Booth A'),
+                                    ->placeholder('mis: Meja 1, Booth VIP A'),
                             ]),
 
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('capacity')
+                                    ->label('Kapasitas')
                                     ->required()
                                     ->numeric()
                                     ->minValue(1)
                                     ->maxValue(50)
                                     ->default(4)
-                                    ->suffix('people'),
+                                    ->suffix('orang'),
 
                                 Select::make('location')
+                                    ->label('Lokasi')
                                     ->options([
-                                        'indoor' => 'Indoor',
-                                        'outdoor' => 'Outdoor',
-                                        'terrace' => 'Terrace',
-                                        'vip' => 'VIP Section',
-                                        'bar' => 'Bar Area',
-                                        'other' => 'Other',
+                                        'indoor' => 'Dalam Ruangan',
+                                        'outdoor' => 'Luar Ruangan',
+                                        'terrace' => 'Teras',
+                                        'vip' => 'Area VIP',
+                                        'bar' => 'Area Bar',
+                                        'other' => 'Lainnya',
                                     ])
                                     ->searchable()
                                     ->default('indoor'),
                             ]),
 
                         Textarea::make('notes')
+                            ->label('Catatan')
                             ->rows(3)
                             ->maxLength(500)
-                            ->placeholder('Special notes about this table'),
+                            ->placeholder('Catatan khusus untuk meja ini'),
                     ])
                     ->columns(1),
 
-                Section::make('Table Status')
-                    ->description('Table availability and status settings')
+                Section::make('Status Meja')
+                    ->description('Pengaturan ketersediaan dan status meja')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 Select::make('status')
+                                    ->label('Status')
                                     ->options([
-                                        'available' => 'Available',
-                                        'occupied' => 'Occupied',
-                                        'reserved' => 'Reserved',
-                                        'maintenance' => 'Maintenance',
-                                        'cleaning' => 'Cleaning',
+                                        'available' => 'Tersedia',
+                                        'occupied' => 'Terisi',
+                                        'reserved' => 'Direservasi',
+                                        'maintenance' => 'Perawatan',
+                                        'cleaning' => 'Pembersihan',
                                     ])
                                     ->default('available')
                                     ->required(),
 
                                 Toggle::make('is_active')
-                                    ->label('Active')
+                                    ->label('Aktif')
                                     ->default(true)
-                                    ->helperText('Inactive tables will not appear in POS'),
+                                    ->helperText('Meja nonaktif tidak akan tampil di POS'),
                             ]),
                     ])
                     ->columns(1),

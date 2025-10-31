@@ -14,7 +14,7 @@ class ListRefunds extends ListRecords
     {
         return [
             CreateAction::make()
-                ->label('New Refund')
+                ->label('Tambah Refund')
                 ->icon('heroicon-o-plus'),
         ];
     }

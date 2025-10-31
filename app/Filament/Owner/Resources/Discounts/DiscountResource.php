@@ -20,13 +20,15 @@ class DiscountResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;
 
-    protected static ?string $navigationLabel = 'Discounts';
+    protected static ?string $navigationLabel = 'Diskon';
 
-    protected static ?string $modelLabel = 'Discount';
+    protected static ?string $modelLabel = 'Diskon';
 
-    protected static ?string $pluralModelLabel = 'Discounts';
+    protected static ?string $pluralModelLabel = 'Diskon';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 0;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Promo & Retur';
 
     public static function form(Schema $schema): Schema
     {
@@ -62,15 +64,6 @@ class DiscountResource extends Resource
 
     public static function canViewAny(): bool
     {
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->store_id) {
-            setPermissionsTeamId($user->store_id);
-        }
-
-        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager']);
+        return true;
     }
 }

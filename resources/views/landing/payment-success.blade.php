@@ -215,7 +215,7 @@
                         </a>
                         
                         @if($subscription)
-                        <a href="{{ route('landing.customer.dashboard') }}?email={{ $subscription->email }}" 
+                        <a href="/customer-dashboard?email={{ $subscription->email }}" 
                            class="inline-flex items-center justify-center px-8 py-4 bg-white border-2 border-green-600 text-green-600 font-semibold rounded-xl hover:bg-green-50 transition-all duration-300"
                            title="Dashboard untuk melihat status langganan dan riwayat pembayaran">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

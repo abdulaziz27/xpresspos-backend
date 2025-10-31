@@ -19,17 +19,18 @@ class MemberForm
     {
         return $schema
             ->components([
-                Section::make('Member Information')
-                    ->description('Basic member details and contact information')
+                Section::make('Informasi Member')
+                    ->description('Detail dasar member dan kontak')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('member_number')
-                                    ->label('Member Number')
+                                    ->label('Nomor Member')
                                     ->disabled()
                                     ->dehydrated(false),
 
                                 TextInput::make('name')
+                                    ->label('Nama')
                                     ->required()
                                     ->maxLength(255),
                             ]),
@@ -37,11 +38,13 @@ class MemberForm
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('email')
+                                    ->label('Email')
                                     ->email()
                                     ->maxLength(255)
                                     ->unique(ignoreRecord: true),
 
                                 TextInput::make('phone')
+                                    ->label('Telepon')
                                     ->tel()
                                     ->maxLength(20),
                             ]),
@@ -49,11 +52,11 @@ class MemberForm
                         Grid::make(2)
                             ->schema([
                                 DatePicker::make('date_of_birth')
-                                    ->label('Date of Birth')
+                                    ->label('Tanggal Lahir')
                                     ->displayFormat('d/m/Y'),
 
                                 Select::make('tier_id')
-                                    ->label('Member Tier')
+                                    ->label('Tier Member')
                                     ->options(function () {
                                         $storeId = auth()->user()?->currentStoreId();
 
@@ -67,29 +70,33 @@ class MemberForm
                                     ->preload()
                                     ->createOptionForm([
                                         TextInput::make('name')
-                                            ->label('Tier Name')
+                                            ->label('Nama Tier')
                                             ->required()
                                             ->maxLength(255)
                                             ->live(debounce: 500)
                                             ->afterStateUpdated(fn($state, callable $set) => $set('slug', str()->slug($state))),
 
                                         TextInput::make('slug')
+                                            ->label('Slug')
                                             ->required()
                                             ->maxLength(255),
 
                                         TextInput::make('min_points')
+                                            ->label('Poin Minimal')
                                             ->numeric()
                                             ->minValue(0)
                                             ->default(0)
                                             ->required(),
 
                                         TextInput::make('max_points')
+                                            ->label('Poin Maksimal')
                                             ->numeric()
                                             ->minValue(0)
                                             ->nullable()
                                             ->helperText('Kosongkan jika tidak ada batas.'),
 
                                         TextInput::make('discount_percentage')
+                                            ->label('Diskon (%)')
                                             ->numeric()
                                             ->minValue(0)
                                             ->maxValue(100)
@@ -98,13 +105,16 @@ class MemberForm
                                             ->suffix('%'),
 
                                         ColorPicker::make('color')
+                                            ->label('Warna')
                                             ->default('#6B7280'),
 
                                         Textarea::make('description')
+                                            ->label('Deskripsi')
                                             ->rows(2)
                                             ->maxLength(1000),
 
                                         Toggle::make('is_active')
+                                            ->label('Aktif')
                                             ->default(true),
                                     ])
                                     ->createOptionUsing(function (array $data) {
@@ -120,23 +130,24 @@ class MemberForm
                             ]),
 
                         Textarea::make('address')
+                            ->label('Alamat')
                             ->rows(3)
                             ->maxLength(500),
 
                         Textarea::make('notes')
-                            ->label('Notes')
+                            ->label('Catatan')
                             ->rows(2)
                             ->maxLength(1000),
                     ])
                     ->columns(1),
 
-                Section::make('Loyalty Information')
-                    ->description('Loyalty points and visit statistics')
+                Section::make('Informasi Loyalti')
+                    ->description('Poin loyalti dan statistik kunjungan')
                     ->schema([
                         Grid::make(3)
                             ->schema([
                                 TextInput::make('loyalty_points')
-                                    ->label('Loyalty Points')
+                                    ->label('Poin Loyalti')
                                     ->numeric()
                                     ->default(0)
                                     ->minValue(0)
@@ -144,7 +155,7 @@ class MemberForm
                                     ->dehydrated(false),
 
                                 TextInput::make('total_spent')
-                                    ->label('Total Spent')
+                                    ->label('Total Belanja')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
@@ -154,7 +165,7 @@ class MemberForm
                                     ->dehydrated(false),
 
                                 TextInput::make('visit_count')
-                                    ->label('Visit Count')
+                                    ->label('Jumlah Kunjungan')
                                     ->numeric()
                                     ->default(0)
                                     ->minValue(0)
@@ -165,11 +176,11 @@ class MemberForm
                         Grid::make(2)
                             ->schema([
                                 Toggle::make('is_active')
-                                    ->label('Active')
+                                    ->label('Aktif')
                                     ->default(true),
 
                                 DatePicker::make('last_visit_at')
-                                    ->label('Last Visit')
+                                    ->label('Kunjungan Terakhir')
                                     ->disabled()
                                     ->dehydrated(false),
                             ]),

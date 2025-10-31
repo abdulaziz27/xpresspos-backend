@@ -13,6 +13,8 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use App\Support\Currency;
+use App\Support\Money;
 
 class VariantsRelationManager extends RelationManager
 {
@@ -49,7 +51,9 @@ class VariantsRelationManager extends RelationManager
                     ->numeric()
                     ->default(0)
                     ->prefix('Rp')
-                    ->placeholder('0 for no change')
+                    ->placeholder('5.000')
+                    ->helperText('Bisa input: 5000 atau 5.000')
+                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                     ->columnSpan(1),
 
                 Forms\Components\TextInput::make('sort_order')
@@ -85,7 +89,7 @@ class VariantsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('price_adjustment')
                     ->label('Price Adjustment')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->price_adjustment ?? 0)))
                     ->sortable(),
 
                 Tables\Columns\IconColumn::make('is_active')

@@ -20,13 +20,15 @@ class CogsHistoryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calculator';
 
-    protected static ?string $navigationLabel = 'COGS History';
+    protected static ?string $navigationLabel = 'Riwayat COGS';
 
-    protected static ?string $modelLabel = 'COGS Record';
+    protected static ?string $modelLabel = 'Data COGS';
 
-    protected static ?string $pluralModelLabel = 'COGS History';
+    protected static ?string $pluralModelLabel = 'Riwayat COGS';
 
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 4;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
 
     public static function form(Schema $schema): Schema
     {
@@ -52,5 +54,10 @@ class CogsHistoryResource extends Resource
             'create' => CreateCogsHistory::route('/create'),
             'edit' => EditCogsHistory::route('/{record}/edit'),
         ];
+    }
+
+    public static function canViewAny(): bool
+    {
+        return true;
     }
 }

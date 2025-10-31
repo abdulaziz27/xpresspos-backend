@@ -116,15 +116,14 @@ class LandingController extends Controller
         $plan = Plan::where('slug', $request->plan)->firstOrFail();
         $billing = $request->billing;
         $price = $billing === 'yearly' ? $plan->annual_price : $plan->price;
-        $tax = $price * 0.11; // PPN 11%
-        $total = $price + $tax;
+        $total = $price; // No tax for now
 
         return view('landing.checkout', [
             'plan' => $plan,
             'planId' => $request->plan,
             'billing' => $billing,
             'price' => $price,
-            'tax' => $tax,
+            'tax' => 0, // No tax
             'total' => $total
         ]);
     }
@@ -151,8 +150,8 @@ class LandingController extends Controller
             // Calculate amount from database
             $plan = Plan::where('slug', $request->plan_id)->firstOrFail();
             $amount = $request->billing_cycle === 'yearly' ? $plan->annual_price : $plan->price;
-            $tax = $amount * 0.11;
-            $totalAmount = $amount + $tax;
+            // No tax calculation
+            $totalAmount = $amount; // No tax
 
             // Create landing subscription with calculated amount
             $landingSubscription = LandingSubscription::create([
@@ -247,12 +246,14 @@ class LandingController extends Controller
             
             $invoiceData = [
                 'external_id' => 'SUB-' . $subscription->id . '-' . time(),
-                'amount' => $subscription->payment_amount,
+                'amount' => (int) $subscription->payment_amount, // Ensure integer
                 'description' => "XpressPOS {$subscription->plan_id} subscription - {$subscription->billing_cycle}",
-                'customer_name' => $subscription->name,
-                'customer_email' => $subscription->email,
-                'customer_phone' => $subscription->phone,
-                'payment_methods' => [$request->payment_method]
+                'customer' => [
+                    'given_names' => $subscription->name,
+                    'email' => $subscription->email,
+                    'mobile_number' => $subscription->phone, // Should be in E.164 format
+                ],
+                // payment_methods will be determined by XenditService based on environment
             ];
 
             $xenditResponse = $xenditService->createInvoice($invoiceData);
@@ -267,12 +268,7 @@ class LandingController extends Controller
                 'payment_status' => 'pending'
             ]);
 
-            // In development mode, redirect to success page
-            if (config('xendit.is_production') === false) {
-                return redirect()->route('landing.payment.success', ['subscription_id' => $subscription->id]);
-            }
-
-            // In production, redirect to Xendit payment page
+            // Redirect to Xendit payment page (works in both local and production)
             return redirect($xenditResponse['data']['invoice_url']);
 
         } catch (\Exception $e) {
@@ -365,51 +361,34 @@ class LandingController extends Controller
             'billing' => 'required|in:monthly,yearly'
         ]);
 
-        $plans = [
-            'basic' => [
-                'name' => 'XpressPOS Basic',
-                'monthly_price' => 99000,
-                'yearly_price' => 990000,
-                'features' => ['1 Lokasi Toko', 'Inventory Management', 'Laporan Dasar']
-            ],
-            'pro' => [
-                'name' => 'XpressPOS Professional',
-                'monthly_price' => 599000,
-                'yearly_price' => 5990000,
-                'features' => ['5 Lokasi Toko', 'Advanced Analytics', 'Multi-User Access']
-            ],
-            'enterprise' => [
-                'name' => 'XpressPOS Enterprise',
-                'monthly_price' => 1999000,
-                'yearly_price' => 19990000,
-                'features' => ['Unlimited Lokasi', 'Custom Integration', 'Dedicated Support']
-            ]
-        ];
+        // Get plans from database instead of hardcoded values
+        $plans = Plan::active()->ordered()->get()->keyBy('slug');
 
         $selectedPlan = $plans[$request->plan];
         $billing = $request->billing;
-        $price = $billing === 'yearly' ? $selectedPlan['yearly_price'] : $selectedPlan['monthly_price'];
-        $tax = $price * 0.11;
-        $total = $price + $tax;
+        $price = $billing === 'yearly' ? $selectedPlan->annual_price : $selectedPlan->price;
+        // No tax calculation
+        $total = $price; // No tax
 
         return view('landing.business-information', [
             'plan' => $selectedPlan,
             'planId' => $request->plan,
             'billing' => $billing,
             'price' => $price,
-            'tax' => $tax,
+            'tax' => 0, // No tax
             'total' => $total
         ]);
     }
 
     /**
-     * Process checkout step 2 - Store business information.
+     * Process checkout step 2 - Store business information and process payment directly.
      */
     public function processCheckoutStep2(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255',
+            'country_code' => 'nullable|string',
             'phone' => 'required|string|max:20',
             'business_name' => 'required|string|max:255',
             'business_type' => 'required|string|max:100',
@@ -417,23 +396,89 @@ class LandingController extends Controller
             'billing_cycle' => 'required|in:monthly,yearly'
         ]);
 
-        // Store in session for step 3
-        session([
-            'checkout_data' => [
+        try {
+            DB::beginTransaction();
+
+            // Combine country code with phone number
+            $countryCode = $request->country_code ?? '+62'; // Default to +62 if not provided
+            $phoneNumber = $request->phone;
+            
+            // Remove leading 0 if exists
+            $phoneNumber = ltrim($phoneNumber, '0');
+            
+            // Combine country code with phone number
+            $fullPhoneNumber = $countryCode . $phoneNumber;
+            
+            \Log::info('Phone number processing', [
+                'country_code' => $countryCode,
+                'phone_input' => $request->phone,
+                'phone_cleaned' => $phoneNumber,
+                'full_phone' => $fullPhoneNumber
+            ]);
+
+            // Calculate amount from database
+            $plan = Plan::where('slug', $request->plan_id)->firstOrFail();
+            $amount = $request->billing_cycle === 'yearly' ? $plan->annual_price : $plan->price;
+            // No tax calculation
+            $totalAmount = $amount; // No tax
+
+            // Create landing subscription
+            $landingSubscription = LandingSubscription::create([
                 'name' => $request->name,
                 'email' => $request->email,
-                'phone' => $request->phone,
-                'business_name' => $request->business_name,
-                'business_type' => $request->business_type,
-                'plan_id' => $request->plan_id,
-                'billing_cycle' => $request->billing_cycle
-            ]
-        ]);
+                'phone' => $fullPhoneNumber,
+                'company' => $request->business_name, // Use company field for business_name
+                'plan' => $request->plan_id,
+                'payment_amount' => $totalAmount,
+                'status' => 'pending_payment',
+                'stage' => 'payment_pending',
+                'payment_status' => 'pending',
+                'meta' => json_encode([
+                    'business_type' => $request->business_type,
+                    'billing_cycle' => $request->billing_cycle,
+                    'payment_method' => 'xendit_hosted' // Use Xendit's hosted payment page with all methods
+                ])
+            ]);
 
-        return redirect()->route('landing.checkout.step3', [
-            'plan' => $request->plan_id,
-            'billing' => $request->billing_cycle
-        ]);
+            // Create Xendit invoice with all payment methods available
+            $xenditService = app(XenditService::class);
+            
+            $invoiceData = [
+                'external_id' => 'XPOS-SUB-' . $landingSubscription->id . '-' . time(),
+                'amount' => (int) $totalAmount, // Ensure integer
+                'description' => "XpressPOS {$request->plan_id} subscription ({$request->billing_cycle})",
+                'customer' => [
+                    'given_names' => $request->name,
+                    'email' => $request->email,
+                    'mobile_number' => $fullPhoneNumber, // E.164 format: +6285211553430
+                ],
+                // payment_methods will be determined by XenditService based on environment
+                'success_redirect_url' => config('xendit.invoice.success_redirect_url') . '?subscription_id=' . $landingSubscription->id,
+                'failure_redirect_url' => config('xendit.invoice.failure_redirect_url') . '?subscription_id=' . $landingSubscription->id
+            ];
+
+            $xenditResponse = $xenditService->createInvoice($invoiceData);
+
+            if (!$xenditResponse['success']) {
+                throw new \Exception('Failed to create payment invoice: ' . $xenditResponse['error']);
+            }
+
+            // Update subscription with payment info
+            $landingSubscription->update([
+                'xendit_invoice_id' => $xenditResponse['data']['id']
+            ]);
+
+            DB::commit();
+
+            // Redirect to Xendit hosted payment page (works in both local and production)
+            return redirect($xenditResponse['data']['invoice_url']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Payment processing error: ' . $e->getMessage());
+            
+            return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
+        }
     }
 
     /**
@@ -454,8 +499,8 @@ class LandingController extends Controller
 
         $plan = Plan::where('slug', $request->plan)->firstOrFail();
         $amount = $request->billing === 'yearly' ? $plan->annual_price : $plan->price;
-        $tax = $amount * 0.11;
-        $totalAmount = $amount + $tax;
+        // No tax calculation
+        $totalAmount = $amount; // No tax
 
         // Get payment methods
         $paymentMethods = [
@@ -511,8 +556,8 @@ class LandingController extends Controller
             // Calculate amount from database
             $plan = Plan::where('slug', $checkoutData['plan_id'])->firstOrFail();
             $amount = $checkoutData['billing_cycle'] === 'yearly' ? $plan->annual_price : $plan->price;
-            $tax = $amount * 0.11;
-            $totalAmount = $amount + $tax;
+            // No tax calculation
+            $totalAmount = $amount; // No tax
 
             // Create landing subscription
             $landingSubscription = LandingSubscription::create([
@@ -537,14 +582,16 @@ class LandingController extends Controller
             
             $invoiceData = [
                 'external_id' => 'XPOS-SUB-' . $landingSubscription->id . '-' . time(),
-                'amount' => $totalAmount,
+                'amount' => (int) $totalAmount, // Ensure integer
                 'description' => "XpressPOS {$checkoutData['plan_id']} subscription ({$checkoutData['billing_cycle']})",
-                'customer_name' => $checkoutData['name'],
-                'customer_email' => $checkoutData['email'],
-                'customer_phone' => $checkoutData['phone'],
-                'payment_methods' => [$request->payment_method],
-                'success_redirect_url' => route('landing.payment.success', ['subscription_id' => $landingSubscription->id]),
-                'failure_redirect_url' => route('landing.payment.failed', ['subscription_id' => $landingSubscription->id])
+                'customer' => [
+                    'given_names' => $checkoutData['name'],
+                    'email' => $checkoutData['email'],
+                    'mobile_number' => $checkoutData['phone'], // Should already be in E.164 format
+                ],
+                // payment_methods will be determined by XenditService based on environment
+                'success_redirect_url' => config('xendit.invoice.success_redirect_url') . '?subscription_id=' . $landingSubscription->id,
+                'failure_redirect_url' => config('xendit.invoice.failure_redirect_url') . '?subscription_id=' . $landingSubscription->id
             ];
 
             $xenditResponse = $xenditService->createInvoice($invoiceData);

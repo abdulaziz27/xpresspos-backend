@@ -17,18 +17,19 @@ class MemberTierForm
     {
         return $schema
             ->components([
-                Section::make('Tier Details')
+                Section::make('Detail Tier')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('name')
-                                    ->label('Tier Name')
+                                    ->label('Nama Tier')
                                     ->required()
                                     ->maxLength(255)
                                     ->live(debounce: 500)
                                     ->afterStateUpdated(fn($state, callable $set) => $set('slug', str()->slug($state))),
 
                                 TextInput::make('slug')
+                                    ->label('Slug')
                                     ->required()
                                     ->maxLength(255),
                             ]),
@@ -36,17 +37,20 @@ class MemberTierForm
                         Grid::make(3)
                             ->schema([
                                 TextInput::make('min_points')
+                                    ->label('Poin Minimal')
                                     ->numeric()
                                     ->minValue(0)
                                     ->required()
                                     ->default(0),
 
                                 TextInput::make('max_points')
+                                    ->label('Poin Maksimal')
                                     ->numeric()
                                     ->minValue(0)
                                     ->nullable(),
 
                                 TextInput::make('discount_percentage')
+                                    ->label('Diskon (%)')
                                     ->numeric()
                                     ->minValue(0)
                                     ->maxValue(100)
@@ -64,38 +68,38 @@ class MemberTierForm
                                     ->default(0),
 
                                 Toggle::make('is_active')
-                                    ->label('Active')
+                                    ->label('Aktif')
                                     ->default(true),
                             ]),
 
                         ColorPicker::make('color')
-                            ->label('Tier Color')
+                            ->label('Warna Tier')
                             ->default('#6B7280'),
                     ])
                     ->columns(1),
 
-                Section::make('Benefits & Description')
+                Section::make('Benefit & Deskripsi')
                     ->schema([
                         Repeater::make('benefits')
-                            ->label('Benefits')
+                            ->label('Benefit')
                             ->schema([
                                 TextInput::make('title')
-                                    ->label('Benefit Title')
+                                    ->label('Judul Benefit')
                                     ->required()
                                     ->maxLength(255),
 
                                 Textarea::make('details')
-                                    ->label('Details')
+                                    ->label('Detail')
                                     ->rows(2)
                                     ->maxLength(1000),
                             ])
                             ->columns(1)
                             ->collapsible()
-                            ->addActionLabel('Add Benefit')
+                            ->addActionLabel('Tambah Benefit')
                             ->default([]),
 
                         Textarea::make('description')
-                            ->label('Description')
+                            ->label('Deskripsi')
                             ->rows(3)
                             ->maxLength(1000),
                     ])

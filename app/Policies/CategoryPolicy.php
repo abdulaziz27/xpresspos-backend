@@ -12,12 +12,9 @@ class CategoryPolicy
      */
     public function viewAny(User $user): bool
     {
-        // System admin + store operational roles can view categories
-        if ($user->hasAnyRole(['admin_sistem', 'owner', 'manager', 'cashier'])) {
-            return true;
-        }
-
-        return $user->hasPermissionTo('products.view');
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
+        return $user->can('products.view');
     }
 
     /**
@@ -25,17 +22,9 @@ class CategoryPolicy
      */
     public function view(User $user, Category $category): bool
     {
-        // System admin can view any category
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users can view categories in their store
-        if ($user->can('products.view') && $user->store_id === $category->store_id) {
-            return true;
-        }
-
-        return false;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($category->store_id)) return true;
+        return $user->can('products.view') && $user->store_id === $category->store_id;
     }
 
     /**
@@ -43,12 +32,8 @@ class CategoryPolicy
      */
     public function create(User $user): bool
     {
-        // System admin can create categories in any store
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users with category management permission can create categories
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->can('products.manage_categories');
     }
 
@@ -57,17 +42,9 @@ class CategoryPolicy
      */
     public function update(User $user, Category $category): bool
     {
-        // System admin can update any category
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users can update categories in their store
-        if ($user->can('products.manage_categories') && $user->store_id === $category->store_id) {
-            return true;
-        }
-
-        return false;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($category->store_id)) return true;
+        return $user->can('products.manage_categories') && $user->store_id === $category->store_id;
     }
 
     /**
@@ -75,16 +52,8 @@ class CategoryPolicy
      */
     public function delete(User $user, Category $category): bool
     {
-        // System admin can delete any category
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users can delete categories in their store
-        if ($user->can('products.manage_categories') && $user->store_id === $category->store_id) {
-            return true;
-        }
-
-        return false;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($category->store_id)) return true;
+        return $user->can('products.manage_categories') && $user->store_id === $category->store_id;
     }
 }

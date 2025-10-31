@@ -10,6 +10,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use App\Support\Currency;
 
 class MembersTable
 {
@@ -18,14 +19,14 @@ class MembersTable
         return $table
             ->columns([
                 TextColumn::make('member_number')
-                    ->label('Member #')
+                    ->label('No. Member')
                     ->searchable()
                     ->sortable()
                     ->copyable()
                     ->weight('medium'),
 
                 TextColumn::make('name')
-                    ->label('Name')
+                    ->label('Nama')
                     ->searchable()
                     ->sortable()
                     ->weight('medium'),
@@ -34,23 +35,23 @@ class MembersTable
                     ->label('Email')
                     ->searchable()
                     ->sortable()
-                    ->placeholder('No Email')
+                    ->placeholder('Tidak ada Email')
                     ->copyable(),
 
                 TextColumn::make('phone')
-                    ->label('Phone')
+                    ->label('Telepon')
                     ->searchable()
-                    ->placeholder('No Phone')
+                    ->placeholder('Tidak ada Telepon')
                     ->copyable(),
 
                 TextColumn::make('tier.name')
                     ->label('Tier')
                     ->badge()
                     ->color('info')
-                    ->placeholder('No Tier'),
+                    ->placeholder('Tidak ada Tier'),
 
                 TextColumn::make('loyalty_points')
-                    ->label('Points')
+                    ->label('Poin')
                     ->numeric()
                     ->alignCenter()
                     ->sortable()
@@ -58,19 +59,19 @@ class MembersTable
                     ->color('warning'),
 
                 TextColumn::make('total_spent')
-                    ->label('Total Spent')
-                    ->money('IDR')
+                    ->label('Total Belanja')
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s !== null && $s !== '' ? $s : ($record->total_spent ?? 0))))
                     ->sortable()
                     ->alignEnd(),
 
                 TextColumn::make('visit_count')
-                    ->label('Visits')
+                    ->label('Kunjungan')
                     ->numeric()
                     ->alignCenter()
                     ->sortable(),
 
                 IconColumn::make('is_active')
-                    ->label('Active')
+                    ->label('Aktif')
                     ->boolean()
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
@@ -78,14 +79,14 @@ class MembersTable
                     ->falseColor('danger'),
 
                 TextColumn::make('last_visit_at')
-                    ->label('Last Visit')
+                    ->label('Kunjungan Terakhir')
                     ->dateTime()
                     ->sortable()
                     ->since()
-                    ->placeholder('Never'),
+                    ->placeholder('Belum Pernah'),
 
                 TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label('Dibuat')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -93,27 +94,27 @@ class MembersTable
             ->filters([
                 TernaryFilter::make('is_active')
                     ->label('Status')
-                    ->placeholder('All members')
-                    ->trueLabel('Active only')
-                    ->falseLabel('Inactive only'),
+                    ->placeholder('Semua member')
+                    ->trueLabel('Hanya aktif')
+                    ->falseLabel('Hanya nonaktif'),
 
                 TernaryFilter::make('has_tier')
-                    ->label('Has Tier')
-                    ->placeholder('All members')
-                    ->trueLabel('With tier')
-                    ->falseLabel('No tier')
+                    ->label('Memiliki Tier')
+                    ->placeholder('Semua member')
+                    ->trueLabel('Dengan tier')
+                    ->falseLabel('Tanpa tier')
                     ->query(fn($query) => $query->whereNotNull('tier_id')),
 
                 TernaryFilter::make('has_loyalty_points')
-                    ->label('Has Points')
-                    ->placeholder('All members')
-                    ->trueLabel('With points')
-                    ->falseLabel('No points')
+                    ->label('Memiliki Poin')
+                    ->placeholder('Semua member')
+                    ->trueLabel('Dengan poin')
+                    ->falseLabel('Tanpa poin')
                     ->query(fn($query) => $query->where('loyalty_points', '>', 0)),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()->label('Lihat'),
+                EditAction::make()->label('Ubah'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

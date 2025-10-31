@@ -12,12 +12,9 @@ class ProductPolicy
      */
     public function viewAny(User $user): bool
     {
-        // System admin + operational roles can always view product listings
-        if ($user->hasAnyRole(['admin_sistem', 'owner', 'manager', 'cashier'])) {
-            return true;
-        }
-
-        return $user->hasPermissionTo('products.view');
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
+        return $user->can('products.view');
     }
 
     /**
@@ -25,17 +22,9 @@ class ProductPolicy
      */
     public function view(User $user, Product $product): bool
     {
-        // System admin can view any product
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users can view products in their store
-        if ($user->can('products.view') && $user->store_id === $product->store_id) {
-            return true;
-        }
-
-        return false;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($product->store_id)) return true;
+        return $user->can('products.view') && $user->store_id === $product->store_id;
     }
 
     /**
@@ -43,12 +32,8 @@ class ProductPolicy
      */
     public function create(User $user): bool
     {
-        // System admin can create products in any store
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Store owners and managers can create products
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->can('products.create');
     }
 
@@ -57,17 +42,9 @@ class ProductPolicy
      */
     public function update(User $user, Product $product): bool
     {
-        // System admin can update any product
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users can update products in their store
-        if ($user->can('products.update') && $user->store_id === $product->store_id) {
-            return true;
-        }
-
-        return false;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($product->store_id)) return true;
+        return $user->can('products.update') && $user->store_id === $product->store_id;
     }
 
     /**
@@ -75,17 +52,9 @@ class ProductPolicy
      */
     public function delete(User $user, Product $product): bool
     {
-        // System admin can delete any product
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users can delete products in their store
-        if ($user->can('products.delete') && $user->store_id === $product->store_id) {
-            return true;
-        }
-
-        return false;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($product->store_id)) return true;
+        return $user->can('products.delete') && $user->store_id === $product->store_id;
     }
 
     /**

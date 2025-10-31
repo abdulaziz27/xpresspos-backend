@@ -407,9 +407,9 @@
                                 <p class="text-2xl font-bold text-gray-900">{{ number_format($plan->annual_price, 0, ',', '.') }}</p>
                                 <p class="text-xs text-gray-500">/tahun</p>
                             </div>
-                            <a href="{{ route('landing.checkout') }}?plan={{ $plan->slug }}&billing=monthly" class="mt-3 w-full {{ $index === 1 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-900 hover:bg-gray-800' }} text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors inline-block text-center">
+                            <button onclick="selectPlanFromLanding('{{ $plan->slug }}')" class="mt-3 w-full {{ $index === 1 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-900 hover:bg-gray-800' }} text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
                                 Beli
-                            </a>
+                            </button>
                         </div>
                     </div>
                     @endforeach
@@ -487,6 +487,21 @@
                 });
             }
         });
+        
+        // Function to handle plan selection from landing page pricing section
+        function selectPlanFromLanding(planSlug) {
+            // Get current billing type (monthly or yearly)
+            const isYearly = document.querySelector('#yearly-btn').classList.contains('bg-white');
+            const billing = isYearly ? 'yearly' : 'monthly';
+            
+            // Build checkout URL using current domain
+            const url = new URL('/checkout', window.location.origin);
+            url.searchParams.set('plan', planSlug);
+            url.searchParams.set('billing', billing);
+            
+            // Navigate to checkout
+            window.location.href = url.toString();
+        }
         </script>
         </div>
     </section>

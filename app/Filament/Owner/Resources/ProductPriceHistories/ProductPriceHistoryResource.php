@@ -16,13 +16,15 @@ class ProductPriceHistoryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
 
-    protected static ?string $navigationLabel = 'Price History';
+    protected static ?string $navigationLabel = 'Riwayat Harga';
 
     protected static ?string $modelLabel = 'Product Price History';
 
     protected static ?string $pluralModelLabel = 'Product Price Histories';
 
-    protected static ?int $navigationSort = 11;
+    protected static ?int $navigationSort = 5;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
 
     public static function table(Table $table): Table
     {
@@ -72,15 +74,6 @@ class ProductPriceHistoryResource extends Resource
 
     public static function canViewAny(): bool
     {
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->store_id) {
-            setPermissionsTeamId($user->store_id);
-        }
-
-        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager']);
+        return true;
     }
 }

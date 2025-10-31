@@ -20,13 +20,15 @@ class CashSessionResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static ?string $navigationLabel = 'Cash Sessions';
+    protected static ?string $navigationLabel = 'Sesi Kas';
 
-    protected static ?string $modelLabel = 'Cash Session';
+    protected static ?string $modelLabel = 'Sesi Kas';
 
-    protected static ?string $pluralModelLabel = 'Cash Sessions';
+    protected static ?string $pluralModelLabel = 'Sesi Kas';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Operasional Harian';
 
 
     public static function form(Schema $schema): Schema
@@ -53,5 +55,10 @@ class CashSessionResource extends Resource
             'create' => CreateCashSession::route('/create'),
             'edit' => EditCashSession::route('/{record}/edit'),
         ];
+    }
+
+    public static function canViewAny(): bool
+    {
+        return true;
     }
 }

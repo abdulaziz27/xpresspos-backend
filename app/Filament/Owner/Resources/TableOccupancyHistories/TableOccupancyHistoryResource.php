@@ -72,15 +72,6 @@ class TableOccupancyHistoryResource extends Resource
 
     public static function canViewAny(): bool
     {
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->store_id) {
-            setPermissionsTeamId($user->store_id);
-        }
-
-        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager']);
+        return true;
     }
 }

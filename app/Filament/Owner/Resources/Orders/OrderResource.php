@@ -3,6 +3,7 @@
 namespace App\Filament\Owner\Resources\Orders;
 
 use App\Filament\Owner\Resources\Orders\Pages\ListOrders;
+use App\Filament\Owner\Resources\Orders\Pages\ViewOrder;
 use App\Filament\Owner\Resources\Orders\Schemas\OrderForm;
 use App\Filament\Owner\Resources\Orders\Tables\OrdersTable;
 use App\Models\Order;
@@ -19,14 +20,15 @@ class OrderResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
-    protected static ?string $navigationLabel = 'Orders';
+    protected static ?string $navigationLabel = 'Pesanan';
 
-    protected static ?string $modelLabel = 'Order';
+    protected static ?string $modelLabel = 'Pesanan';
 
-    protected static ?string $pluralModelLabel = 'Orders';
+    protected static ?string $pluralModelLabel = 'Pesanan';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 0;
 
+    protected static string|\UnitEnum|null $navigationGroup = 'Operasional Harian';
 
 
 
@@ -51,6 +53,7 @@ class OrderResource extends Resource
     {
         return [
             'index' => ListOrders::route('/'),
+            'view' => ViewOrder::route('/{record}'),
         ];
     }
 
@@ -86,15 +89,6 @@ class OrderResource extends Resource
 
     public static function canViewAny(): bool
     {
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->store_id) {
-            setPermissionsTeamId($user->store_id);
-        }
-
-        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager', 'cashier']);
+        return true;
     }
 }

@@ -7,6 +7,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
+use App\Support\Currency;
 use Illuminate\Database\Eloquent\Builder;
 
 class PaymentsTable
@@ -16,7 +17,7 @@ class PaymentsTable
         return $table
             ->columns([
                 TextColumn::make('id')
-                    ->label('Payment ID')
+                    ->label('ID Pembayaran')
                     ->searchable()
                     ->sortable()
                     ->weight('medium')
@@ -30,21 +31,31 @@ class PaymentsTable
                     ->color('primary'),
 
                 TextColumn::make('payment_method')
-                    ->label('Method')
+                    ->label('Metode')
                     ->badge()
+                    ->formatStateUsing(fn(string $state) => match ($state) {
+                        'cash' => 'Tunai',
+                        'credit_card' => 'Kartu Kredit',
+                        'debit_card' => 'Kartu Debit',
+                        'qris' => 'QRIS',
+                        'bank_transfer' => 'Transfer Bank',
+                        'e_wallet' => 'E-Wallet',
+                        default => ucfirst($state),
+                    })
                     ->color(fn(string $state): string => match ($state) {
                         'cash' => 'success',
-                        'card' => 'info',
+                        'credit_card' => 'info',
+                        'debit_card' => 'info',
                         'qris' => 'warning',
-                        'transfer' => 'primary',
-                        'other' => 'gray',
+                        'bank_transfer' => 'primary',
+                        'e_wallet' => 'primary',
                         default => 'gray',
                     })
                     ->sortable(),
 
                 TextColumn::make('amount')
-                    ->label('Amount')
-                    ->money('IDR')
+                    ->label('Jumlah')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd()
                     ->weight('medium'),
@@ -52,6 +63,15 @@ class PaymentsTable
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
+                    ->formatStateUsing(fn(string $state) => match ($state) {
+                        'pending' => 'Menunggu',
+                        'processing' => 'Diproses',
+                        'completed' => 'Berhasil',
+                        'failed' => 'Gagal',
+                        'cancelled' => 'Dibatalkan',
+                        'refunded' => 'Dikembalikan',
+                        default => ucfirst($state),
+                    })
                     ->color(fn(string $state): string => match ($state) {
                         'pending' => 'warning',
                         'processing' => 'info',
@@ -67,17 +87,17 @@ class PaymentsTable
                     ->label('Gateway')
                     ->badge()
                     ->color('info')
-                    ->placeholder('Direct'),
+                    ->placeholder('Langsung'),
 
                 TextColumn::make('gateway_fee')
-                    ->label('Gateway Fee')
-                    ->money('IDR')
+                    ->label('Biaya Gateway')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd()
-                    ->placeholder('No Fee'),
+                    ->placeholder('Tanpa Biaya'),
 
                 TextColumn::make('reference_number')
-                    ->label('Reference')
+                    ->label('Referensi')
                     ->searchable()
                     ->limit(20)
                     ->tooltip(function (TextColumn $column): ?string {
@@ -86,31 +106,32 @@ class PaymentsTable
                     }),
 
                 TextColumn::make('processed_at')
-                    ->label('Processed At')
+                    ->label('Diproses Pada')
                     ->dateTime()
                     ->sortable()
                     ->since()
-                    ->placeholder('Not Processed'),
+                    ->placeholder('Belum Diproses'),
             ])
             ->filters([
                 SelectFilter::make('status')
                     ->options([
-                        'pending' => 'Pending',
-                        'processing' => 'Processing',
-                        'completed' => 'Completed',
-                        'failed' => 'Failed',
-                        'cancelled' => 'Cancelled',
-                        'refunded' => 'Refunded',
+                        'pending' => 'Menunggu',
+                        'processing' => 'Diproses',
+                        'completed' => 'Berhasil',
+                        'failed' => 'Gagal',
+                        'cancelled' => 'Dibatalkan',
+                        'refunded' => 'Dikembalikan',
                     ])
                     ->multiple(),
 
                 SelectFilter::make('payment_method')
                     ->options([
-                        'cash' => 'Cash',
-                        'card' => 'Card',
+                        'cash' => 'Tunai',
+                        'credit_card' => 'Kartu Kredit',
+                        'debit_card' => 'Kartu Debit',
                         'qris' => 'QRIS',
-                        'transfer' => 'Bank Transfer',
-                        'other' => 'Other',
+                        'bank_transfer' => 'Transfer Bank',
+                        'e_wallet' => 'E-Wallet',
                     ])
                     ->multiple(),
 
@@ -124,15 +145,15 @@ class PaymentsTable
                     ->preload(),
 
                 Filter::make('has_gateway_fee')
-                    ->label('Has Gateway Fee')
+                    ->label('Memiliki Biaya Gateway')
                     ->query(fn(Builder $query): Builder => $query->where('gateway_fee', '>', 0)),
 
                 Filter::make('processed_at')
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('processed_from')
-                            ->label('From Date'),
+                            ->label('Dari Tanggal'),
                         \Filament\Forms\Components\DatePicker::make('processed_until')
-                            ->label('Until Date'),
+                            ->label('Hingga Tanggal'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -147,22 +168,22 @@ class PaymentsTable
                     }),
 
                 Filter::make('today')
-                    ->label('Today')
+                    ->label('Hari Ini')
                     ->query(fn(Builder $query): Builder => $query->whereDate('created_at', today())),
 
                 Filter::make('this_week')
-                    ->label('This Week')
+                    ->label('Minggu Ini')
                     ->query(fn(Builder $query): Builder => $query->whereBetween('created_at', [
                         now()->startOfWeek(),
                         now()->endOfWeek(),
                     ])),
 
                 Filter::make('this_month')
-                    ->label('This Month')
+                    ->label('Bulan Ini')
                     ->query(fn(Builder $query): Builder => $query->whereMonth('created_at', now()->month)),
             ])
             ->actions([
-                ViewAction::make(),
+                ViewAction::make()->label('Lihat'),
             ])
             ->bulkActions([])
             ->defaultSort('created_at', 'desc')

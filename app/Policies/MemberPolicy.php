@@ -13,6 +13,8 @@ class MemberPolicy
      */
     public function viewAny(User $user): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->hasPermissionTo('members.view');
     }
 
@@ -21,6 +23,8 @@ class MemberPolicy
      */
     public function view(User $user, Member $member): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($member->store_id)) return true;
         return $user->hasPermissionTo('members.view') && 
                $user->store_id === $member->store_id;
     }
@@ -30,6 +34,8 @@ class MemberPolicy
      */
     public function create(User $user): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->hasPermissionTo('members.create');
     }
 
@@ -38,6 +44,8 @@ class MemberPolicy
      */
     public function update(User $user, Member $member): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($member->store_id)) return true;
         return $user->hasPermissionTo('members.update') && 
                $user->store_id === $member->store_id;
     }
@@ -47,6 +55,8 @@ class MemberPolicy
      */
     public function delete(User $user, Member $member): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($member->store_id)) return true;
         return $user->hasPermissionTo('members.delete') && 
                $user->store_id === $member->store_id;
     }
@@ -56,6 +66,8 @@ class MemberPolicy
      */
     public function restore(User $user, Member $member): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($member->store_id)) return true;
         return $user->hasPermissionTo('members.delete') && 
                $user->store_id === $member->store_id;
     }
@@ -65,6 +77,8 @@ class MemberPolicy
      */
     public function forceDelete(User $user, Member $member): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($member->store_id)) return true;
         return $user->hasPermissionTo('members.delete') && 
                $user->store_id === $member->store_id;
     }

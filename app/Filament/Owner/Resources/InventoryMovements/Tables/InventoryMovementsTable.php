@@ -10,6 +10,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
+use App\Support\Currency;
 use Illuminate\Database\Eloquent\Builder;
 
 class InventoryMovementsTable
@@ -19,13 +20,13 @@ class InventoryMovementsTable
         return $table
             ->columns([
                 TextColumn::make('product.name')
-                    ->label('Product')
+                    ->label('Produk')
                     ->searchable()
                     ->sortable()
                     ->weight('medium'),
 
                 TextColumn::make('type')
-                    ->label('Type')
+                    ->label('Jenis')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
                         'sale' => 'success',
@@ -38,10 +39,21 @@ class InventoryMovementsTable
                         'waste' => 'danger',
                         default => 'gray',
                     })
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'sale' => 'Penjualan',
+                        'purchase' => 'Pembelian',
+                        'adjustment_in' => 'Penyesuaian Masuk',
+                        'adjustment_out' => 'Penyesuaian Keluar',
+                        'transfer_in' => 'Transfer Masuk',
+                        'transfer_out' => 'Transfer Keluar',
+                        'return' => 'Retur',
+                        'waste' => 'Sisa/Buang',
+                        default => ucfirst($state),
+                    })
                     ->sortable(),
 
                 TextColumn::make('quantity')
-                    ->label('Quantity')
+                    ->label('Jumlah')
                     ->numeric()
                     ->sortable()
                     ->alignCenter()
@@ -49,20 +61,20 @@ class InventoryMovementsTable
                     ->color(fn($record) => $record->isStockIncrease() ? 'success' : 'danger'),
 
                 TextColumn::make('unit_cost')
-                    ->label('Unit Cost')
-                    ->money('IDR')
+                    ->label('Biaya per Unit')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd(),
 
                 TextColumn::make('total_cost')
-                    ->label('Total Cost')
-                    ->money('IDR')
+                    ->label('Total Biaya')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd()
                     ->weight('medium'),
 
                 TextColumn::make('reason')
-                    ->label('Reason')
+                    ->label('Alasan')
                     ->searchable()
                     ->limit(30)
                     ->tooltip(function (TextColumn $column): ?string {
@@ -71,51 +83,52 @@ class InventoryMovementsTable
                     }),
 
                 TextColumn::make('user.name')
-                    ->label('Recorded By')
+                    ->label('Dicatat Oleh')
                     ->sortable()
                     ->badge()
                     ->color('info'),
 
                 TextColumn::make('created_at')
-                    ->label('Date')
+                    ->label('Tanggal')
                     ->dateTime()
                     ->sortable()
                     ->since(),
             ])
             ->filters([
                 SelectFilter::make('type')
+                    ->label('Jenis Pergerakan')
                     ->options([
-                        'sale' => 'Sale',
-                        'purchase' => 'Purchase',
-                        'adjustment_in' => 'Adjustment In',
-                        'adjustment_out' => 'Adjustment Out',
-                        'transfer_in' => 'Transfer In',
-                        'transfer_out' => 'Transfer Out',
-                        'return' => 'Return',
-                        'waste' => 'Waste',
+                        'sale' => 'Penjualan',
+                        'purchase' => 'Pembelian',
+                        'adjustment_in' => 'Penyesuaian Masuk',
+                        'adjustment_out' => 'Penyesuaian Keluar',
+                        'transfer_in' => 'Transfer Masuk',
+                        'transfer_out' => 'Transfer Keluar',
+                        'return' => 'Retur',
+                        'waste' => 'Sisa/Buang',
                     ])
                     ->multiple(),
 
                 SelectFilter::make('product_id')
-                    ->label('Product')
+                    ->label('Produk')
                     ->relationship('product', 'name')
                     ->searchable()
                     ->preload(),
 
                 Filter::make('stock_in')
-                    ->label('Stock In Movements')
+                    ->label('Pergerakan Stok Masuk')
                     ->query(fn(Builder $query): Builder => $query->stockIn()),
 
                 Filter::make('stock_out')
-                    ->label('Stock Out Movements')
+                    ->label('Pergerakan Stok Keluar')
                     ->query(fn(Builder $query): Builder => $query->stockOut()),
 
                 Filter::make('created_at')
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('created_from')
-                            ->label('From Date'),
+                            ->label('Dari Tanggal'),
                         \Filament\Forms\Components\DatePicker::make('created_until')
-                            ->label('Until Date'),
+                            ->label('Sampai Tanggal'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -130,23 +143,23 @@ class InventoryMovementsTable
                     }),
 
                 Filter::make('today')
-                    ->label('Today')
+                    ->label('Hari Ini')
                     ->query(fn(Builder $query): Builder => $query->whereDate('created_at', today())),
 
                 Filter::make('this_week')
-                    ->label('This Week')
+                    ->label('Minggu Ini')
                     ->query(fn(Builder $query): Builder => $query->whereBetween('created_at', [
                         now()->startOfWeek(),
                         now()->endOfWeek(),
                     ])),
 
                 Filter::make('this_month')
-                    ->label('This Month')
+                    ->label('Bulan Ini')
                     ->query(fn(Builder $query): Builder => $query->whereMonth('created_at', now()->month)),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()->label('Lihat'),
+                EditAction::make()->label('Ubah'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

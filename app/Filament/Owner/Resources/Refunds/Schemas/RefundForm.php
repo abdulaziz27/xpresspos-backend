@@ -10,6 +10,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use App\Support\Money;
 
 class RefundForm
 {
@@ -83,7 +84,9 @@ class RefundForm
                                     ->prefix('Rp')
                                     ->step(0.01)
                                     ->minValue(0)
-                                    ->helperText('Amount to be refunded'),
+                                    ->placeholder('50.000')
+                                    ->helperText('Bisa input: 50000 atau 50.000')
+                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state)),
 
                                 Select::make('status')
                                     ->required()

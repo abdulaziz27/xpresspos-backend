@@ -10,6 +10,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
+use App\Support\Currency;
 use Illuminate\Database\Eloquent\Builder;
 
 class CashSessionsTable
@@ -26,7 +27,7 @@ class CashSessionsTable
                     ->copyable(),
 
                 TextColumn::make('user.name')
-                    ->label('Cashier')
+                    ->label('Kasir')
                     ->searchable()
                     ->sortable()
                     ->badge()
@@ -40,80 +41,86 @@ class CashSessionsTable
                         'closed' => 'success',
                         default => 'gray',
                     })
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'open' => 'Buka',
+                        'closed' => 'Tutup',
+                        default => ucfirst($state),
+                    })
                     ->sortable(),
 
                 TextColumn::make('opening_balance')
-                    ->label('Opening Balance')
-                    ->money('IDR')
+                    ->label('Saldo Awal')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd(),
 
                 TextColumn::make('closing_balance')
-                    ->label('Closing Balance')
-                    ->money('IDR')
+                    ->label('Saldo Akhir')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd()
-                    ->placeholder('Not Closed'),
+                    ->placeholder('Belum Ditutup'),
 
                 TextColumn::make('expected_balance')
-                    ->label('Expected Balance')
-                    ->money('IDR')
+                    ->label('Saldo Ekspektasi')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd()
-                    ->placeholder('Not Calculated'),
+                    ->placeholder('Belum Dihitung'),
 
                 TextColumn::make('variance')
-                    ->label('Variance')
-                    ->money('IDR')
+                    ->label('Selisih')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd()
                     ->color(fn($record) => $record->hasVariance() ? 'danger' : 'success')
-                    ->placeholder('No Variance'),
+                    ->placeholder('Tidak Ada Selisih'),
 
                 TextColumn::make('cash_sales')
-                    ->label('Cash Sales')
-                    ->money('IDR')
+                    ->label('Penjualan Tunai')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd()
-                    ->placeholder('Not Calculated'),
+                    ->placeholder('Belum Dihitung'),
 
                 TextColumn::make('opened_at')
-                    ->label('Opened At')
+                    ->label('Dibuka Pada')
                     ->dateTime()
                     ->sortable()
                     ->since(),
 
                 TextColumn::make('closed_at')
-                    ->label('Closed At')
+                    ->label('Ditutup Pada')
                     ->dateTime()
                     ->sortable()
                     ->since()
-                    ->placeholder('Still Open'),
+                    ->placeholder('Masih Terbuka'),
             ])
             ->filters([
                 SelectFilter::make('status')
+                    ->label('Status')
                     ->options([
-                        'open' => 'Open',
-                        'closed' => 'Closed',
+                        'open' => 'Buka',
+                        'closed' => 'Tutup',
                     ])
                     ->multiple(),
 
                 SelectFilter::make('user_id')
-                    ->label('Cashier')
+                    ->label('Kasir')
                     ->relationship('user', 'name')
                     ->searchable()
                     ->preload(),
 
                 Filter::make('has_variance')
-                    ->label('Has Variance')
+                    ->label('Ada Selisih')
                     ->query(fn(Builder $query): Builder => $query->whereRaw('ABS(variance) > 0.01')),
 
                 Filter::make('opened_at')
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('opened_from')
-                            ->label('From Date'),
+                            ->label('Dari Tanggal'),
                         \Filament\Forms\Components\DatePicker::make('opened_until')
-                            ->label('Until Date'),
+                            ->label('Sampai Tanggal'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -128,23 +135,23 @@ class CashSessionsTable
                     }),
 
                 Filter::make('today')
-                    ->label('Today')
+                    ->label('Hari Ini')
                     ->query(fn(Builder $query): Builder => $query->whereDate('opened_at', today())),
 
                 Filter::make('this_week')
-                    ->label('This Week')
+                    ->label('Minggu Ini')
                     ->query(fn(Builder $query): Builder => $query->whereBetween('opened_at', [
                         now()->startOfWeek(),
                         now()->endOfWeek(),
                     ])),
 
                 Filter::make('this_month')
-                    ->label('This Month')
+                    ->label('Bulan Ini')
                     ->query(fn(Builder $query): Builder => $query->whereMonth('opened_at', now()->month)),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()->label('Lihat'),
+                EditAction::make()->label('Ubah'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

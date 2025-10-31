@@ -11,6 +11,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
+use App\Support\Money;
 
 class CashSessionForm
 {
@@ -18,13 +19,13 @@ class CashSessionForm
     {
         return $schema
             ->components([
-                Section::make('Session Information')
-                    ->description('Basic cash session details and opening balance')
+                Section::make('Informasi Sesi')
+                    ->description('Detail sesi kas dan saldo awal')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 Select::make('user_id')
-                                    ->label('Cashier')
+                                    ->label('Kasir')
                                     ->options(function () {
                                         $storeId = auth()->user()?->currentStoreId();
 
@@ -40,8 +41,8 @@ class CashSessionForm
                                 Select::make('status')
                                     ->label('Status')
                                     ->options([
-                                        'open' => 'Open',
-                                        'closed' => 'Closed',
+                                        'open' => 'Dibuka',
+                                        'closed' => 'Ditutup',
                                     ])
                                     ->default('open')
                                     ->required()
@@ -51,16 +52,19 @@ class CashSessionForm
                         Grid::make(3)
                             ->schema([
                                 TextInput::make('opening_balance')
-                                    ->label('Opening Balance')
+                                    ->label('Saldo Awal')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
                                     ->minValue(0)
+                                    ->placeholder('100.000')
+                                    ->helperText('Bisa input: 100000 atau 100.000')
+                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->required()
                                     ->disabled(fn($record) => $record?->status === 'closed'),
 
                                 TextInput::make('closing_balance')
-                                    ->label('Closing Balance')
+                                    ->label('Saldo Akhir')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
@@ -70,7 +74,7 @@ class CashSessionForm
                                     ->visible(fn($record) => $record?->status === 'closed'),
 
                                 TextInput::make('variance')
-                                    ->label('Variance')
+                                    ->label('Selisih')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
@@ -81,55 +85,55 @@ class CashSessionForm
                     ])
                     ->columns(1),
 
-                Section::make('Session Summary')
-                    ->description('Calculated session totals and statistics')
+                Section::make('Ringkasan Sesi')
+                    ->description('Total dan statistik sesi yang dihitung')
                     ->schema([
                         Grid::make(3)
                             ->schema([
                                 TextInput::make('cash_sales')
-                                    ->label('Cash Sales')
+                                    ->label('Penjualan Tunai')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
                                     ->disabled()
                                     ->dehydrated(false)
-                                    ->helperText('Total cash sales during session'),
+                                    ->helperText('Total penjualan tunai selama sesi'),
 
                                 TextInput::make('cash_expenses')
-                                    ->label('Cash Expenses')
+                                    ->label('Pengeluaran Tunai')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
                                     ->disabled()
                                     ->dehydrated(false)
-                                    ->helperText('Total cash expenses during session'),
+                                    ->helperText('Total pengeluaran tunai selama sesi'),
 
                                 TextInput::make('expected_balance')
-                                    ->label('Expected Balance')
+                                    ->label('Saldo Perkiraan')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
                                     ->disabled()
                                     ->dehydrated(false)
-                                    ->helperText('Opening + Sales - Expenses'),
+                                    ->helperText('Saldo awal + Penjualan - Pengeluaran'),
                             ]),
                     ])
                     ->columns(1)
                     ->visible(fn($record) => $record?->status === 'closed'),
 
-                Section::make('Session Timing')
-                    ->description('Session opening and closing times')
+                Section::make('Waktu Sesi')
+                    ->description('Waktu pembukaan dan penutupan sesi')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 DateTimePicker::make('opened_at')
-                                    ->label('Opened At')
+                                    ->label('Dibuka Pada')
                                     ->default(now())
                                     ->required()
                                     ->disabled(fn($record) => $record?->status === 'closed'),
 
                                 DateTimePicker::make('closed_at')
-                                    ->label('Closed At')
+                                    ->label('Ditutup Pada')
                                     ->disabled()
                                     ->dehydrated(false)
                                     ->visible(fn($record) => $record?->status === 'closed'),
@@ -137,14 +141,14 @@ class CashSessionForm
                     ])
                     ->columns(1),
 
-                Section::make('Notes')
-                    ->description('Additional session notes and comments')
+                Section::make('Catatan')
+                    ->description('Catatan tambahan untuk sesi ini')
                     ->schema([
                         Textarea::make('notes')
-                            ->label('Session Notes')
+                            ->label('Catatan Sesi')
                             ->rows(3)
                             ->maxLength(1000)
-                            ->placeholder('Notes about this cash session'),
+                            ->placeholder('Catatan terkait sesi kas ini'),
                     ])
                     ->columns(1),
             ]);

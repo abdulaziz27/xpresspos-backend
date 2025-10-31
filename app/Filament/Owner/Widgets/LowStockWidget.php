@@ -11,7 +11,7 @@ class LowStockWidget extends BaseWidget
 {
     protected int | string | array $columnSpan = 'full';
 
-    protected static ?string $heading = 'Low Stock Alert';
+    protected static ?string $heading = 'Peringatan Stok Rendah';
 
     public function table(Table $table): Table
     {
@@ -32,13 +32,13 @@ class LowStockWidget extends BaseWidget
             ->query($query)
             ->columns([
                 Tables\Columns\ImageColumn::make('image')
-                    ->label('Image')
+                    ->label('Gambar')
                     ->circular()
                     ->size(40)
                     ->defaultImageUrl(url('/img/placeholder-product.png')),
 
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Product')
+                    ->label('Produk')
                     ->searchable()
                     ->sortable()
                     ->weight('medium'),
@@ -49,25 +49,25 @@ class LowStockWidget extends BaseWidget
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('stock')
-                    ->label('Current Stock')
+                    ->label('Stok Saat Ini')
                     ->numeric()
                     ->sortable()
                     ->color('danger')
                     ->weight('medium'),
 
                 Tables\Columns\TextColumn::make('min_stock_level')
-                    ->label('Min Level')
+                    ->label('Level Min')
                     ->numeric()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('category.name')
-                    ->label('Category')
+                    ->label('Kategori')
                     ->badge()
                     ->color('gray'),
             ])
             ->paginated(false)
-            ->emptyStateHeading('No Low Stock Products')
-            ->emptyStateDescription('All products have sufficient stock levels.')
+            ->emptyStateHeading('Tidak Ada Produk Stok Rendah')
+            ->emptyStateDescription('Semua produk memiliki stok yang cukup.')
             ->emptyStateIcon('heroicon-o-check-circle');
     }
 }

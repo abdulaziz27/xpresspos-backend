@@ -12,6 +12,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
+use App\Support\Money;
 
 class SubscriptionForm
 {
@@ -75,8 +76,10 @@ class SubscriptionForm
                             ->prefix('Rp')
                             ->step(0.01)
                             ->minValue(0)
-                            ->required()
-                            ->helperText('Subscription amount per billing cycle'),
+                            ->placeholder('100.000')
+                            ->helperText('Bisa input: 100000 atau 100.000')
+                            ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
+                            ->required(),
                     ])
                     ->columns(1),
 

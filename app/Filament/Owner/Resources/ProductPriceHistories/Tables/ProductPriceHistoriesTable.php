@@ -6,6 +6,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
+use App\Support\Currency;
 use Illuminate\Database\Eloquent\Builder;
 
 class ProductPriceHistoriesTable
@@ -27,12 +28,12 @@ class ProductPriceHistoriesTable
 
                 TextColumn::make('old_price')
                     ->label('Old Price')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable(),
 
                 TextColumn::make('new_price')
                     ->label('New Price')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable(),
 
                 TextColumn::make('price_change')
@@ -56,13 +57,13 @@ class ProductPriceHistoriesTable
 
                 TextColumn::make('old_cost_price')
                     ->label('Old Cost')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('new_cost_price')
                     ->label('New Cost')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 

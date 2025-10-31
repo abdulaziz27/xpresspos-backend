@@ -15,6 +15,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
 use Illuminate\Database\Eloquent\Builder;
 use BackedEnum;
+use App\Support\Currency;
 
 class SubscriptionPaymentResource extends Resource
 {
@@ -22,32 +23,34 @@ class SubscriptionPaymentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static ?string $navigationLabel = 'Payment History';
+    protected static ?string $navigationLabel = 'Riwayat Pembayaran';
 
 
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 1;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Langganan & Billing';
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Forms\Components\Section::make('Payment Details')
+                Forms\Components\Section::make('Detail Pembayaran')
                     ->schema([
                         Forms\Components\TextInput::make('external_id')
-                            ->label('Payment ID')
+                            ->label('ID Pembayaran')
                             ->disabled(),
                         
                         Forms\Components\TextInput::make('xendit_invoice_id')
-                            ->label('Xendit Invoice ID')
+                            ->label('ID Invoice Xendit')
                             ->disabled(),
                         
                         Forms\Components\Select::make('status')
                             ->options([
-                                'pending' => 'Pending',
-                                'paid' => 'Paid',
-                                'failed' => 'Failed',
-                                'expired' => 'Expired',
+                                'pending' => 'Menunggu',
+                                'paid' => 'Dibayar',
+                                'failed' => 'Gagal',
+                                'expired' => 'Kedaluwarsa',
                             ])
                             ->disabled(),
                         
@@ -82,19 +85,19 @@ class SubscriptionPaymentResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('external_id')
-                    ->label('Payment ID')
+                    ->label('ID Pembayaran')
                     ->searchable()
                     ->copyable()
-                    ->copyMessage('Payment ID copied')
+                    ->copyMessage('ID pembayaran disalin')
                     ->copyMessageDuration(1500),
                 
                 Tables\Columns\TextColumn::make('subscription.plan.name')
-                    ->label('Plan')
+                    ->label('Paket')
                     ->sortable()
                     ->searchable(),
                 
                 Tables\Columns\TextColumn::make('amount')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('status')
@@ -109,20 +112,20 @@ class SubscriptionPaymentResource extends Resource
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('payment_method')
-                    ->label('Method')
+                    ->label('Metode')
                     ->formatStateUsing(fn ($record): string => 
                         $record->getPaymentMethodDisplayName()
                     )
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('paid_at')
-                    ->label('Paid At')
+                    ->label('Dibayar Pada')
                     ->dateTime()
                     ->sortable()
-                    ->placeholder('Not paid'),
+                    ->placeholder('Belum dibayar'),
                 
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label('Dibuat')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -130,18 +133,18 @@ class SubscriptionPaymentResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending' => 'Pending',
-                        'paid' => 'Paid',
-                        'failed' => 'Failed',
-                        'expired' => 'Expired',
+                        'pending' => 'Menunggu',
+                        'paid' => 'Dibayar',
+                        'failed' => 'Gagal',
+                        'expired' => 'Kedaluwarsa',
                     ]),
                 
                 Tables\Filters\SelectFilter::make('payment_method')
                     ->options([
-                        'bank_transfer' => 'Bank Transfer',
-                        'e_wallet' => 'E-Wallet',
+                        'bank_transfer' => 'Transfer Bank',
+                        'e_wallet' => 'Dompet Digital',
                         'qris' => 'QRIS',
-                        'credit_card' => 'Credit Card',
+                        'credit_card' => 'Kartu Kredit',
                     ]),
                 
                 Tables\Filters\Filter::make('paid_this_month')
@@ -149,17 +152,17 @@ class SubscriptionPaymentResource extends Resource
                         $query->where('paid_at', '>=', now()->startOfMonth())
                               ->where('paid_at', '<=', now()->endOfMonth())
                     )
-                    ->label('Paid This Month'),
+                    ->label('Dibayar Bulan Ini'),
                 
                 Tables\Filters\Filter::make('failed_payments')
                     ->query(fn (Builder $query): Builder => $query->where('status', 'failed'))
-                    ->label('Failed Payments'),
+                    ->label('Pembayaran Gagal'),
             ])
             ->actions([
-                \Filament\Actions\ViewAction::make(),
+                \Filament\Actions\ViewAction::make()->label('Lihat'),
                 
                 \Filament\Actions\Action::make('download_invoice')
-                    ->label('Download Invoice')
+                    ->label('Unduh Invoice')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('success')
                     ->action(function (SubscriptionPayment $record) {
@@ -168,7 +171,7 @@ class SubscriptionPaymentResource extends Resource
                     ->visible(fn (SubscriptionPayment $record): bool => $record->status === 'paid'),
                 
                 \Filament\Actions\Action::make('retry_payment')
-                    ->label('Retry Payment')
+                    ->label('Coba Lagi Pembayaran')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
                     ->action(function (SubscriptionPayment $record) {
@@ -203,11 +206,11 @@ class SubscriptionPaymentResource extends Resource
                                     ->label('Xendit Invoice ID')
                                     ->copyable(),
                                 
-                                Infolists\Components\TextEntry::make('amount')
-                                    ->money('IDR'),
+                Infolists\Components\TextEntry::make('amount')
+                                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s)),
                                 
                                 Infolists\Components\TextEntry::make('gateway_fee')
-                                    ->money('IDR')
+                                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                                     ->placeholder('No fee'),
                                 
                                 Infolists\Components\TextEntry::make('status')
@@ -316,6 +319,11 @@ class SubscriptionPaymentResource extends Resource
     public static function getNavigationBadgeColor(): ?string
     {
         return 'warning';
+    }
+
+    public static function canViewAny(): bool
+    {
+        return true;
     }
 
     public static function downloadInvoice(SubscriptionPayment $payment)

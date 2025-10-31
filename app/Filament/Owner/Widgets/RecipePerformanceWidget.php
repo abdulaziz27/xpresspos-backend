@@ -11,6 +11,7 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use App\Support\Currency;
 
 class RecipePerformanceWidget extends BaseWidget
 {
@@ -61,13 +62,13 @@ class RecipePerformanceWidget extends BaseWidget
 
                 TextColumn::make('total_cost')
                     ->label('Recipe Cost')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable()
                     ->alignEnd(),
 
                 TextColumn::make('cost_per_unit')
                     ->label('Cost/Unit')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable()
                     ->alignEnd()
                     ->color('success'),

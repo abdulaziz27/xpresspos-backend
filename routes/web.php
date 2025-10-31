@@ -5,7 +5,7 @@ use App\Http\Controllers\LandingController;
 
 // Main domain routing (xpresspos.id)
 Route::domain(config('domains.main'))->group(function () {
-    Route::get('/', [LandingController::class, 'index'])->name('landing.main');
+    Route::get('/', [LandingController::class, 'index'])->name('landing.home');
     
     // Auth routes untuk landing (redirect ke owner dashboard setelah login)
     Route::middleware('guest')->group(function () {
@@ -28,6 +28,10 @@ Route::domain(config('domains.main'))->group(function () {
 
     // Multi-step checkout
     Route::get('/checkout', [LandingController::class, 'showCheckout'])->name('landing.checkout');
+    
+    // Payment result pages
+    Route::get('/payment/success', [LandingController::class, 'paymentSuccess'])->name('landing.payment.success');
+    Route::get('/payment/failed', [LandingController::class, 'paymentFailed'])->name('landing.payment.failed');
     Route::get('/checkout/business-info', [LandingController::class, 'showCheckoutStep2'])->name('landing.checkout.step2');
     Route::post('/checkout/business-info', [LandingController::class, 'processCheckoutStep2'])->name('landing.checkout.step2.process');
     Route::get('/checkout/payment-method', [LandingController::class, 'showCheckoutStep3'])->name('landing.checkout.step3');
@@ -35,6 +39,8 @@ Route::domain(config('domains.main'))->group(function () {
 
     // Legacy routes (keep for backward compatibility)
     Route::post('/subscription', [LandingController::class, 'processSubscription'])->name('landing.subscription.process');
+    Route::get('/payment', [LandingController::class, 'showPayment'])->name('landing.payment');
+    Route::post('/payment/process', [LandingController::class, 'processPayment'])->name('landing.payment.process');
     
     // Cart route
     Route::get('/cart', function () {

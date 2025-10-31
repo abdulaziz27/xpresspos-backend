@@ -6,6 +6,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
+use App\Support\Currency;
 use Illuminate\Database\Eloquent\Builder;
 
 class TableOccupancyHistoriesTable
@@ -78,7 +79,7 @@ class TableOccupancyHistoriesTable
 
                 TextColumn::make('order_total')
                     ->label('Order Total')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable()
                     ->placeholder('No order'),
 

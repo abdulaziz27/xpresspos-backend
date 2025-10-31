@@ -15,6 +15,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
 use Illuminate\Database\Eloquent\Builder;
 use BackedEnum;
+use App\Support\Currency;
 
 class SubscriptionResource extends Resource
 {
@@ -22,17 +23,19 @@ class SubscriptionResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-credit-card';
 
-    protected static ?string $navigationLabel = 'Subscription';
+    protected static ?string $navigationLabel = 'Langganan';
 
 
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 0;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Langganan & Billing';
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Forms\Components\Section::make('Subscription Details')
+                Forms\Components\Section::make('Detail Langganan')
                     ->schema([
                         Forms\Components\Select::make('plan_id')
                             ->relationship('plan', 'name')
@@ -41,18 +44,18 @@ class SubscriptionResource extends Resource
                         
                         Forms\Components\Select::make('status')
                             ->options([
-                                'active' => 'Active',
-                                'suspended' => 'Suspended',
-                                'cancelled' => 'Cancelled',
-                                'expired' => 'Expired',
+                                'active' => 'Aktif',
+                                'suspended' => 'Ditangguhkan',
+                                'cancelled' => 'Dibatalkan',
+                                'expired' => 'Kedaluwarsa',
                             ])
                             ->required()
                             ->disabled(),
                         
                         Forms\Components\Select::make('billing_cycle')
                             ->options([
-                                'monthly' => 'Monthly',
-                                'yearly' => 'Yearly',
+                                'monthly' => 'Bulanan',
+                                'yearly' => 'Tahunan',
                             ])
                             ->required()
                             ->disabled(),
@@ -82,7 +85,7 @@ class SubscriptionResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('plan.name')
-                    ->label('Plan')
+                    ->label('Paket')
                     ->sortable()
                     ->searchable(),
                 
@@ -98,22 +101,22 @@ class SubscriptionResource extends Resource
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('billing_cycle')
-                    ->label('Billing')
-                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
+                    ->label('Penagihan')
+                    ->formatStateUsing(fn (string $state): string => $state === 'monthly' ? 'Bulanan' : ($state === 'yearly' ? 'Tahunan' : ucfirst($state)))
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('amount')
-                    ->label('Amount')
-                    ->money('IDR')
+                    ->label('Jumlah')
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->amount ?? 0)))
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('starts_at')
-                    ->label('Started')
+                    ->label('Mulai')
                     ->date()
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('ends_at')
-                    ->label('Expires')
+                    ->label('Berakhir')
                     ->date()
                     ->sortable()
                     ->color(fn (Subscription $record): string => 
@@ -122,10 +125,10 @@ class SubscriptionResource extends Resource
                     ),
                 
                 Tables\Columns\TextColumn::make('days_until_expiration')
-                    ->label('Days Left')
+                    ->label('Sisa Hari')
                     ->getStateUsing(fn (Subscription $record): string => 
-                        $record->ends_at->isPast() ? 'Expired' : 
-                        $record->ends_at->diffInDays() . ' days'
+                        $record->ends_at->isPast() ? 'Kedaluwarsa' : 
+                        $record->ends_at->diffInDays() . ' hari'
                     )
                     ->color(fn (Subscription $record): string => 
                         $record->ends_at->isPast() ? 'danger' : 
@@ -135,20 +138,20 @@ class SubscriptionResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'active' => 'Active',
-                        'suspended' => 'Suspended',
-                        'cancelled' => 'Cancelled',
-                        'expired' => 'Expired',
+                        'active' => 'Aktif',
+                        'suspended' => 'Ditangguhkan',
+                        'cancelled' => 'Dibatalkan',
+                        'expired' => 'Kedaluwarsa',
                     ]),
                 
                 Tables\Filters\SelectFilter::make('billing_cycle')
                     ->options([
-                        'monthly' => 'Monthly',
-                        'yearly' => 'Yearly',
+                        'monthly' => 'Bulanan',
+                        'yearly' => 'Tahunan',
                     ]),
             ])
             ->actions([
-                \Filament\Actions\ViewAction::make(),
+                \Filament\Actions\ViewAction::make()->label('Lihat'),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -157,12 +160,12 @@ class SubscriptionResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Subscription Overview')
+                Section::make('Ringkasan Langganan')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 Infolists\Components\TextEntry::make('plan.name')
-                                    ->label('Plan'),
+                                    ->label('Paket'),
                                 
                                 Infolists\Components\TextEntry::make('status')
                                     ->badge()
@@ -175,18 +178,19 @@ class SubscriptionResource extends Resource
                                     }),
                                 
                                 Infolists\Components\TextEntry::make('billing_cycle')
-                                    ->label('Billing Cycle')
-                                    ->formatStateUsing(fn (string $state): string => ucfirst($state)),
+                                    ->label('Siklus Penagihan')
+                                    ->formatStateUsing(fn (string $state): string => $state === 'monthly' ? 'Bulanan' : ($state === 'yearly' ? 'Tahunan' : ucfirst($state))),
                                 
                                 Infolists\Components\TextEntry::make('amount')
-                                    ->money('IDR'),
+                                    ->label('Jumlah')
+                                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->amount ?? 0))),
                                 
                                 Infolists\Components\TextEntry::make('starts_at')
-                                    ->label('Started')
+                                    ->label('Mulai')
                                     ->date(),
                                 
                                 Infolists\Components\TextEntry::make('ends_at')
-                                    ->label('Expires')
+                                    ->label('Berakhir')
                                     ->date()
                                     ->color(fn (Subscription $record): string => 
                                         $record->ends_at->isPast() ? 'danger' : 
@@ -195,7 +199,7 @@ class SubscriptionResource extends Resource
                             ]),
                     ]),
                 
-                Section::make('Payment History')
+                Section::make('Riwayat Pembayaran')
                     ->schema([
                         Infolists\Components\RepeatableEntry::make('subscriptionPayments')
                             ->label('')
@@ -203,7 +207,8 @@ class SubscriptionResource extends Resource
                                 Grid::make(4)
                                     ->schema([
                                         Infolists\Components\TextEntry::make('amount')
-                                            ->money('IDR'),
+                                            ->label('Jumlah')
+                                            ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->amount ?? 0))),
                                         
                                         Infolists\Components\TextEntry::make('status')
                                             ->badge()
@@ -222,9 +227,9 @@ class SubscriptionResource extends Resource
                                             ),
                                         
                                         Infolists\Components\TextEntry::make('paid_at')
-                                            ->label('Paid At')
+                                            ->label('Dibayar Pada')
                                             ->dateTime()
-                                            ->placeholder('Not paid'),
+                                            ->placeholder('Belum dibayar'),
                                     ]),
                             ])
                             ->columnSpanFull(),
@@ -264,5 +269,10 @@ class SubscriptionResource extends Resource
     public static function getNavigationBadgeColor(): ?string
     {
         return 'success';
+    }
+
+    public static function canViewAny(): bool
+    {
+        return true;
     }
 }

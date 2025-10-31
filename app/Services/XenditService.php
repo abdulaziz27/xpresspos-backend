@@ -144,29 +144,72 @@ class XenditService
      */
     public function createInvoice(array $data): array
     {
-        // Check if we're in development mode without real API key or client not configured
+        // Backward compatibility: Convert old format to new format
+        if (isset($data['customer_name']) || isset($data['customer_email']) || isset($data['customer_phone'])) {
+            Log::info('Converting old payload format to new format', [
+                'has_customer_name' => isset($data['customer_name']),
+                'has_customer_email' => isset($data['customer_email']),
+                'has_customer_phone' => isset($data['customer_phone']),
+            ]);
+            
+            // Create customer object if not exists
+            if (!isset($data['customer'])) {
+                $data['customer'] = [];
+            }
+            
+            // Map old fields to new customer object
+            if (isset($data['customer_name']) && !isset($data['customer']['given_names'])) {
+                $data['customer']['given_names'] = $data['customer_name'];
+            }
+            if (isset($data['customer_email']) && !isset($data['customer']['email'])) {
+                $data['customer']['email'] = $data['customer_email'];
+            }
+            if (isset($data['customer_phone']) && !isset($data['customer']['mobile_number'])) {
+                $data['customer']['mobile_number'] = $data['customer_phone'];
+            }
+            
+            // Remove old fields to avoid confusion
+            unset($data['customer_name'], $data['customer_email'], $data['customer_phone']);
+        }
+        
+        // Ensure amount is integer
+        if (isset($data['amount'])) {
+            $data['amount'] = (int) $data['amount'];
+        }
+        
+        // Check if we have a valid API key and client configured
+        // Use dummy invoice only if API key is not configured or is dummy
         if (!$this->apiKey || $this->apiKey === 'dummy_key_for_development' || !$this->invoiceApi) {
+            Log::info('Using dummy invoice', [
+                'has_api_key' => !empty($this->apiKey),
+                'api_key_is_dummy' => $this->apiKey === 'dummy_key_for_development',
+                'has_invoice_api' => !empty($this->invoiceApi),
+                'api_key_prefix' => $this->apiKey ? substr($this->apiKey, 0, 20) . '...' : 'null'
+            ]);
             return $this->createDummyInvoice($data);
         }
+        
+        Log::info('Using real Xendit API', [
+            'api_key_prefix' => substr($this->apiKey, 0, 20) . '...'
+        ]);
 
         try {
             $externalId = $this->generateExternalId($data['type'] ?? 'subscription');
             
-            $invoiceRequest = new CreateInvoiceRequest([
+            // Prepare invoice payload using customer object
+            $invoicePayload = [
                 'external_id' => $externalId,
-                'amount' => $data['amount'],
+                'amount' => (int) $data['amount'], // Ensure integer type
                 'description' => $data['description'] ?? 'XpressPOS Subscription Payment',
                 'invoice_duration' => config('xendit.invoice_expiry_hours') * 3600, // Convert to seconds
                 'customer' => [
-                    'given_names' => $data['customer_name'] ?? '',
-                    'email' => $data['customer_email'] ?? '',
-                    'mobile_number' => $data['customer_phone'] ?? '',
+                    'given_names' => $data['customer']['given_names'] ?? '',
+                    'email' => $data['customer']['email'] ?? '',
+                    'mobile_number' => $data['customer']['mobile_number'] ?? '', // E.164 format: +6285211553430
                 ],
                 'customer_notification_preference' => [
-                    'invoice_created' => ['email', 'sms'],
-                    'invoice_reminder' => ['email', 'sms'],
-                    'invoice_paid' => ['email', 'sms'],
-                    'invoice_expired' => ['email', 'sms']
+                    'invoice_created' => ['email'],
+                    'invoice_paid' => ['email']
                 ],
                 'success_redirect_url' => $data['success_redirect_url'] ?? config('xendit.invoice.success_redirect_url'),
                 'failure_redirect_url' => $data['failure_redirect_url'] ?? config('xendit.invoice.failure_redirect_url'),
@@ -175,20 +218,43 @@ class XenditService
                     [
                         'name' => $data['item_name'] ?? 'XpressPOS Subscription',
                         'quantity' => 1,
-                        'price' => $data['amount'],
+                        'price' => (int) $data['amount'], // Ensure integer type
                         'category' => 'Software Subscription'
                     ]
                 ],
                 'fees' => [],
-                'payment_methods' => $this->getAvailablePaymentMethods($data['payment_methods'] ?? []),
+            ];
+            
+            // IMPORTANT: Don't specify payment_methods to let Xendit use all available methods
+            // Only add if explicitly requested by controller
+            if (isset($data['payment_methods']) && !empty($data['payment_methods'])) {
+                $invoicePayload['payment_methods'] = $this->getAvailablePaymentMethods($data['payment_methods']);
+                Log::info('Using specific payment methods', [
+                    'requested' => $data['payment_methods'],
+                    'filtered' => $invoicePayload['payment_methods']
+                ]);
+            } else {
+                // Don't add payment_methods field - let Xendit show all available methods
+                Log::info('No payment_methods specified - Xendit will show all available methods');
+            }
+            
+            // Log payload before sending to Xendit for debugging
+            Log::info('Xendit invoice payload', [
+                'payload' => $invoicePayload,
+                'amount_type' => gettype($invoicePayload['amount']),
+                'price_type' => gettype($invoicePayload['items'][0]['price']),
+                'has_payment_methods' => isset($invoicePayload['payment_methods']),
+                'payment_methods_count' => isset($invoicePayload['payment_methods']) ? count($invoicePayload['payment_methods']) : 0,
             ]);
-
+            
+            $invoiceRequest = new CreateInvoiceRequest($invoicePayload);
             $response = $this->invoiceApi->createInvoice($invoiceRequest);
 
             Log::info('Xendit invoice created successfully', [
                 'external_id' => $externalId,
                 'invoice_id' => $response['id'],
-                'amount' => $data['amount']
+                'amount' => $data['amount'],
+                'full_response' => $response // Log full response for debugging
             ]);
 
             return [
@@ -205,10 +271,19 @@ class XenditService
             ];
 
         } catch (\Exception $e) {
-            Log::error('Failed to create Xendit invoice', [
+            // Log detailed error information
+            $errorDetails = [
                 'error' => $e->getMessage(),
-                'data' => $data
-            ]);
+                'data' => $data,
+                'trace' => $e->getTraceAsString()
+            ];
+            
+            // If it's an HTTP exception, log the response body
+            if (method_exists($e, 'getResponse') && $e->getResponse()) {
+                $errorDetails['response_body'] = $e->getResponse()->getBody()->getContents();
+            }
+            
+            Log::error('Failed to create Xendit invoice', $errorDetails);
 
             return [
                 'success' => false,
@@ -231,12 +306,16 @@ class XenditService
             'amount' => $data['amount']
         ]);
 
+        // Generate a realistic Xendit invoice URL for testing
+        // In real scenario, this would be Xendit's hosted payment page
+        $invoiceUrl = 'https://checkout-staging.xendit.co/web/' . $invoiceId;
+
         return [
             'success' => true,
             'data' => [
                 'id' => $invoiceId,
                 'external_id' => $externalId,
-                'invoice_url' => route('landing.payment.success') . '?dummy=true',
+                'invoice_url' => $invoiceUrl,
                 'amount' => $data['amount'],
                 'status' => 'PENDING',
                 'expiry_date' => now()->addHours(24)->toISOString(),
@@ -468,25 +547,54 @@ class XenditService
     }
 
     /**
-     * Get available payment methods based on configuration
+     * Get available payment methods based on environment and configuration
      */
     private function getAvailablePaymentMethods(array $requestedMethods = []): array
     {
-        $allMethods = [
-            'BANK_TRANSFER',
-            'EWALLET',
-            'RETAIL_OUTLET',
-            'QR_CODE',
-            'CREDIT_CARD'
-        ];
+        // Determine available methods based on environment
+        $isProduction = config('xendit.is_production', false);
+        
+        if ($isProduction) {
+            // Production: All methods available
+            $availableMethods = [
+                'BANK_TRANSFER',
+                'EWALLET',
+                'QR_CODE',
+                'CREDIT_CARD'
+            ];
+        } else {
+            // Sandbox: Limited methods (based on Xendit sandbox limitations)
+            $availableMethods = [
+                'BANK_TRANSFER',
+                'RETAIL_OUTLET',
+                'QR_CODE'
+            ];
+        }
+        
+        Log::info('Payment methods determined by environment', [
+            'environment' => $isProduction ? 'production' : 'sandbox',
+            'available_methods' => $availableMethods,
+            'requested_methods' => $requestedMethods
+        ]);
 
-        // If specific methods requested, filter them
+        // If specific methods requested, filter them against available methods
         if (!empty($requestedMethods)) {
-            return array_intersect($allMethods, $requestedMethods);
+            $filtered = array_values(array_intersect($availableMethods, $requestedMethods));
+            
+            // If no valid methods after filtering, return all available methods
+            if (empty($filtered)) {
+                Log::warning('Requested payment methods not available, using defaults', [
+                    'requested' => $requestedMethods,
+                    'available' => $availableMethods
+                ]);
+                return $availableMethods;
+            }
+            
+            return $filtered;
         }
 
-        // Return all available methods
-        return $allMethods;
+        // Return all available methods for this environment
+        return $availableMethods;
     }
 
     /**

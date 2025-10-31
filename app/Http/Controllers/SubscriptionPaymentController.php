@@ -55,15 +55,17 @@ class SubscriptionPaymentController extends Controller
             // Generate external ID for Xendit
             $externalId = SubscriptionPayment::generateExternalId();
             
-            // Create Xendit invoice
+            // Create Xendit invoice with new format
             $xenditInvoiceData = [
                 'external_id' => $externalId,
-                'amount' => $request->amount,
+                'amount' => (int) $request->amount, // Ensure integer
                 'description' => $request->description ?? "Subscription payment for {$landingSubscription->email}",
-                'customer_name' => $landingSubscription->name,
-                'customer_email' => $landingSubscription->email,
-                'customer_phone' => $landingSubscription->phone,
-                'payment_methods' => [$request->payment_method],
+                'customer' => [
+                    'given_names' => $landingSubscription->name,
+                    'email' => $landingSubscription->email,
+                    'mobile_number' => $landingSubscription->phone, // Should be in E.164 format
+                ],
+                // payment_methods will be determined by XenditService based on environment
             ];
 
             $xenditResponse = $this->xenditService->createInvoice($xenditInvoiceData);
@@ -276,17 +278,18 @@ class SubscriptionPaymentController extends Controller
             
             $xenditInvoiceData = [
                 'external_id' => $externalId,
-                'amount' => $subscriptionPayment->amount,
+                'amount' => (int) $subscriptionPayment->amount, // Ensure integer
                 'description' => "Retry subscription payment for {$subscriptionPayment->landingSubscription->email}",
                 'invoice_duration' => config('xendit.invoice_expiry_hours', 24) * 3600,
                 'customer' => [
                     'given_names' => $subscriptionPayment->landingSubscription->name,
                     'email' => $subscriptionPayment->landingSubscription->email,
+                    'mobile_number' => $subscriptionPayment->landingSubscription->phone ?? '', // E.164 format
                 ],
                 'success_redirect_url' => url('/subscription/payment/success'),
                 'failure_redirect_url' => url('/subscription/payment/failed'),
                 'currency' => config('xendit.currency', 'IDR'),
-                'payment_methods' => [$subscriptionPayment->payment_method],
+                // payment_methods will be determined by XenditService based on environment
             ];
 
             $xenditResponse = $this->xenditService->createInvoice($xenditInvoiceData);

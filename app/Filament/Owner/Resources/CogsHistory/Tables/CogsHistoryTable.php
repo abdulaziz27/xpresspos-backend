@@ -10,6 +10,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
+use App\Support\Currency;
 use Illuminate\Database\Eloquent\Builder;
 
 class CogsHistoryTable
@@ -19,13 +20,13 @@ class CogsHistoryTable
         return $table
             ->columns([
                 TextColumn::make('product.name')
-                    ->label('Product')
+                    ->label('Produk')
                     ->searchable()
                     ->sortable()
                     ->weight('medium'),
 
                 TextColumn::make('quantity_sold')
-                    ->label('Quantity Sold')
+                    ->label('Jumlah Terjual')
                     ->numeric()
                     ->sortable()
                     ->alignCenter()
@@ -33,21 +34,21 @@ class CogsHistoryTable
                     ->color('info'),
 
                 TextColumn::make('unit_cost')
-                    ->label('Unit Cost')
-                    ->money('IDR')
+                    ->label('Biaya per Unit')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd(),
 
                 TextColumn::make('total_cogs')
                     ->label('Total COGS')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd()
                     ->weight('medium')
                     ->color('danger'),
 
                 TextColumn::make('calculation_method')
-                    ->label('Method')
+                    ->label('Metode')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
                         'weighted_average' => 'info',
@@ -56,7 +57,7 @@ class CogsHistoryTable
                         default => 'gray',
                     })
                     ->formatStateUsing(fn(string $state): string => match ($state) {
-                        'weighted_average' => 'Weighted Avg',
+                        'weighted_average' => 'Rata-rata',
                         'fifo' => 'FIFO',
                         'lifo' => 'LIFO',
                         default => ucfirst($state),
@@ -71,22 +72,22 @@ class CogsHistoryTable
                     ->color('primary'),
 
                 TextColumn::make('created_at')
-                    ->label('Date')
+                    ->label('Tanggal')
                     ->dateTime()
                     ->sortable()
                     ->since(),
             ])
             ->filters([
                 SelectFilter::make('calculation_method')
-                    ->label('Calculation Method')
+                    ->label('Metode Perhitungan')
                     ->options([
-                        'weighted_average' => 'Weighted Average',
+                        'weighted_average' => 'Rata-rata Tertimbang',
                         'fifo' => 'FIFO',
                         'lifo' => 'LIFO',
                     ]),
 
                 SelectFilter::make('product_id')
-                    ->label('Product')
+                    ->label('Produk')
                     ->relationship('product', 'name')
                     ->searchable()
                     ->preload(),
@@ -94,9 +95,9 @@ class CogsHistoryTable
                 Filter::make('created_at')
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('created_from')
-                            ->label('From Date'),
+                            ->label('Dari Tanggal'),
                         \Filament\Forms\Components\DatePicker::make('created_until')
-                            ->label('Until Date'),
+                            ->label('Sampai Tanggal'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -111,23 +112,23 @@ class CogsHistoryTable
                     }),
 
                 Filter::make('today')
-                    ->label('Today')
+                    ->label('Hari Ini')
                     ->query(fn(Builder $query): Builder => $query->whereDate('created_at', today())),
 
                 Filter::make('this_week')
-                    ->label('This Week')
+                    ->label('Minggu Ini')
                     ->query(fn(Builder $query): Builder => $query->whereBetween('created_at', [
                         now()->startOfWeek(),
                         now()->endOfWeek(),
                     ])),
 
                 Filter::make('this_month')
-                    ->label('This Month')
+                    ->label('Bulan Ini')
                     ->query(fn(Builder $query): Builder => $query->whereMonth('created_at', now()->month)),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()->label('Lihat'),
+                EditAction::make()->label('Ubah'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

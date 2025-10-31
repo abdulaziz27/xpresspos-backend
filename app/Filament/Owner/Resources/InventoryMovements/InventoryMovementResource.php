@@ -20,13 +20,15 @@ class InventoryMovementResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-arrow-path';
 
-    protected static ?string $navigationLabel = 'Inventory Movements';
+    protected static ?string $navigationLabel = 'Pergerakan Stok';
 
-    protected static ?string $modelLabel = 'Inventory Movement';
+    protected static ?string $modelLabel = 'Pergerakan Stok';
 
-    protected static ?string $pluralModelLabel = 'Inventory Movements';
+    protected static ?string $pluralModelLabel = 'Pergerakan Stok';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 3;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
 
 
     public static function form(Schema $schema): Schema
@@ -53,5 +55,10 @@ class InventoryMovementResource extends Resource
             'create' => CreateInventoryMovement::route('/create'),
             'edit' => EditInventoryMovement::route('/{record}/edit'),
         ];
+    }
+
+    public static function canViewAny(): bool
+    {
+        return true;
     }
 }

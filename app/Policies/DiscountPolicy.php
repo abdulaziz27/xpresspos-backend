@@ -12,10 +12,8 @@ class DiscountPolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->can('discounts.view');
     }
 
@@ -24,10 +22,8 @@ class DiscountPolicy
      */
     public function view(User $user, Discount $discount): bool
     {
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($discount->store_id)) return true;
         return $user->can('discounts.view') && $user->store_id === $discount->store_id;
     }
 
@@ -36,10 +32,8 @@ class DiscountPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->can('discounts.create');
     }
 
@@ -48,10 +42,8 @@ class DiscountPolicy
      */
     public function update(User $user, Discount $discount): bool
     {
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($discount->store_id)) return true;
         return $user->can('discounts.update') && $user->store_id === $discount->store_id;
     }
 
@@ -60,10 +52,8 @@ class DiscountPolicy
      */
     public function delete(User $user, Discount $discount): bool
     {
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($discount->store_id)) return true;
         return $user->can('discounts.delete') && $user->store_id === $discount->store_id;
     }
 }

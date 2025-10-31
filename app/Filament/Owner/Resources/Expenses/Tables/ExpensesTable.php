@@ -10,6 +10,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
+use App\Support\Currency;
 use Illuminate\Database\Eloquent\Builder;
 
 class ExpensesTable
@@ -19,7 +20,7 @@ class ExpensesTable
         return $table
             ->columns([
                 TextColumn::make('description')
-                    ->label('Description')
+                    ->label('Deskripsi')
                     ->searchable()
                     ->sortable()
                     ->weight('medium')
@@ -30,7 +31,7 @@ class ExpensesTable
                     }),
 
                 TextColumn::make('category')
-                    ->label('Category')
+                    ->label('Kategori')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
                         'office_supplies' => 'gray',
@@ -44,11 +45,23 @@ class ExpensesTable
                         'other' => 'gray',
                         default => 'gray',
                     })
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'office_supplies' => 'Perlengkapan Kantor',
+                        'utilities' => 'Utilitas',
+                        'rent' => 'Sewa',
+                        'marketing' => 'Pemasaran',
+                        'equipment' => 'Peralatan',
+                        'maintenance' => 'Pemeliharaan',
+                        'travel' => 'Perjalanan',
+                        'food' => 'Makanan & Minuman',
+                        'other' => 'Lainnya',
+                        default => ucfirst($state),
+                    })
                     ->sortable(),
 
                 TextColumn::make('amount')
-                    ->label('Amount')
-                    ->money('IDR')
+                    ->label('Jumlah')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd()
                     ->weight('medium'),
@@ -57,32 +70,32 @@ class ExpensesTable
                     ->label('Vendor')
                     ->searchable()
                     ->sortable()
-                    ->placeholder('No Vendor'),
+                    ->placeholder('Tidak Ada Vendor'),
 
                 TextColumn::make('receipt_number')
-                    ->label('Receipt #')
+                    ->label('No. Kwitansi')
                     ->searchable()
-                    ->placeholder('No Receipt'),
+                    ->placeholder('Tidak Ada Kwitansi'),
 
                 TextColumn::make('expense_date')
-                    ->label('Date')
+                    ->label('Tanggal')
                     ->date()
                     ->sortable(),
 
                 TextColumn::make('user.name')
-                    ->label('Recorded By')
+                    ->label('Dicatat Oleh')
                     ->sortable()
                     ->badge()
                     ->color('info'),
 
                 TextColumn::make('cash_session_id')
-                    ->label('Cash Session')
+                    ->label('Sesi Kas')
                     ->badge()
                     ->color('primary')
-                    ->placeholder('No Session'),
+                    ->placeholder('Tidak Ada Sesi'),
 
                 TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label('Dibuat')
                     ->dateTime()
                     ->sortable()
                     ->since()
@@ -90,21 +103,22 @@ class ExpensesTable
             ])
             ->filters([
                 SelectFilter::make('category')
+                    ->label('Kategori')
                     ->options([
-                        'office_supplies' => 'Office Supplies',
-                        'utilities' => 'Utilities',
-                        'rent' => 'Rent',
-                        'marketing' => 'Marketing',
-                        'equipment' => 'Equipment',
-                        'maintenance' => 'Maintenance',
-                        'travel' => 'Travel',
-                        'food' => 'Food & Beverage',
-                        'other' => 'Other',
+                        'office_supplies' => 'Perlengkapan Kantor',
+                        'utilities' => 'Utilitas',
+                        'rent' => 'Sewa',
+                        'marketing' => 'Pemasaran',
+                        'equipment' => 'Peralatan',
+                        'maintenance' => 'Pemeliharaan',
+                        'travel' => 'Perjalanan',
+                        'food' => 'Makanan & Minuman',
+                        'other' => 'Lainnya',
                     ])
                     ->multiple(),
 
                 SelectFilter::make('user_id')
-                    ->label('Recorded By')
+                    ->label('Dicatat Oleh')
                     ->relationship('user', 'name')
                     ->searchable()
                     ->preload(),
@@ -112,9 +126,9 @@ class ExpensesTable
                 Filter::make('expense_date')
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('expense_from')
-                            ->label('From Date'),
+                            ->label('Dari Tanggal'),
                         \Filament\Forms\Components\DatePicker::make('expense_until')
-                            ->label('Until Date'),
+                            ->label('Sampai Tanggal'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -129,31 +143,31 @@ class ExpensesTable
                     }),
 
                 Filter::make('today')
-                    ->label('Today')
+                    ->label('Hari Ini')
                     ->query(fn(Builder $query): Builder => $query->whereDate('expense_date', today())),
 
                 Filter::make('this_week')
-                    ->label('This Week')
+                    ->label('Minggu Ini')
                     ->query(fn(Builder $query): Builder => $query->whereBetween('expense_date', [
                         now()->startOfWeek(),
                         now()->endOfWeek(),
                     ])),
 
                 Filter::make('this_month')
-                    ->label('This Month')
+                    ->label('Bulan Ini')
                     ->query(fn(Builder $query): Builder => $query->whereMonth('expense_date', now()->month)),
 
                 Filter::make('has_receipt')
-                    ->label('Has Receipt')
+                    ->label('Ada Kwitansi')
                     ->query(fn(Builder $query): Builder => $query->whereNotNull('receipt_number')),
 
                 Filter::make('has_vendor')
-                    ->label('Has Vendor')
+                    ->label('Ada Vendor')
                     ->query(fn(Builder $query): Builder => $query->whereNotNull('vendor')),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()->label('Lihat'),
+                EditAction::make()->label('Ubah'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

@@ -3,6 +3,7 @@
 namespace App\Filament\Owner\Resources\Payments;
 
 use App\Filament\Owner\Resources\Payments\Pages\ListPayments;
+use App\Filament\Owner\Resources\Payments\Pages\ViewPayment;
 use App\Filament\Owner\Resources\Payments\Schemas\PaymentForm;
 use App\Filament\Owner\Resources\Payments\Tables\PaymentsTable;
 use App\Models\Payment;
@@ -19,14 +20,15 @@ class PaymentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
 
-    protected static ?string $navigationLabel = 'Payments';
+    protected static ?string $navigationLabel = 'Pembayaran';
 
-    protected static ?string $modelLabel = 'Payment';
+    protected static ?string $modelLabel = 'Pembayaran';
 
-    protected static ?string $pluralModelLabel = 'Payments';
+    protected static ?string $pluralModelLabel = 'Pembayaran';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 1;
 
+    protected static string|\UnitEnum|null $navigationGroup = 'Operasional Harian';
 
 
 
@@ -51,6 +53,7 @@ class PaymentResource extends Resource
     {
         return [
             'index' => ListPayments::route('/'),
+            'view' => ViewPayment::route('/{record}'),
         ];
     }
 
@@ -86,15 +89,6 @@ class PaymentResource extends Resource
 
     public static function canViewAny(): bool
     {
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->store_id) {
-            setPermissionsTeamId($user->store_id);
-        }
-
-        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager', 'cashier']);
+        return true;
     }
 }

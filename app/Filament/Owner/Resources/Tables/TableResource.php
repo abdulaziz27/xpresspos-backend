@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table as FilamentTable;
+use Illuminate\Support\Facades\Gate;
 
 class TableResource extends Resource
 {
@@ -20,13 +21,15 @@ class TableResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-table-cells';
 
-    protected static ?string $navigationLabel = 'Tables';
+    protected static ?string $navigationLabel = 'Meja';
 
-    protected static ?string $modelLabel = 'Table';
+    protected static ?string $modelLabel = 'Meja';
 
-    protected static ?string $pluralModelLabel = 'Tables';
+    protected static ?string $pluralModelLabel = 'Meja';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 3;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Operasional Harian';
 
 
 
@@ -55,5 +58,48 @@ class TableResource extends Resource
             'create' => CreateTable::route('/create'),
             'edit' => EditTable::route('/{record}/edit'),
         ];
+    }
+
+    public static function canViewAny(): bool
+    {
+        return true;
+    }
+
+    public static function canCreate(): bool
+    {
+        $user = auth()->user();
+        return (bool) $user && Gate::forUser($user)->allows('create', static::$model);
+    }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $user = auth()->user();
+
+        if ($user && $user->store_id) {
+            // Set store context secara eksplisit agar konsisten dengan resource lain
+            $storeContext = \App\Services\StoreContext::instance();
+            $storeContext->set($user->store_id);
+            setPermissionsTeamId($user->store_id);
+
+            $query = parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->where('store_id', $user->store_id);
+
+            try {
+                \Log::info('[Filament][Tables] TableResource::getEloquentQuery', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'store_id' => $user->store_id,
+                    'sql' => $query->toSql(),
+                    'bindings' => $query->getBindings(),
+                ]);
+            } catch (\Throwable $e) {
+                // ignore logging error
+            }
+
+            return $query;
+        }
+
+        return parent::getEloquentQuery();
     }
 }

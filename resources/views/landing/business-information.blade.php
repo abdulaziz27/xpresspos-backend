@@ -53,7 +53,7 @@
                             </div>
                             @endif
 
-                            <form action="{{ route('landing.checkout.step2.process') }}" method="POST" class="space-y-6">
+                            <form id="business-info-form" method="POST" class="space-y-6">
                                 @csrf
                                 <input type="hidden" name="plan_id" value="{{ $planId }}">
                                 <input type="hidden" name="billing_cycle" value="{{ $billing }}">
@@ -76,11 +76,23 @@
 
                                     <div class="mt-6">
                                         <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">Nomor Telepon *</label>
-                                        <input type="tel" id="phone" name="phone" value="{{ old('phone') }}" required
-                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                               placeholder="08xxxxxxxxxx">
-                                    </div>
-                                </div>
+                                        <div class="flex gap-2">
+                                            <select id="country_code" name="country_code" class="w-32 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-gray-50">
+                                                <option value="+62" selected>🇮🇩 +62</option>
+                                                <option value="+60">🇲🇾 +60</option>
+                                                <option value="+65">🇸🇬 +65</option>
+                                                <option value="+66">🇹🇭 +66</option>
+                                                <option value="+84">🇻🇳 +84</option>
+                                                <option value="+63">🇵🇭 +63</option>
+                                            </select>
+                                            <input type="tel" id="phone" name="phone" value="{{ old('phone') }}" required
+                                                   class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                                   placeholder="85211xxxxx"
+                                                   pattern="[0-9]{8,12}"
+                                                   title="Masukkan nomor telepon tanpa 0 di depan (contoh: 85211xxxxx)">
+                                        </div>
+                                        <p class="mt-1 text-xs text-gray-500">Masukkan nomor tanpa 0 di depan. Contoh: 85211xxxxx</p>
+                                    </div>                                </div>
 
                                 <!-- Business Info -->
                                 <div class="border-t border-gray-200 pt-6">
@@ -123,7 +135,7 @@
                                 <!-- Navigation Buttons -->
                                 <div class="pt-6 flex flex-col sm:flex-row gap-4">
                                     <!-- Back Button -->
-                                    <a href="{{ route('landing.checkout') }}?plan={{ $planId }}&billing={{ $billing }}" 
+                                    <button type="button" onclick="goBackToCheckout('{{ $planId }}', '{{ $billing }}')" 
                                        class="flex items-center justify-center px-6 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:border-gray-400 hover:bg-gray-50 transition-all duration-300">
                                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
@@ -134,7 +146,7 @@
                                     <!-- Continue Button -->
                                     <button type="submit" class="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 px-6 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-xl">
                                         <span class="flex items-center justify-center">
-                                            Lanjutkan ke Pembayaran
+                                            Proses Pembayaran
                                             <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
                                             </svg>
@@ -238,4 +250,33 @@
     }
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle form submission
+    const form = document.getElementById('business-info-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Set form action to local URL
+            const url = new URL('/checkout/business-info', window.location.origin);
+            form.action = url.toString();
+            
+            // Submit the form
+            form.submit();
+        });
+    }
+});
+
+function goBackToCheckout(planId, billing) {
+    // Build checkout URL using current domain
+    const url = new URL('/checkout', window.location.origin);
+    url.searchParams.set('plan', planId);
+    url.searchParams.set('billing', billing);
+    
+    // Navigate back to checkout
+    window.location.href = url.toString();
+}
+</script>
 @endsection

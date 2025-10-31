@@ -37,7 +37,9 @@ $placeholder = fn(string $feature) => function () use ($feature) {
     ], Response::HTTP_NOT_IMPLEMENTED);
 };
 
-Route::prefix('v1')->group(function () use ($placeholder): void {
+Route::prefix('v1')
+    ->middleware([\App\Http\Middleware\LogSecurityEvents::class])
+    ->group(function () use ($placeholder): void {
     // Health check endpoint
     Route::get('health', function () {
         return response()->json([
@@ -68,10 +70,18 @@ Route::prefix('v1')->group(function () use ($placeholder): void {
 
     // Authentication routes
     Route::prefix('auth')->group(function (): void {
-        Route::post('login', [AuthController::class, 'login'])->name('api.v1.auth.login');
-        Route::post('register', [AuthController::class, 'register'])->name('api.v1.auth.register');
-        Route::post('password/forgot', [AuthController::class, 'forgotPassword'])->name('api.v1.auth.password.forgot');
-        Route::post('password/reset', [AuthController::class, 'resetPassword'])->name('api.v1.auth.password.reset');
+        Route::post('login', [AuthController::class, 'login'])
+            ->middleware('throttle:10,1')
+            ->name('api.v1.auth.login');
+        Route::post('register', [AuthController::class, 'register'])
+            ->middleware('throttle:10,1')
+            ->name('api.v1.auth.register');
+        Route::post('password/forgot', [AuthController::class, 'forgotPassword'])
+            ->middleware('throttle:10,1')
+            ->name('api.v1.auth.password.forgot');
+        Route::post('password/reset', [AuthController::class, 'resetPassword'])
+            ->middleware('throttle:10,1')
+            ->name('api.v1.auth.password.reset');
     });
 
     // Protected auth routes
@@ -463,8 +473,10 @@ Route::middleware(['auth:sanctum'])->prefix('v1/subscription-payments')->group(f
 
 // Public webhooks (outside protected middleware)
 Route::prefix('v1/webhooks')->group(function (): void {
-    Route::post('midtrans', [MidtransWebhookController::class, 'handle'])->name('api.v1.webhooks.midtrans');
-
+    Route::post('midtrans', [MidtransWebhookController::class, 'handle'])
+        ->middleware('throttle:60,1')
+        ->name('api.v1.webhooks.midtrans');
+    
     // Xendit webhooks with enhanced security
     Route::middleware(['xendit.webhook.security', 'throttle:xendit-webhook'])->group(function () {
         Route::post('xendit/invoice', [\App\Http\Controllers\XenditWebhookController::class, 'handleInvoiceCallback'])->name('api.v1.webhooks.xendit.invoice');

@@ -24,6 +24,7 @@ use App\Policies\StoreUserPermissionPolicy;
 use App\Policies\TablePolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -51,5 +52,30 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerPolicies();
+
+        // Allow store Owner full access within the current team/store context.
+        // Spatie team context (set via middleware) ensures this only applies to the active store.
+        Gate::before(function ($user, string $ability = null) {
+            try {
+                // Global override:
+                // - admin_sistem: full access system-wide
+                // - owner: full access within active team/store context (team already set by middleware)
+                if ($user->hasRole('admin_sistem')) {
+                    return true;
+                }
+
+                // Treat owner as superuser across any team if they have owner role
+                // OR have an owner assignment in any store. This avoids Livewire requests
+                // that may miss team context.
+                $isOwnerAnyTeam = $user->roles()->where('name', 'owner')->exists();
+                $hasOwnerAssignment = method_exists($user, 'storeAssignments')
+                    ? $user->storeAssignments()->where('assignment_role', 'owner')->exists()
+                    : false;
+
+                return ($isOwnerAnyTeam || $hasOwnerAssignment) ? true : null;
+            } catch (\Throwable $e) {
+                return null;
+            }
+        });
     }
 }

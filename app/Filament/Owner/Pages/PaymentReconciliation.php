@@ -15,6 +15,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\View\View;
 use BackedEnum;
+use App\Support\Currency;
 
 class PaymentReconciliation extends Page implements HasTable
 {
@@ -22,11 +23,13 @@ class PaymentReconciliation extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-scale';
 
-    protected static ?string $navigationLabel = 'Payment Reconciliation';
+    protected static ?string $navigationLabel = 'Rekonsiliasi Pembayaran';
 
 
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 1;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Keuangan & Laporan';
 
     protected string $view = 'filament.owner.pages.payment-reconciliation';
 
@@ -47,7 +50,7 @@ class PaymentReconciliation extends Page implements HasTable
                     ->toggleable(),
                 
                 Tables\Columns\TextColumn::make('amount')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('status')
@@ -63,7 +66,7 @@ class PaymentReconciliation extends Page implements HasTable
                 
                 Tables\Columns\TextColumn::make('gateway_fee')
                     ->label('Gateway Fee')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable()
                     ->toggleable(),
                 
@@ -72,7 +75,7 @@ class PaymentReconciliation extends Page implements HasTable
                     ->getStateUsing(fn (SubscriptionPayment $record): float => 
                         $record->amount - $record->gateway_fee
                     )
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('payment_method')

@@ -13,6 +13,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use App\Support\Currency;
 
 class ProductsTable
 {
@@ -21,20 +22,20 @@ class ProductsTable
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Product Name')
+                    ->label('Nama Produk')
                     ->searchable()
                     ->sortable()
-                    ->description(fn($record) => $record->variants()->count() > 0 ? 
-                        $record->variants()->count() . ' variants available' : 
-                        'No variants'),
+                    ->description(fn($record) => $record->variants()->count() > 0 ?
+                        $record->variants()->count() . ' varian tersedia' :
+                        'Tidak ada varian'),
 
                 TextColumn::make('sku')
                     ->label('Kode')
                     ->searchable(),
 
                 TextColumn::make('price')
-                    ->label('Price')
-                    ->money('IDR')
+                    ->label('Harga')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable(),
 
                 TextColumn::make('status')
@@ -44,13 +45,13 @@ class ProductsTable
                     ->formatStateUsing(fn($state) => $state ? 'Aktif' : 'Nonaktif'),
 
                 TextColumn::make('variants_count')
-                    ->label('Variants')
+                    ->label('Varian')
                     ->counts('variants')
                     ->badge()
                     ->color(fn($state) => $state > 0 ? 'success' : 'gray'),
 
                 TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label('Dibuat')
                     ->dateTime()
                     ->sortable(),
             ])
@@ -58,8 +59,8 @@ class ProductsTable
                 // Sementara kosong untuk debugging
             ])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()->label('Lihat'),
+                EditAction::make()->label('Ubah'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

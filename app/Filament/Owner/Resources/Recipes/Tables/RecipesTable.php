@@ -11,6 +11,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use App\Support\Currency;
 use Illuminate\Database\Eloquent\Builder;
 
 class RecipesTable
@@ -20,13 +21,13 @@ class RecipesTable
         return $table
             ->columns([
                 TextColumn::make('product.name')
-                    ->label('Product')
+                    ->label('Produk')
                     ->searchable()
                     ->sortable()
                     ->weight('medium'),
 
                 TextColumn::make('name')
-                    ->label('Recipe Name')
+                    ->label('Nama Resep')
                     ->searchable()
                     ->sortable()
                     ->limit(30)
@@ -36,34 +37,34 @@ class RecipesTable
                     }),
 
                 TextColumn::make('yield_quantity')
-                    ->label('Yield Quantity')
+                    ->label('Jumlah Hasil')
                     ->numeric()
                     ->sortable()
                     ->alignCenter()
                     ->suffix(fn($record) => ' ' . $record->yield_unit),
 
                 TextColumn::make('total_cost')
-                    ->label('Total Cost')
-                    ->money('IDR')
+                    ->label('Total Biaya')
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s !== null && $s !== '' ? $s : ($record->total_cost ?? 0))))
                     ->sortable()
                     ->alignEnd(),
 
                 TextColumn::make('cost_per_unit')
-                    ->label('Cost per Unit')
-                    ->money('IDR')
+                    ->label('Biaya per Unit')
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s !== null && $s !== '' ? $s : ($record->cost_per_unit ?? 0))))
                     ->sortable()
                     ->alignEnd()
                     ->color('success'),
 
                 TextColumn::make('items_count')
-                    ->label('Ingredients')
+                    ->label('Bahan')
                     ->counts('items')
                     ->badge()
                     ->color('info')
                     ->alignCenter(),
 
                 IconColumn::make('is_active')
-                    ->label('Active')
+                    ->label('Aktif')
                     ->boolean()
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
@@ -71,40 +72,40 @@ class RecipesTable
                     ->falseColor('danger'),
 
                 TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label('Dibuat')
                     ->dateTime()
                     ->sortable()
                     ->since(),
             ])
             ->filters([
                 TernaryFilter::make('is_active')
-                    ->label('Active Status')
-                    ->placeholder('All recipes')
-                    ->trueLabel('Active only')
-                    ->falseLabel('Inactive only'),
+                    ->label('Status Aktif')
+                    ->placeholder('Semua resep')
+                    ->trueLabel('Aktif saja')
+                    ->falseLabel('Tidak aktif saja'),
 
                 SelectFilter::make('product_id')
-                    ->label('Product')
+                    ->label('Produk')
                     ->relationship('product', 'name')
                     ->searchable()
                     ->preload(),
 
                 SelectFilter::make('yield_unit')
-                    ->label('Yield Unit')
+                    ->label('Satuan Hasil')
                     ->options([
                         'kg' => 'Kilogram',
                         'g' => 'Gram',
                         'l' => 'Liter',
-                        'ml' => 'Milliliter',
-                        'pcs' => 'Pieces',
-                        'cup' => 'Cup',
-                        'tbsp' => 'Tablespoon',
-                        'tsp' => 'Teaspoon',
+                        'ml' => 'Mililiter',
+                        'pcs' => 'Potong',
+                        'cup' => 'Cangkir',
+                        'tbsp' => 'Sendok Makan',
+                        'tsp' => 'Sendok Teh',
                     ]),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()->label('Lihat'),
+                EditAction::make()->label('Ubah'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

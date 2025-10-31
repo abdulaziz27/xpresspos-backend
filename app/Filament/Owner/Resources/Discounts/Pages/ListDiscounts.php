@@ -14,7 +14,7 @@ class ListDiscounts extends ListRecords
     {
         return [
             CreateAction::make()
-                ->label('New Discount')
+                ->label('Tambah Diskon')
                 ->icon('heroicon-o-plus'),
         ];
     }

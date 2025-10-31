@@ -25,9 +25,9 @@ class StoreSettings extends Page implements HasForms
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-adjustments-horizontal';
 
-    protected static ?string $navigationLabel = 'Store Settings';
+    protected static ?string $navigationLabel = 'Pengaturan Toko';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Store Operations';
+    protected static string|UnitEnum|null $navigationGroup = 'Toko & Tim';
 
     protected static ?int $navigationSort = 0;
 

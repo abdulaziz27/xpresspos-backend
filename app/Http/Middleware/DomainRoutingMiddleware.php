@@ -18,6 +18,13 @@ class DomainRoutingMiddleware
     {
         $host = $request->getHost();
 
+        // Skip domain routing for local development
+        if ($this->isLocalEnvironment($request)) {
+            // Set default prefix for local development
+            $request->attributes->set('domain_prefix', 'landing');
+            return $next($request);
+        }
+
         // Map domains to route prefixes using env config
         $domainMap = [
             env('LANDING_DOMAIN') => 'landing',
@@ -47,5 +54,21 @@ class DomainRoutingMiddleware
         }
 
         return $next($request);
+    }
+
+    /**
+     * Check if the request is from local development environment
+     */
+    private function isLocalEnvironment(Request $request): bool
+    {
+        $host = $request->getHost();
+        
+        // Check for local hosts
+        $localHosts = ['127.0.0.1', 'localhost'];
+        
+        return in_array($host, $localHosts) || 
+               app()->environment('local') ||
+               str_contains($host, '.test') ||
+               str_contains($host, '.local');
     }
 }

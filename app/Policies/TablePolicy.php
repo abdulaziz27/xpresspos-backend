@@ -13,6 +13,8 @@ class TablePolicy
      */
     public function viewAny(User $user): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->hasPermissionTo('tables.view');
     }
 
@@ -21,8 +23,9 @@ class TablePolicy
      */
     public function view(User $user, Table $table): bool
     {
-        return $user->hasPermissionTo('tables.view') && 
-               $user->store_id === $table->store_id;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($table->store_id)) return true;
+        return $user->hasPermissionTo('tables.view') && $user->store_id === $table->store_id;
     }
 
     /**
@@ -30,6 +33,8 @@ class TablePolicy
      */
     public function create(User $user): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->hasPermissionTo('tables.create');
     }
 
@@ -38,8 +43,9 @@ class TablePolicy
      */
     public function update(User $user, Table $table): bool
     {
-        return $user->hasPermissionTo('tables.update') && 
-               $user->store_id === $table->store_id;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($table->store_id)) return true;
+        return $user->hasPermissionTo('tables.update') && $user->store_id === $table->store_id;
     }
 
     /**
@@ -47,8 +53,9 @@ class TablePolicy
      */
     public function delete(User $user, Table $table): bool
     {
-        return $user->hasPermissionTo('tables.delete') && 
-               $user->store_id === $table->store_id;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($table->store_id)) return true;
+        return $user->hasPermissionTo('tables.delete') && $user->store_id === $table->store_id;
     }
 
     /**
@@ -56,8 +63,9 @@ class TablePolicy
      */
     public function restore(User $user, Table $table): bool
     {
-        return $user->hasPermissionTo('tables.delete') && 
-               $user->store_id === $table->store_id;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($table->store_id)) return true;
+        return $user->hasPermissionTo('tables.delete') && $user->store_id === $table->store_id;
     }
 
     /**
@@ -65,7 +73,8 @@ class TablePolicy
      */
     public function forceDelete(User $user, Table $table): bool
     {
-        return $user->hasPermissionTo('tables.delete') && 
-               $user->store_id === $table->store_id;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($table->store_id)) return true;
+        return $user->hasPermissionTo('tables.delete') && $user->store_id === $table->store_id;
     }
 }

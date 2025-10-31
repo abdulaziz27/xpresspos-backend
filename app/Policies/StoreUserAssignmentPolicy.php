@@ -18,8 +18,9 @@ class StoreUserAssignmentPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasRole('admin_sistem') || 
-               $user->storeAssignments()->exists();
+        if ($user->hasRole('admin_sistem')) return true;
+        // now rely on permission, user must have permission to manage assignments in store context
+        return $user->can('store_assignments.viewAny');
     }
 
     /**
@@ -27,18 +28,10 @@ class StoreUserAssignmentPolicy
      */
     public function view(User $user, StoreUserAssignment $assignment): bool
     {
-        // Admin sistem can view all
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users can view their own assignments
-        if ($user->id === $assignment->user_id) {
-            return true;
-        }
-
-        // Users with management permissions can view assignments in their stores
-        return $this->permissionService->hasManagementAccess($user, $assignment->store_id);
+        if ($user->hasRole('admin_sistem')) return true;
+        if ($user->id === $assignment->user_id) return true;
+        // For others, permission check
+        return $user->can('store_assignments.view') && ($assignment->store_id === $user->store_id);
     }
 
     /**
@@ -46,9 +39,9 @@ class StoreUserAssignmentPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasRole('admin_sistem') || 
-               $user->storeAssignments()->where('assignment_role', 'owner')->exists() ||
-               $user->storeAssignments()->where('assignment_role', 'admin')->exists();
+        if ($user->hasRole('admin_sistem')) return true;
+        // now permission-based, not role-based
+        return $user->can('store_assignments.create');
     }
 
     /**
@@ -56,25 +49,9 @@ class StoreUserAssignmentPolicy
      */
     public function update(User $user, StoreUserAssignment $assignment): bool
     {
-        // Admin sistem can update all
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Check if user has admin access to the store
-        if (!$this->permissionService->hasAdminAccess($user, $assignment->store_id)) {
-            return false;
-        }
-
-        // Get user's assignment in this store
-        $userAssignment = $this->permissionService->getUserStoreAssignment($user, $assignment->store_id);
-        
-        if (!$userAssignment) {
-            return false;
-        }
-
-        // Users can only manage assignments with lower hierarchy
-        return $userAssignment->canManage($assignment);
+        if ($user->hasRole('admin_sistem')) return true;
+        // permission plus only if can manage assignment in this store
+        return $user->can('store_assignments.update') && ($assignment->store_id === $user->store_id);
     }
 
     /**
@@ -82,30 +59,10 @@ class StoreUserAssignmentPolicy
      */
     public function delete(User $user, StoreUserAssignment $assignment): bool
     {
-        // Admin sistem can delete all
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users cannot delete their own primary assignment
-        if ($user->id === $assignment->user_id && $assignment->is_primary) {
-            return false;
-        }
-
-        // Check if user has admin access to the store
-        if (!$this->permissionService->hasAdminAccess($user, $assignment->store_id)) {
-            return false;
-        }
-
-        // Get user's assignment in this store
-        $userAssignment = $this->permissionService->getUserStoreAssignment($user, $assignment->store_id);
-        
-        if (!$userAssignment) {
-            return false;
-        }
-
-        // Users can only delete assignments with lower hierarchy
-        return $userAssignment->canManage($assignment);
+        if ($user->hasRole('admin_sistem')) return true;
+        // prevent self-delete of main assignment
+        if ($user->id === $assignment->user_id && $assignment->is_primary) return false;
+        return $user->can('store_assignments.delete') && ($assignment->store_id === $user->store_id);
     }
 
     /**
@@ -113,13 +70,8 @@ class StoreUserAssignmentPolicy
      */
     public function assignToStore(User $user, string $storeId): bool
     {
-        // Admin sistem can assign to any store
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Check if user has admin access to the store
-        return $this->permissionService->hasAdminAccess($user, $storeId);
+        if ($user->hasRole('admin_sistem')) return true;
+        return $user->can('store_assignments.assign') && ($user->store_id === $storeId);
     }
 
     /**
@@ -127,25 +79,9 @@ class StoreUserAssignmentPolicy
      */
     public function setPrimaryStore(User $user, User $targetUser): bool
     {
-        // Admin sistem can set for anyone
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users can set their own primary store
-        if ($user->id === $targetUser->id) {
-            return true;
-        }
-
-        // Check if user has management permissions in any shared stores
-        $userStores = $user->storeAssignments()
-            ->where('assignment_role', 'owner')
-            ->orWhere('assignment_role', 'admin')
-            ->pluck('store_id');
-
-        $targetStores = $targetUser->storeAssignments()
-            ->pluck('store_id');
-
-        return $userStores->intersect($targetStores)->isNotEmpty();
+        if ($user->hasRole('admin_sistem')) return true;
+        if ($user->id === $targetUser->id) return true;
+        // permission-based with intersection on stores
+        return $user->can('store_assignments.set_primary');
     }
 }

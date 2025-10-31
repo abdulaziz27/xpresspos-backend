@@ -30,42 +30,37 @@ class OwnerPanelProvider extends PanelProvider
         $panel = $panel
             ->id('owner')
             ->login()
-            ->brandName('POS Xpress Store')
+            ->brandName('POS Xpress Toko')
             ->brandLogo(fn () => view('filament.brand-logo'))
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('img/logo-xpress.png'))
+            ->sidebarCollapsibleOnDesktop()
             ->colors([
                 'primary' => Color::Green,
             ])
             ->navigationGroups([
-                'Product Management' => 'heroicon-o-cube',
-                'Order Management' => 'heroicon-o-shopping-cart',
-                'Customer Management' => 'heroicon-o-users',
-                'Financial Management' => 'heroicon-o-banknotes',
-                'Billing' => 'heroicon-o-credit-card',
-                'Inventory Management' => 'heroicon-o-arrow-path',
-                'Store Operations' => 'heroicon-o-building-storefront',
+                // Order from most important (top) to least (bottom)
+                'Operasional Harian',
+                'Produk & Inventori',
+                'Pelanggan & Loyalti',
+                'Promo & Retur',
+                'Keuangan & Laporan',
+                'Toko & Tim',
+                'Langganan & Billing',
             ])
             ->discoverResources(in: app_path('Filament/Owner/Resources'), for: 'App\\Filament\\Owner\\Resources')
             ->discoverPages(in: app_path('Filament/Owner/Pages'), for: 'App\\Filament\\Owner\\Pages')
             ->pages([
-                Dashboard::class,
+                \App\Filament\Owner\Pages\OwnerDashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Owner/Widgets'), for: 'App\\Filament\\Owner\\Widgets')
             ->widgets([
-                AccountWidget::class,
-                FilamentInfoWidget::class,
-                \App\Filament\Owner\Widgets\OwnerStatsWidget::class,
-                \App\Filament\Owner\Widgets\SubscriptionDashboardWidget::class,
-                \App\Filament\Owner\Widgets\PaymentAnalyticsWidget::class,
-                \App\Filament\Owner\Widgets\PaymentMethodBreakdownWidget::class,
-                \App\Filament\Owner\Widgets\AdvancedAnalyticsWidget::class,
-                \App\Filament\Owner\Widgets\CogsSummaryWidget::class,
-                \App\Filament\Owner\Widgets\ProfitAnalysisWidget::class,
-                \App\Filament\Owner\Widgets\BusinessRecommendationsWidget::class,
-                \App\Filament\Owner\Widgets\RecentOrdersWidget::class,
-                \App\Filament\Owner\Widgets\LowStockWidget::class,
-                \App\Filament\Owner\Widgets\RecipePerformanceWidget::class,
+                \App\Filament\Owner\Widgets\SubscriptionDashboardWidget::class, // status subscription ringkas (v4 simplified) - dipindah ke paling atas
+                \App\Filament\Owner\Widgets\OwnerStatsWidget::class, // ringkasan transaksi & pendapatan (dengan filter)
+                \App\Filament\Owner\Widgets\ProfitAnalysisWidget::class, // laba kotor & bersih (dengan filter)
+                \App\Filament\Owner\Widgets\SalesRevenueChartWidget::class, // grafik total pendapatan (bar)
+                \App\Filament\Owner\Widgets\TopMenuTableWidget::class, // menu terlaris (tabel)
+                \App\Filament\Owner\Widgets\BestBranchesWidget::class, // cabang dengan penjualan terbaik (tabel)
+                \App\Filament\Owner\Widgets\LowStockWidget::class, // stok bahan baku menipis
             ])
             ->middleware([
                 EncryptCookies::class,

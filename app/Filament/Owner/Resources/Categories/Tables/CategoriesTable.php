@@ -19,20 +19,20 @@ class CategoriesTable
         return $table
             ->columns([
                 ImageColumn::make('image')
-                    ->label('Image')
+                    ->label('Gambar')
                     ->circular()
                     ->size(40)
                     ->defaultImageUrl(url('/img/placeholder-category.png')),
 
                 TextColumn::make('name')
-                    ->label('Category Name')
+                    ->label('Nama Kategori')
                     ->searchable()
                     ->sortable()
                     ->weight('medium')
                     ->description(fn($record) => $record->slug),
 
                 TextColumn::make('products_count')
-                    ->label('Products')
+                    ->label('Produk')
                     ->counts('products')
                     ->numeric()
                     ->alignCenter()
@@ -47,7 +47,7 @@ class CategoriesTable
                     ->alignCenter(),
 
                 IconColumn::make('status')
-                    ->label('Active')
+                    ->label('Aktif')
                     ->boolean()
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
@@ -55,7 +55,7 @@ class CategoriesTable
                     ->falseColor('danger'),
 
                 TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label('Dibuat')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -63,13 +63,13 @@ class CategoriesTable
             ->filters([
                 TernaryFilter::make('status')
                     ->label('Status')
-                    ->placeholder('All categories')
-                    ->trueLabel('Active only')
-                    ->falseLabel('Inactive only'),
+                    ->placeholder('Semua kategori')
+                    ->trueLabel('Hanya aktif')
+                    ->falseLabel('Hanya nonaktif'),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()->label('Lihat'),
+                EditAction::make()->label('Ubah'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

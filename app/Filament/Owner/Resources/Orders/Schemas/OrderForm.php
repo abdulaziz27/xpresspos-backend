@@ -12,6 +12,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use App\Support\Money;
 
 class OrderForm
 {
@@ -19,18 +20,18 @@ class OrderForm
     {
         return $schema
             ->components([
-                Section::make('Order Information')
-                    ->description('Basic order details and customer information')
+                Section::make('Informasi Pesanan')
+                    ->description('Detail dasar pesanan dan informasi pelanggan')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('order_number')
-                                    ->label('Order Number')
+                                    ->label('No. Pesanan')
                                     ->disabled()
                                     ->dehydrated(false),
 
                                 Select::make('user_id')
-                                    ->label('Staff')
+                                    ->label('Staf')
                                     ->options(function () {
                                         $storeId = auth()->user()?->currentStoreId();
 
@@ -47,7 +48,7 @@ class OrderForm
                         Grid::make(2)
                             ->schema([
                                 Select::make('member_id')
-                                    ->label('Customer/Member')
+                                    ->label('Pelanggan/Member')
                                     ->options(function () {
                                         $storeId = auth()->user()?->currentStoreId();
 
@@ -60,12 +61,15 @@ class OrderForm
                                     ->preload()
                                     ->createOptionForm([
                                         TextInput::make('name')
+                                            ->label('Nama')
                                             ->required()
                                             ->maxLength(255),
                                         TextInput::make('email')
+                                            ->label('Email')
                                             ->email()
                                             ->maxLength(255),
                                         TextInput::make('phone')
+                                            ->label('Telepon')
                                             ->tel()
                                             ->maxLength(20),
                                     ])
@@ -80,7 +84,7 @@ class OrderForm
                                     }),
 
                                 Select::make('table_id')
-                                    ->label('Table')
+                                    ->label('Meja')
                                     ->options(function () {
                                         $storeId = auth()->user()?->currentStoreId();
 
@@ -97,22 +101,22 @@ class OrderForm
                             ->label('Status')
                             ->options([
                                 'draft' => 'Draft',
-                                'open' => 'Open',
-                                'completed' => 'Completed',
-                                'cancelled' => 'Cancelled',
+                                'open' => 'Terbuka',
+                                'completed' => 'Selesai',
+                                'cancelled' => 'Dibatalkan',
                             ])
                             ->default('draft')
                             ->required(),
 
                         Textarea::make('notes')
-                            ->label('Order Notes')
+                            ->label('Catatan Pesanan')
                             ->rows(3)
                             ->maxLength(1000),
                     ])
                     ->columns(1),
 
-                Section::make('Order Totals')
-                    ->description('Financial calculations and payment information')
+                Section::make('Total Pesanan')
+                    ->description('Perhitungan finansial dan informasi pembayaran')
                     ->schema([
                         Grid::make(4)
                             ->schema([
@@ -126,7 +130,7 @@ class OrderForm
                                     ->dehydrated(false),
 
                                 TextInput::make('tax_amount')
-                                    ->label('Tax Amount')
+                                    ->label('Pajak')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
@@ -135,26 +139,32 @@ class OrderForm
                                     ->dehydrated(false),
 
                                 TextInput::make('discount_amount')
-                                    ->label('Discount Amount')
+                                    ->label('Diskon')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
                                     ->minValue(0)
+                                    ->placeholder('10.000')
+                                    ->helperText('Bisa input: 10000 atau 10.000')
+                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->default(0),
 
                                 TextInput::make('service_charge')
-                                    ->label('Service Charge')
+                                    ->label('Biaya Layanan')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
                                     ->minValue(0)
+                                    ->placeholder('5.000')
+                                    ->helperText('Bisa input: 5000 atau 5.000')
+                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->default(0),
                             ]),
 
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('total_amount')
-                                    ->label('Total Amount')
+                                    ->label('Total')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
@@ -163,24 +173,25 @@ class OrderForm
                                     ->dehydrated(false),
 
                                 Select::make('payment_method')
-                                    ->label('Payment Method')
+                                    ->label('Metode Pembayaran')
                                     ->options([
-                                        'cash' => 'Cash',
-                                        'card' => 'Card',
+                                        'cash' => 'Tunai',
+                                        'credit_card' => 'Kartu Kredit',
+                                        'debit_card' => 'Kartu Debit',
                                         'qris' => 'QRIS',
-                                        'transfer' => 'Bank Transfer',
-                                        'other' => 'Other',
+                                        'bank_transfer' => 'Transfer Bank',
+                                        'e_wallet' => 'E-Wallet',
                                     ])
                                     ->searchable(),
                             ]),
                     ])
                     ->columns(1),
 
-                Section::make('Timestamps')
-                    ->description('Order timing information')
+                Section::make('Waktu')
+                    ->description('Informasi waktu pesanan')
                     ->schema([
                         DateTimePicker::make('completed_at')
-                            ->label('Completed At')
+                            ->label('Selesai Pada')
                             ->disabled()
                             ->dehydrated(false),
                     ])

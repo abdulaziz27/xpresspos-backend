@@ -33,37 +33,37 @@ class MemberTierTable
                     ->toggleable(),
 
                 TextColumn::make('min_points')
-                    ->label('Min Points')
+                    ->label('Poin Minimal')
                     ->numeric()
                     ->sortable(),
 
                 TextColumn::make('max_points')
-                    ->label('Max Points')
+                    ->label('Poin Maksimal')
                     ->numeric()
                     ->sortable()
-                    ->placeholder('No limit'),
+                    ->placeholder('Tidak terbatas'),
 
                 TextColumn::make('discount_percentage')
-                    ->label('Discount')
+                    ->label('Diskon')
                     ->formatStateUsing(fn($state) => number_format($state, 2) . '%')
                     ->sortable(),
 
                 TextColumn::make('members_count')
-                    ->label('Members')
+                    ->label('Member')
                     ->counts('members')
                     ->badge()
                     ->color('info')
                     ->alignCenter(),
 
                 ColorColumn::make('color')
-                    ->label('Color'),
+                    ->label('Warna'),
 
                 IconColumn::make('is_active')
-                    ->label('Active')
+                    ->label('Aktif')
                     ->boolean(),
 
                 TextColumn::make('updated_at')
-                    ->label('Updated')
+                    ->label('Diperbarui')
                     ->dateTime()
                     ->since()
                     ->sortable(),
@@ -71,19 +71,19 @@ class MemberTierTable
             ->filters([
                 SelectFilter::make('is_active')
                     ->options([
-                        '1' => 'Active',
-                        '0' => 'Inactive',
+                        '1' => 'Aktif',
+                        '0' => 'Tidak Aktif',
                     ])
                     ->label('Status'),
 
                 TernaryFilter::make('has_discount')
-                    ->label('Has Discount')
+                    ->label('Ada Diskon')
                     ->query(fn($query, $state) => $query->when($state === 'true', fn($q) => $q->where('discount_percentage', '>', 0))
                         ->when($state === 'false', fn($q) => $q->where('discount_percentage', '=', 0))),
             ])
             ->actions([
-                EditAction::make(),
-                DeleteAction::make(),
+                EditAction::make()->label('Ubah'),
+                DeleteAction::make()->label('Hapus'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

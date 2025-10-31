@@ -10,6 +10,7 @@ use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use App\Support\Currency;
 use Illuminate\Database\Eloquent\Model;
 
 class RefundsTable
@@ -32,7 +33,7 @@ class RefundsTable
 
                 TextColumn::make('amount')
                     ->label('Refund Amount')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable(),
 
                 TextColumn::make('status')

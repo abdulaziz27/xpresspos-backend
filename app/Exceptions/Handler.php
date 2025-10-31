@@ -31,7 +31,20 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (Throwable $e) {
-            //
+            // Extra logging for Livewire component not found in Filament
+            if ($e instanceof \Livewire\Exceptions\ComponentNotFoundException) {
+                try {
+                    \Log::error('[Livewire][ComponentNotFound]', [
+                        'message' => $e->getMessage(),
+                        'url' => request()?->fullUrl(),
+                        'user_id' => auth()->id(),
+                        'user_email' => auth()->user()?->email,
+                        'store_id' => auth()->user()?->store_id,
+                    ]);
+                } catch (\Throwable $ie) {
+                    // ignore
+                }
+            }
         });
     }
 

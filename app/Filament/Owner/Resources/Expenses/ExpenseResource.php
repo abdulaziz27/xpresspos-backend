@@ -20,13 +20,15 @@ class ExpenseResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-receipt-percent';
 
-    protected static ?string $navigationLabel = 'Expenses';
+    protected static ?string $navigationLabel = 'Pengeluaran';
 
-    protected static ?string $modelLabel = 'Expense';
+    protected static ?string $modelLabel = 'Pengeluaran';
 
-    protected static ?string $pluralModelLabel = 'Expenses';
+    protected static ?string $pluralModelLabel = 'Pengeluaran';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 0;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Keuangan & Laporan';
 
 
     public static function form(Schema $schema): Schema

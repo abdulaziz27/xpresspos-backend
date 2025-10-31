@@ -7,6 +7,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use App\Support\Currency;
 
 class StaffPerformancesTable
 {
@@ -34,12 +35,12 @@ class StaffPerformancesTable
 
                 TextColumn::make('total_sales')
                     ->label('Total Sales')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable(),
 
                 TextColumn::make('average_order_value')
                     ->label('Avg Order Value')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
@@ -51,7 +52,7 @@ class StaffPerformancesTable
 
                 TextColumn::make('sales_per_hour')
                     ->label('Sales/Hour')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable()
                     ->color(function ($state) {
                         if ($state >= 500000) return 'success';
@@ -68,7 +69,7 @@ class StaffPerformancesTable
 
                 TextColumn::make('refund_amount')
                     ->label('Refund Amount')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 

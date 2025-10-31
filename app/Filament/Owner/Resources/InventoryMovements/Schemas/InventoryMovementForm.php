@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use App\Support\Money;
 
 class InventoryMovementForm
 {
@@ -18,13 +19,13 @@ class InventoryMovementForm
     {
         return $schema
             ->components([
-                Section::make('Movement Information')
-                    ->description('Basic movement details and product information')
+                Section::make('Informasi Pergerakan Stok')
+                    ->description('Detail pergerakan dan informasi produk')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 Select::make('product_id')
-                                    ->label('Product')
+                                    ->label('Produk')
                                     ->options(function () {
                                         $storeId = auth()->user()?->currentStoreId();
 
@@ -39,16 +40,16 @@ class InventoryMovementForm
                                     ->live(),
 
                                 Select::make('type')
-                                    ->label('Movement Type')
+                                    ->label('Jenis Pergerakan')
                                     ->options([
-                                        'sale' => 'Sale',
-                                        'purchase' => 'Purchase',
-                                        'adjustment_in' => 'Adjustment In',
-                                        'adjustment_out' => 'Adjustment Out',
-                                        'transfer_in' => 'Transfer In',
-                                        'transfer_out' => 'Transfer Out',
-                                        'return' => 'Return',
-                                        'waste' => 'Waste',
+                                        'sale' => 'Penjualan',
+                                        'purchase' => 'Pembelian',
+                                        'adjustment_in' => 'Penyesuaian Masuk',
+                                        'adjustment_out' => 'Penyesuaian Keluar',
+                                        'transfer_in' => 'Transfer Masuk',
+                                        'transfer_out' => 'Transfer Keluar',
+                                        'return' => 'Retur',
+                                        'waste' => 'Waste/Rusak',
                                     ])
                                     ->required()
                                     ->live(),
@@ -57,7 +58,7 @@ class InventoryMovementForm
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('quantity')
-                                    ->label('Quantity')
+                                    ->label('Jumlah')
                                     ->numeric()
                                     ->required()
                                     ->minValue(1)
@@ -71,11 +72,14 @@ class InventoryMovementForm
                                     }),
 
                                 TextInput::make('unit_cost')
-                                    ->label('Unit Cost')
+                                    ->label('Biaya per Unit')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
                                     ->minValue(0)
+                                    ->placeholder('8.000')
+                                    ->helperText('Bisa input: 8000 atau 8.000')
+                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->live()
                                     ->afterStateUpdated(function (callable $get, callable $set) {
                                         $quantity = $get('quantity');
@@ -87,24 +91,33 @@ class InventoryMovementForm
                             ]),
 
                         TextInput::make('total_cost')
-                            ->label('Total Cost')
+                            ->label('Total Biaya')
                             ->numeric()
                             ->prefix('Rp')
                             ->step(0.01)
                             ->minValue(0)
+                            ->live()
+                            ->formatStateUsing(function ($state, $record) {
+                                if ($record?->total_cost) {
+                                    return number_format($record->total_cost, 0, ',', '.');
+                                }
+                                if ($state) {
+                                    return number_format($state, 0, ',', '.');
+                                }
+                                return '0';
+                            })
                             ->disabled()
-                            ->dehydrated(false)
-                            ->helperText('Automatically calculated from quantity × unit cost'),
+                            ->helperText('Dihitung otomatis dari jumlah × biaya per unit'),
                     ])
                     ->columns(1),
 
-                Section::make('Reference & Notes')
-                    ->description('Reference information and additional notes')
+                Section::make('Referensi & Catatan')
+                    ->description('Informasi referensi dan catatan tambahan')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 Select::make('user_id')
-                                    ->label('Recorded By')
+                                    ->label('Dicatat Oleh')
                                     ->options(function () {
                                         $storeId = auth()->user()?->currentStoreId();
 
@@ -118,24 +131,24 @@ class InventoryMovementForm
                                     ->required(),
 
                                 TextInput::make('reason')
-                                    ->label('Reason')
+                                    ->label('Alasan')
                                     ->maxLength(255)
-                                    ->placeholder('e.g., Stock adjustment, Damaged goods'),
+                                    ->placeholder('mis: Penyesuaian stok, Barang rusak'),
                             ]),
 
                         Textarea::make('notes')
-                            ->label('Notes')
+                            ->label('Catatan')
                             ->rows(3)
                             ->maxLength(1000)
-                            ->placeholder('Additional notes about this movement'),
+                            ->placeholder('Catatan tambahan terkait pergerakan ini'),
                     ])
                     ->columns(1),
 
-                Section::make('Timestamps')
-                    ->description('Movement timing information')
+                Section::make('Waktu')
+                    ->description('Informasi waktu pergerakan')
                     ->schema([
                         DateTimePicker::make('created_at')
-                            ->label('Movement Date')
+                            ->label('Tanggal Pergerakan')
                             ->default(now())
                             ->required(),
                     ])

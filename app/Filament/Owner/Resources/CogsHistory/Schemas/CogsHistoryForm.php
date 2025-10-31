@@ -10,6 +10,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use App\Support\Money;
 
 class CogsHistoryForm
 {
@@ -17,13 +18,13 @@ class CogsHistoryForm
     {
         return $schema
             ->components([
-                Section::make('COGS Information')
-                    ->description('Cost of Goods Sold calculation details')
+                Section::make('Informasi COGS')
+                    ->description('Detail perhitungan Biaya Pokok Penjualan (COGS)')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 Select::make('product_id')
-                                    ->label('Product')
+                                    ->label('Produk')
                                     ->options(function () {
                                         $storeId = auth()->user()?->currentStoreId();
 
@@ -45,7 +46,7 @@ class CogsHistoryForm
                                     }),
 
                                 Select::make('order_id')
-                                    ->label('Order (Optional)')
+                                    ->label('Order (Opsional)')
                                     ->options(function () {
                                         $storeId = auth()->user()?->currentStoreId();
 
@@ -61,7 +62,7 @@ class CogsHistoryForm
                         Grid::make(3)
                             ->schema([
                                 TextInput::make('quantity_sold')
-                                    ->label('Quantity Sold')
+                                    ->label('Jumlah Terjual')
                                     ->numeric()
                                     ->required()
                                     ->minValue(1)
@@ -74,12 +75,15 @@ class CogsHistoryForm
                                     }),
 
                                 TextInput::make('unit_cost')
-                                    ->label('Unit Cost')
+                                    ->label('Biaya per Unit')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
                                     ->required()
                                     ->minValue(0)
+                                    ->placeholder('8.000')
+                                    ->helperText('Bisa input: 8000 atau 8.000')
+                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                         $quantity = $get('quantity_sold');
@@ -95,26 +99,25 @@ class CogsHistoryForm
                                     ->step(0.01)
                                     ->disabled()
                                     ->dehydrated(false)
-                                    ->helperText('Calculated automatically'),
+                                    ->helperText('Dihitung otomatis'),
                             ]),
 
                         Grid::make(2)
                             ->schema([
                                 Select::make('calculation_method')
-                                    ->label('Calculation Method')
+                                    ->label('Metode Perhitungan')
                                     ->options([
-                                        'weighted_average' => 'Weighted Average',
+                                        'weighted_average' => 'Rata-rata Tertimbang',
                                         'fifo' => 'FIFO (First In, First Out)',
                                         'lifo' => 'LIFO (Last In, First Out)',
                                     ])
                                     ->default('weighted_average')
                                     ->required()
-                                    ->helperText('Method used to calculate the cost'),
+                                    ->helperText('Metode yang digunakan untuk menghitung biaya'),
 
                                 TextInput::make('cost_breakdown')
-                                    ->label('Cost Breakdown')
-                                    ->helperText('JSON format for detailed cost breakdown')
-                                    ->columnSpanFull(),
+                                    ->label('Rincian Biaya')
+                                    ->helperText('Format JSON untuk rincian biaya'),
                             ]),
                     ])
                     ->columns(1),

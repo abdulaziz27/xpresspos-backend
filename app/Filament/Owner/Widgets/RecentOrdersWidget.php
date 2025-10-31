@@ -6,12 +6,13 @@ use App\Models\Order;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use App\Support\Currency;
 
 class RecentOrdersWidget extends BaseWidget
 {
     protected int | string | array $columnSpan = 'full';
 
-    protected static ?string $heading = 'Recent Orders';
+    protected static ?string $heading = 'Pesanan Terbaru';
 
     public function table(Table $table): Table
     {
@@ -29,7 +30,7 @@ class RecentOrdersWidget extends BaseWidget
             ->query($query)
             ->columns([
                 Tables\Columns\TextColumn::make('order_number')
-                    ->label('Order #')
+                    ->label('No. Order')
                     ->searchable()
                     ->sortable(),
 
@@ -44,16 +45,16 @@ class RecentOrdersWidget extends BaseWidget
                     }),
 
                 Tables\Columns\TextColumn::make('member.name')
-                    ->label('Customer')
-                    ->placeholder('Walk-in Customer'),
+                    ->label('Pelanggan')
+                    ->placeholder('Pelanggan Umum'),
 
                 Tables\Columns\TextColumn::make('total_amount')
                     ->label('Total')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Date')
+                    ->label('Tanggal')
                     ->dateTime()
                     ->sortable()
                     ->since(),

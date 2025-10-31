@@ -21,14 +21,15 @@ class ProductResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCube;
 
-    protected static ?string $navigationLabel = 'Products';
+    protected static ?string $navigationLabel = 'Produk';
 
-    protected static ?string $modelLabel = 'Product';
+    protected static ?string $modelLabel = 'Produk';
 
-    protected static ?string $pluralModelLabel = 'Products';
+    protected static ?string $pluralModelLabel = 'Produk';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 0;
 
+    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
 
 
 
@@ -79,18 +80,6 @@ class ProductResource extends Resource
 
     public static function canViewAny(): bool
     {
-        // Temporary bypass for debugging
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-
-        // Set team context if not set
-        if ($user->store_id) {
-            setPermissionsTeamId($user->store_id);
-        }
-
-        // Check if user has owner role
-        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager', 'cashier']);
+        return true;
     }
 }

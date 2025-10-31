@@ -20,15 +20,15 @@ class MemberTierResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rocket-launch';
 
-    protected static ?string $navigationLabel = 'Member Tiers';
+    protected static ?string $navigationLabel = 'Tingkat Member';
 
-    protected static ?string $modelLabel = 'Member Tier';
+    protected static ?string $modelLabel = 'Tingkat Member';
 
-    protected static ?string $pluralModelLabel = 'Member Tiers';
+    protected static ?string $pluralModelLabel = 'Tingkat Member';
 
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = 1;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Customer Management';
+    protected static string|UnitEnum|null $navigationGroup = 'Pelanggan & Loyalti';
 
     public static function form(Schema $schema): Schema
     {

@@ -13,6 +13,8 @@ class PaymentPolicy
      */
     public function viewAny(User $user): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->hasPermissionTo('payments.view');
     }
 
@@ -21,6 +23,8 @@ class PaymentPolicy
      */
     public function view(User $user, Payment $payment): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($payment->store_id)) return true;
         return $user->hasPermissionTo('payments.view') && 
                $user->store_id === $payment->store_id;
     }
@@ -30,6 +34,8 @@ class PaymentPolicy
      */
     public function create(User $user): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->hasPermissionTo('payments.create');
     }
 
@@ -38,6 +44,8 @@ class PaymentPolicy
      */
     public function update(User $user, Payment $payment): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($payment->store_id)) return true;
         return $user->hasPermissionTo('payments.update') && 
                $user->store_id === $payment->store_id;
     }
@@ -47,6 +55,8 @@ class PaymentPolicy
      */
     public function delete(User $user, Payment $payment): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($payment->store_id)) return true;
         return $user->hasPermissionTo('payments.delete') && 
                $user->store_id === $payment->store_id;
     }
@@ -56,6 +66,8 @@ class PaymentPolicy
      */
     public function restore(User $user, Payment $payment): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($payment->store_id)) return true;
         return $user->hasPermissionTo('payments.delete') && 
                $user->store_id === $payment->store_id;
     }
@@ -65,6 +77,8 @@ class PaymentPolicy
      */
     public function forceDelete(User $user, Payment $payment): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($payment->store_id)) return true;
         return $user->hasPermissionTo('payments.delete') && 
                $user->store_id === $payment->store_id;
     }

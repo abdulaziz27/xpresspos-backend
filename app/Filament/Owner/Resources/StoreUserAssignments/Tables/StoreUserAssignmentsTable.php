@@ -28,7 +28,7 @@ class StoreUserAssignmentsTable
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('assignment_role')
-                    ->label('Role')
+                    ->label('Peran')
                     ->badge()
                     ->color(fn (AssignmentRoleEnum $state): string => match ($state) {
                         AssignmentRoleEnum::OWNER => 'success',
@@ -39,14 +39,14 @@ class StoreUserAssignmentsTable
                     })
                     ->formatStateUsing(fn (AssignmentRoleEnum $state): string => $state->getDisplayName()),
                 TextColumn::make('permissions_summary')
-                    ->label('Permissions')
+                    ->label('Izin')
                     ->getStateUsing(function ($record) {
                         // Simplified to avoid query issues
                         return $record->assignment_role->getDisplayName() . ' permissions';
                     })
                     ->color('gray'),
                 IconColumn::make('is_primary')
-                    ->label('Primary')
+                    ->label('Toko Utama')
                     ->boolean()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
@@ -57,20 +57,20 @@ class StoreUserAssignmentsTable
             ])
             ->filters([
                 SelectFilter::make('assignment_role')
-                    ->label('Role')
+                    ->label('Peran')
                     ->options(AssignmentRoleEnum::options()),
             ])
             ->actions([
                 \Filament\Actions\Action::make('preview_permissions')
-                    ->label('Preview Permissions')
+                    ->label('Lihat Izin')
                     ->icon('heroicon-o-eye')
                     ->color('info')
-                    ->modalHeading(fn ($record) => 'Permissions - ' . $record->user->name)
+                    ->modalHeading(fn ($record) => 'Izin - ' . $record->user->name)
                     ->modalContent(function ($record) {
                         $content = '<div class="space-y-4">';
                         $content .= '<div class="text-center">';
-                        $content .= '<h4 class="font-medium text-gray-900 mb-2">Role: ' . $record->assignment_role->getDisplayName() . '</h4>';
-                        $content .= '<p class="text-sm text-gray-600">User memiliki permissions sesuai dengan role yang diberikan.</p>';
+                        $content .= '<h4 class="font-medium text-gray-900 mb-2">Peran: ' . $record->assignment_role->getDisplayName() . '</h4>';
+                        $content .= '<p class="text-sm text-gray-600">Pengguna memiliki izin sesuai dengan peran yang diberikan.</p>';
                         $content .= '</div>';
                         $content .= '</div>';
                         
@@ -89,8 +89,8 @@ class StoreUserAssignmentsTable
                         ->icon('heroicon-o-arrow-path')
                         ->color('warning')
                         ->requiresConfirmation()
-                        ->modalHeading('Reset Permissions ke Default')
-                        ->modalDescription('Apakah Anda yakin ingin mereset permissions semua karyawan yang dipilih ke default role mereka?')
+                        ->modalHeading('Reset Izin ke Default')
+                        ->modalDescription('Apakah Anda yakin ingin mereset izin semua karyawan yang dipilih ke default peran mereka?')
                         ->action(function (Collection $records) {
                             $permissionService = app(\App\Services\StorePermissionService::class);
                             
@@ -103,19 +103,19 @@ class StoreUserAssignmentsTable
                             }
                             
                             \Filament\Notifications\Notification::make()
-                                ->title('Permissions berhasil direset')
-                                ->body(count($records) . ' karyawan telah direset ke permission default')
+                                ->title('Izin berhasil direset')
+                                ->body(count($records) . ' karyawan telah direset ke izin default')
                                 ->success()
                                 ->send();
                         }),
                     
                     \Filament\Actions\BulkAction::make('change_role')
-                        ->label('Ubah Role')
+                        ->label('Ubah Peran')
                         ->icon('heroicon-o-user-circle')
                         ->color('info')
                         ->form([
                             \Filament\Forms\Components\Select::make('new_role')
-                                ->label('Role Baru')
+                                ->label('Peran Baru')
                                 ->options([
                                     AssignmentRoleEnum::STAFF->value => AssignmentRoleEnum::STAFF->getDisplayName(),
                                     AssignmentRoleEnum::MANAGER->value => AssignmentRoleEnum::MANAGER->getDisplayName(),
@@ -138,8 +138,8 @@ class StoreUserAssignmentsTable
                             }
                             
                             \Filament\Notifications\Notification::make()
-                                ->title('Role berhasil diubah')
-                                ->body(count($records) . ' karyawan telah diubah ke role ' . $data['new_role'])
+                                ->title('Peran berhasil diubah')
+                                ->body(count($records) . ' karyawan telah diubah ke peran ' . $data['new_role'])
                                 ->success()
                                 ->send();
                         }),

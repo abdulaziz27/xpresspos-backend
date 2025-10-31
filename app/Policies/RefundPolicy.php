@@ -13,6 +13,8 @@ class RefundPolicy
      */
     public function viewAny(User $user): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->hasPermissionTo('refunds.view');
     }
 
@@ -21,8 +23,9 @@ class RefundPolicy
      */
     public function view(User $user, Refund $refund): bool
     {
-        return $user->hasPermissionTo('refunds.view') && 
-               $user->store_id === $refund->store_id;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($refund->store_id)) return true;
+        return $user->hasPermissionTo('refunds.view') && $user->store_id === $refund->store_id;
     }
 
     /**
@@ -30,6 +33,8 @@ class RefundPolicy
      */
     public function create(User $user): bool
     {
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->hasPermissionTo('refunds.create');
     }
 
@@ -38,8 +43,9 @@ class RefundPolicy
      */
     public function update(User $user, Refund $refund): bool
     {
-        return $user->hasPermissionTo('refunds.update') && 
-               $user->store_id === $refund->store_id;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($refund->store_id)) return true;
+        return $user->hasPermissionTo('refunds.update') && $user->store_id === $refund->store_id;
     }
 
     /**
@@ -47,8 +53,9 @@ class RefundPolicy
      */
     public function delete(User $user, Refund $refund): bool
     {
-        return $user->hasPermissionTo('refunds.delete') && 
-               $user->store_id === $refund->store_id;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($refund->store_id)) return true;
+        return $user->hasPermissionTo('refunds.delete') && $user->store_id === $refund->store_id;
     }
 
     /**
@@ -56,8 +63,9 @@ class RefundPolicy
      */
     public function restore(User $user, Refund $refund): bool
     {
-        return $user->hasPermissionTo('refunds.delete') && 
-               $user->store_id === $refund->store_id;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($refund->store_id)) return true;
+        return $user->hasPermissionTo('refunds.delete') && $user->store_id === $refund->store_id;
     }
 
     /**
@@ -65,7 +73,8 @@ class RefundPolicy
      */
     public function forceDelete(User $user, Refund $refund): bool
     {
-        return $user->hasPermissionTo('refunds.delete') && 
-               $user->store_id === $refund->store_id;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($refund->store_id)) return true;
+        return $user->hasPermissionTo('refunds.delete') && $user->store_id === $refund->store_id;
     }
 }

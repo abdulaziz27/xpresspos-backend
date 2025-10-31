@@ -8,6 +8,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use App\Support\Currency;
 
 class OrdersTable
 {
@@ -16,7 +17,7 @@ class OrdersTable
         return $table
             ->columns([
                 TextColumn::make('order_number')
-                    ->label('Order #')
+                    ->label('No. Order')
                     ->searchable()
                     ->sortable()
                     ->weight('medium')
@@ -35,81 +36,81 @@ class OrdersTable
                     ->sortable(),
 
                 TextColumn::make('member.name')
-                    ->label('Customer')
+                    ->label('Pelanggan')
                     ->searchable()
                     ->sortable()
-                    ->placeholder('Walk-in Customer'),
+                    ->placeholder('Pelanggan Umum'),
 
                 TextColumn::make('table.name')
-                    ->label('Table')
+                    ->label('Meja')
                     ->badge()
                     ->color('gray')
-                    ->placeholder('No Table'),
+                    ->placeholder('Tanpa Meja'),
 
                 TextColumn::make('user.name')
-                    ->label('Staff')
+                    ->label('Staf')
                     ->sortable()
                     ->badge()
                     ->color('info'),
 
                 TextColumn::make('total_items')
-                    ->label('Items')
+                    ->label('Item')
                     ->numeric()
                     ->alignCenter()
                     ->sortable(),
 
                 TextColumn::make('total_amount')
                     ->label('Total')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd()
                     ->weight('medium'),
 
                 TextColumn::make('payment_method')
-                    ->label('Payment')
+                    ->label('Pembayaran')
                     ->badge()
                     ->color('success')
-                    ->placeholder('Not Set'),
+                    ->placeholder('Belum Diatur'),
 
                 TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label('Dibuat')
                     ->dateTime()
                     ->sortable()
                     ->since(),
 
                 TextColumn::make('completed_at')
-                    ->label('Completed')
+                    ->label('Selesai')
                     ->dateTime()
                     ->sortable()
                     ->since()
-                    ->placeholder('Not Completed'),
+                    ->placeholder('Belum Selesai'),
             ])
             ->filters([
                 SelectFilter::make('status')
                     ->options([
                         'draft' => 'Draft',
-                        'open' => 'Open',
-                        'completed' => 'Completed',
-                        'cancelled' => 'Cancelled',
+                        'open' => 'Terbuka',
+                        'completed' => 'Selesai',
+                        'cancelled' => 'Dibatalkan',
                     ])
                     ->multiple(),
 
                 SelectFilter::make('payment_method')
                     ->options([
-                        'cash' => 'Cash',
-                        'card' => 'Card',
+                        'cash' => 'Tunai',
+                        'card' => 'Kartu',
                         'qris' => 'QRIS',
-                        'transfer' => 'Bank Transfer',
-                        'other' => 'Other',
+                        'transfer' => 'Transfer Bank',
+                        'other' => 'Lainnya',
                     ])
                     ->multiple(),
 
                 Filter::make('created_at')
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('created_from')
-                            ->label('From Date'),
+                            ->label('Dari Tanggal'),
                         \Filament\Forms\Components\DatePicker::make('created_until')
-                            ->label('Until Date'),
+                            ->label('Hingga Tanggal'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -124,22 +125,22 @@ class OrdersTable
                     }),
 
                 Filter::make('today')
-                    ->label('Today')
+                    ->label('Hari Ini')
                     ->query(fn(Builder $query): Builder => $query->whereDate('created_at', today())),
 
                 Filter::make('this_week')
-                    ->label('This Week')
+                    ->label('Minggu Ini')
                     ->query(fn(Builder $query): Builder => $query->whereBetween('created_at', [
                         now()->startOfWeek(),
                         now()->endOfWeek(),
                     ])),
 
                 Filter::make('this_month')
-                    ->label('This Month')
+                    ->label('Bulan Ini')
                     ->query(fn(Builder $query): Builder => $query->whereMonth('created_at', now()->month)),
             ])
             ->actions([
-                ViewAction::make(),
+                ViewAction::make()->label('Lihat'),
             ])
             ->bulkActions([])
             ->defaultSort('created_at', 'desc')

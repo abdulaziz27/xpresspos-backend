@@ -11,6 +11,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use App\Support\Currency;
 
 class SubscriptionsTable
 {
@@ -63,7 +64,7 @@ class SubscriptionsTable
 
                 TextColumn::make('amount')
                     ->label('Amount')
-                    ->money('IDR')
+                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
                     ->sortable()
                     ->alignEnd()
                     ->weight('medium'),

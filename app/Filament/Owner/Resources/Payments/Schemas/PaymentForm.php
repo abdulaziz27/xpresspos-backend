@@ -13,6 +13,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
+use App\Support\Money;
 
 class PaymentForm
 {
@@ -20,8 +21,8 @@ class PaymentForm
     {
         return $schema
             ->components([
-                Section::make('Payment Information')
-                    ->description('Basic payment details and order information')
+                Section::make('Informasi Pembayaran')
+                    ->description('Detail dasar pembayaran dan informasi order')
                     ->schema([
                         Grid::make(2)
                             ->schema([
@@ -40,13 +41,14 @@ class PaymentForm
                                     ->required(),
 
                                 Select::make('payment_method')
-                                    ->label('Payment Method')
+                                    ->label('Metode Pembayaran')
                                     ->options([
-                                        'cash' => 'Cash',
-                                        'card' => 'Card',
+                                        'cash' => 'Tunai',
+                                        'credit_card' => 'Kartu Kredit',
+                                        'debit_card' => 'Kartu Debit',
                                         'qris' => 'QRIS',
-                                        'transfer' => 'Bank Transfer',
-                                        'other' => 'Other',
+                                        'bank_transfer' => 'Transfer Bank',
+                                        'e_wallet' => 'E-Wallet',
                                     ])
                                     ->required()
                                     ->live(),
@@ -55,68 +57,74 @@ class PaymentForm
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('amount')
-                                    ->label('Amount')
+                                    ->label('Jumlah')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
                                     ->minValue(0.01)
+                                    ->placeholder('100.000')
+                                    ->helperText('Bisa input: 100000 atau 100.000')
+                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->required(),
 
                                 Select::make('status')
                                     ->label('Status')
                                     ->options([
-                                        'pending' => 'Pending',
-                                        'processing' => 'Processing',
-                                        'completed' => 'Completed',
-                                        'failed' => 'Failed',
-                                        'cancelled' => 'Cancelled',
-                                        'refunded' => 'Refunded',
+                                        'pending' => 'Menunggu',
+                                        'processing' => 'Diproses',
+                                        'completed' => 'Berhasil',
+                                        'failed' => 'Gagal',
+                                        'cancelled' => 'Dibatalkan',
+                                        'refunded' => 'Dikembalikan',
                                     ])
                                     ->default('pending')
                                     ->required(),
                             ]),
 
                         TextInput::make('reference_number')
-                            ->label('Reference Number')
+                            ->label('Nomor Referensi')
                             ->maxLength(255)
-                            ->placeholder('Transaction reference number'),
+                            ->placeholder('Nomor referensi transaksi'),
                     ])
                     ->columns(1),
 
-                Section::make('Gateway Information')
-                    ->description('Payment gateway details and processing information')
+                Section::make('Informasi Gateway')
+                    ->description('Detail gateway pembayaran dan informasi pemrosesan')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('gateway')
                                     ->label('Gateway')
                                     ->maxLength(255)
-                                    ->placeholder('e.g., Midtrans, Xendit'),
+                                    ->placeholder('Contoh: Midtrans, Xendit'),
 
                                 TextInput::make('gateway_transaction_id')
-                                    ->label('Gateway Transaction ID')
+                                    ->label('ID Transaksi Gateway')
                                     ->maxLength(255)
-                                    ->placeholder('Gateway transaction reference'),
+                                    ->placeholder('Referensi transaksi di gateway'),
                             ]),
 
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('gateway_fee')
-                                    ->label('Gateway Fee')
+                                    ->label('Biaya Gateway')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->step(0.01)
                                     ->minValue(0)
+                                    ->placeholder('5.000')
+                                    ->helperText('Bisa input: 5000 atau 5.000')
+                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->default(0),
 
                                 DateTimePicker::make('processed_at')
-                                    ->label('Processed At')
+                                    ->label('Diproses Pada')
                                     ->disabled()
                                     ->dehydrated(false),
                             ]),
 
                         Select::make('processed_by')
-                            ->label('Processed By')
+                            ->label('Diproses Oleh')
                             ->options(function () {
                                 $storeId = auth()->user()?->currentStoreId();
 
@@ -132,22 +140,22 @@ class PaymentForm
                     ->columns(1)
                     ->visible(fn($record) => $record?->gateway || $record?->status === 'completed'),
 
-                Section::make('Additional Information')
-                    ->description('Additional payment details and notes')
+                Section::make('Informasi Tambahan')
+                    ->description('Detail tambahan pembayaran dan catatan')
                     ->schema([
                         Textarea::make('notes')
-                            ->label('Notes')
+                            ->label('Catatan')
                             ->rows(3)
                             ->maxLength(1000)
-                            ->placeholder('Additional notes about this payment'),
+                            ->placeholder('Catatan tambahan untuk pembayaran ini'),
 
                         Textarea::make('gateway_response')
-                            ->label('Gateway Response')
+                            ->label('Respons Gateway')
                             ->rows(4)
                             ->disabled()
                             ->dehydrated(false)
                             ->visible(fn($record) => $record?->gateway_response)
-                            ->helperText('Raw response from payment gateway'),
+                            ->helperText('Respons mentah dari gateway pembayaran'),
                     ])
                     ->columns(1),
             ]);

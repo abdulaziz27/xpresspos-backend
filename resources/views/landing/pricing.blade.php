@@ -216,7 +216,9 @@ function switchBilling(billing) {
 }
 
 function selectPlan(planId) {
-    const url = new URL('{{ route("landing.checkout") }}', window.location.origin);
+    // Use relative URL for local development, absolute URL for production
+    const baseUrl = '{{ app()->environment("local") ? "/checkout" : route("landing.checkout") }}';
+    const url = new URL(baseUrl, window.location.origin);
     url.searchParams.set('plan', planId);
     url.searchParams.set('billing', currentBilling);
     window.location.href = url.toString();

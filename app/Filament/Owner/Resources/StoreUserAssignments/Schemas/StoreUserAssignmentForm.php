@@ -37,7 +37,7 @@ class StoreUserAssignmentForm
                         Grid::make(2)
                             ->schema([
                                 Select::make('assignment_role')
-                                    ->label('Role')
+                                    ->label('Peran')
                                     ->options([
                                         AssignmentRoleEnum::STAFF->value => AssignmentRoleEnum::STAFF->getDisplayName(),
                                         AssignmentRoleEnum::MANAGER->value => AssignmentRoleEnum::MANAGER->getDisplayName(),
@@ -51,15 +51,15 @@ class StoreUserAssignmentForm
                                         }
                                     }),
                                 Toggle::make('is_primary')
-                                    ->label('Primary Store')
+                                    ->label('Toko Utama')
                                     ->helperText('Apakah ini toko utama untuk karyawan ini?'),
                             ]),
                     ]),
                 
-                Section::make('Permission Management')
+                Section::make('Manajemen Izin (Permission)')
                     ->schema([
                         Toggle::make('use_default_permissions')
-                            ->label('Gunakan Permission Default Role')
+                            ->label('Gunakan Izin Bawaan Peran')
                             ->default(true)
                             ->reactive()
                             ->afterStateUpdated(function ($state, $set, $get) {
@@ -97,7 +97,7 @@ class StoreUserAssignmentForm
                                 $role = $get('assignment_role') ?? 'staff';
                                 $defaultPermissions = static::getDefaultPermissionsForRole($role);
                                 
-                                // Filter permissions for this category
+                                // Filter permissions untuk kategori ini
                                 $categoryDefaults = array_filter($defaultPermissions, function($perm) use ($category) {
                                     return str_starts_with($perm, $category . '.');
                                 });
@@ -116,7 +116,7 @@ class StoreUserAssignmentForm
     protected static function getDefaultPermissionsForRole($role)
     {
         return match ($role) {
-            'owner' => ['*'], // All permissions
+            'owner' => ['*'], // Semua izin
             'admin' => [
                 'products.view', 'products.create', 'products.update', 'products.delete',
                 'orders.view', 'orders.create', 'orders.update', 'orders.cancel', 'orders.complete',
@@ -163,10 +163,10 @@ class StoreUserAssignmentForm
             $categoryDefaults = [];
             
             if (in_array('*', $defaultPermissions)) {
-                // Owner gets all permissions
+                // Owner mendapatkan semua izin
                 $categoryDefaults = array_keys($permissions);
             } else {
-                // Filter permissions for this category
+                // Filter izin untuk kategori ini
                 $categoryDefaults = array_filter($defaultPermissions, function($perm) use ($category) {
                     return str_starts_with($perm, $category . '.');
                 });

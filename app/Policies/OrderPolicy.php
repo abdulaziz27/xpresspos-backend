@@ -12,12 +12,8 @@ class OrderPolicy
      */
     public function viewAny(User $user): bool
     {
-        // System admin can view all orders globally
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // All authenticated users can view orders in their store
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->can('orders.view');
     }
 
@@ -26,17 +22,9 @@ class OrderPolicy
      */
     public function view(User $user, Order $order): bool
     {
-        // System admin can view any order
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users can view orders in their store
-        if ($user->can('orders.view') && $user->store_id === $order->store_id) {
-            return true;
-        }
-
-        return false;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($order->store_id)) return true;
+        return $user->can('orders.view') && $user->store_id === $order->store_id;
     }
 
     /**
@@ -44,12 +32,8 @@ class OrderPolicy
      */
     public function create(User $user): bool
     {
-        // System admin can create orders in any store
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // All staff can create orders
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOfStore') && $user->isOwnerOfStore()) return true;
         return $user->can('orders.create');
     }
 
@@ -58,17 +42,9 @@ class OrderPolicy
      */
     public function update(User $user, Order $order): bool
     {
-        // System admin can update any order
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users can update orders in their store
-        if ($user->can('orders.update') && $user->store_id === $order->store_id) {
-            return true;
-        }
-
-        return false;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($order->store_id)) return true;
+        return $user->can('orders.update') && $user->store_id === $order->store_id;
     }
 
     /**
@@ -76,17 +52,9 @@ class OrderPolicy
      */
     public function delete(User $user, Order $order): bool
     {
-        // System admin can delete any order
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Only owners and managers can delete orders
-        if ($user->can('orders.delete') && $user->store_id === $order->store_id) {
-            return true;
-        }
-
-        return false;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($order->store_id)) return true;
+        return $user->can('orders.delete') && $user->store_id === $order->store_id;
     }
 
     /**
@@ -94,17 +62,9 @@ class OrderPolicy
      */
     public function refund(User $user, Order $order): bool
     {
-        // System admin can refund any order
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Users with refund permission can refund orders in their store
-        if ($user->can('orders.refund') && $user->store_id === $order->store_id) {
-            return true;
-        }
-
-        return false;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($order->store_id)) return true;
+        return $user->can('orders.refund') && $user->store_id === $order->store_id;
     }
 
     /**
@@ -112,16 +72,8 @@ class OrderPolicy
      */
     public function void(User $user, Order $order): bool
     {
-        // System admin can void any order
-        if ($user->hasRole('admin_sistem')) {
-            return true;
-        }
-
-        // Only owners and managers can void orders
-        if ($user->can('orders.void') && $user->store_id === $order->store_id) {
-            return true;
-        }
-
-        return false;
+        if ($user->hasRole('admin_sistem')) return true;
+        if (method_exists($user, 'isOwnerOf') && $user->isOwnerOf($order->store_id)) return true;
+        return $user->can('orders.void') && $user->store_id === $order->store_id;
     }
 }

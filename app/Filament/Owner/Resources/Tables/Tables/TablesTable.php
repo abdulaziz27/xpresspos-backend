@@ -19,140 +19,52 @@ class TablesTable
         return $table
             ->columns([
                 TextColumn::make('table_number')
-                    ->label('Table #')
-                    ->searchable()
+                    ->label('No. Meja')
                     ->sortable()
-                    ->weight('medium'),
+                    ->searchable(),
 
                 TextColumn::make('name')
-                    ->label('Table Name')
-                    ->searchable()
+                    ->label('Nama Meja')
                     ->sortable()
-                    ->weight('medium'),
+                    ->searchable(),
 
                 TextColumn::make('capacity')
-                    ->label('Capacity')
+                    ->label('Kapasitas')
                     ->numeric()
                     ->alignCenter()
-                    ->suffix(' people')
-                    ->sortable(),
-
-                TextColumn::make('location')
-                    ->label('Location')
-                    ->badge()
-                    ->color(fn(string $state): string => match ($state) {
-                        'indoor' => 'gray',
-                        'outdoor' => 'success',
-                        'terrace' => 'info',
-                        'vip' => 'warning',
-                        'bar' => 'danger',
-                        default => 'gray',
-                    })
+                    ->suffix(' orang')
                     ->sortable(),
 
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'available' => 'success',
                         'occupied' => 'warning',
                         'reserved' => 'info',
                         'maintenance' => 'danger',
-                        'cleaning' => 'gray',
                         default => 'gray',
                     })
                     ->sortable(),
 
-                TextColumn::make('orders_count')
-                    ->label('Orders')
-                    ->counts('orders')
-                    ->numeric()
-                    ->alignCenter()
-                    ->sortable(),
-
-                TextColumn::make('total_occupancy_count')
-                    ->label('Total Occupancies')
-                    ->numeric()
-                    ->alignCenter()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                TextColumn::make('average_occupancy_duration')
-                    ->label('Avg Duration')
-                    ->numeric(decimalPlaces: 1)
-                    ->alignCenter()
-                    ->sortable()
-                    ->suffix(' min')
-                    ->toggleable(isToggledHiddenByDefault: true),
-
                 IconColumn::make('is_active')
-                    ->label('Active')
+                    ->label('Aktif')
                     ->boolean()
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
                     ->trueColor('success')
                     ->falseColor('danger'),
 
-                TextColumn::make('occupied_at')
-                    ->label('Occupied Since')
-                    ->dateTime()
-                    ->sortable()
-                    ->since()
-                    ->placeholder('Not Occupied')
-                    ->toggleable(isToggledHiddenByDefault: true),
-
                 TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label('Dibuat')
                     ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                SelectFilter::make('status')
-                    ->options([
-                        'available' => 'Available',
-                        'occupied' => 'Occupied',
-                        'reserved' => 'Reserved',
-                        'maintenance' => 'Maintenance',
-                        'cleaning' => 'Cleaning',
-                    ])
-                    ->multiple(),
-
-                SelectFilter::make('location')
-                    ->options([
-                        'indoor' => 'Indoor',
-                        'outdoor' => 'Outdoor',
-                        'terrace' => 'Terrace',
-                        'vip' => 'VIP Section',
-                        'bar' => 'Bar Area',
-                        'other' => 'Other',
-                    ])
-                    ->multiple(),
-
-                TernaryFilter::make('is_active')
-                    ->label('Status')
-                    ->placeholder('All tables')
-                    ->trueLabel('Active only')
-                    ->falseLabel('Inactive only'),
-
-                TernaryFilter::make('is_occupied')
-                    ->label('Occupancy')
-                    ->placeholder('All tables')
-                    ->trueLabel('Occupied only')
-                    ->falseLabel('Available only')
-                    ->query(fn($query) => $query->occupied()),
+                    ->sortable(),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
-            ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
+                EditAction::make()->label('Ubah'),
+                \Filament\Actions\DeleteAction::make()->label('Hapus'),
             ])
             ->defaultSort('table_number')
-            ->striped()
             ->paginated([10, 25, 50, 100]);
     }
 }

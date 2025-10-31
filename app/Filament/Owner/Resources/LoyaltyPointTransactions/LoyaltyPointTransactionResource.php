@@ -16,13 +16,15 @@ class LoyaltyPointTransactionResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedStar;
 
-    protected static ?string $navigationLabel = 'Loyalty Points';
+    protected static ?string $navigationLabel = 'Poin Loyalti';
 
     protected static ?string $modelLabel = 'Loyalty Point Transaction';
 
     protected static ?string $pluralModelLabel = 'Loyalty Point Transactions';
 
-    protected static ?int $navigationSort = 7;
+    protected static ?int $navigationSort = 2;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Pelanggan & Loyalti';
 
     public static function table(Table $table): Table
     {
@@ -72,15 +74,6 @@ class LoyaltyPointTransactionResource extends Resource
 
     public static function canViewAny(): bool
     {
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->store_id) {
-            setPermissionsTeamId($user->store_id);
-        }
-
-        return $user->hasRole('owner') || $user->hasAnyRole(['admin_sistem', 'manager']);
+        return true;
     }
 }

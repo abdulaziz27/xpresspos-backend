@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Gate;
 
 class RecipeResource extends Resource
 {
@@ -20,13 +21,15 @@ class RecipeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static ?string $navigationLabel = 'Recipes';
+    protected static ?string $navigationLabel = 'Resep';
 
-    protected static ?string $modelLabel = 'Recipe';
+    protected static ?string $modelLabel = 'Resep';
 
-    protected static ?string $pluralModelLabel = 'Recipes';
+    protected static ?string $pluralModelLabel = 'Resep';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 2;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
 
     public static function form(Schema $schema): Schema
     {
@@ -52,5 +55,16 @@ class RecipeResource extends Resource
             'create' => CreateRecipe::route('/create'),
             'edit' => EditRecipe::route('/{record}/edit'),
         ];
+    }
+
+    public static function canCreate(): bool
+    {
+        $user = auth()->user();
+        return (bool) $user && Gate::forUser($user)->allows('create', static::$model);
+    }
+
+    public static function canViewAny(): bool
+    {
+        return true;
     }
 }

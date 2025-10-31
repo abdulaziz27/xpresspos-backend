@@ -24,15 +24,15 @@ class StoreUserAssignmentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
 
-    protected static ?string $navigationLabel = 'Users & Permissions';
+    protected static ?string $navigationLabel = 'Pengguna & Izin';
 
     protected static ?string $modelLabel = 'Karyawan';
 
     protected static ?string $pluralModelLabel = 'Karyawan';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Store Operations';
+    protected static string|\UnitEnum|null $navigationGroup = 'Toko & Tim';
 
-    protected static ?int $navigationSort = 100;
+    protected static ?int $navigationSort = 0;
 
     public static function form(Schema $schema): Schema
     {
@@ -72,7 +72,7 @@ class StoreUserAssignmentResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->can('viewAny', static::getModel());
+        return true;
     }
 
     public static function canCreate(): bool
