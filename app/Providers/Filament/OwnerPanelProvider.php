@@ -80,7 +80,33 @@ class OwnerPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->authGuard('web')
-            ->authPasswordBroker('users');
+            ->authPasswordBroker('users')
+            ->auth(function () {
+                // Filament v4 panel-level access gate
+                // Team context should already be set by EnsureFilamentTeamContext middleware
+                if (!auth()->check()) {
+                    return false;
+                }
+
+                $user = auth()->user();
+
+                // Check if user has owner role or owner assignment
+                $hasOwnerRole = $user->hasRole('owner');
+                $hasOwnerAssignment = $user->storeAssignments()
+                    ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+                    ->exists();
+
+                \Log::info('OwnerPanel auth gate', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'has_owner_role' => $hasOwnerRole,
+                    'has_owner_assignment' => $hasOwnerAssignment,
+                    'roles' => $user->getRoleNames()->toArray(),
+                    'current_team_id' => getPermissionsTeamId(),
+                ]);
+
+                return $hasOwnerRole || $hasOwnerAssignment;
+            });
 
         if ($this->shouldUseDomain($ownerDomain)) {
             $panel->domain($ownerDomain)->path('/');
