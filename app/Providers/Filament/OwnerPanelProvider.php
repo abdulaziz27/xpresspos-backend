@@ -74,7 +74,6 @@ class OwnerPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
                 EnsureStoreContext::class,
                 \App\Http\Middleware\EnsureFilamentTeamContext::class,
-                FilamentRoleMiddleware::class . ':owner',
                 \App\Http\Middleware\LogSecurityEvents::class,
             ])
             ->authMiddleware([
@@ -82,9 +81,23 @@ class OwnerPanelProvider extends PanelProvider
             ])
             ->authGuard('web')
             ->authPasswordBroker('users')
-            // Optional: Additional auth callback for debugging (comment out if not needed)
-            // ->auth(fn () => auth()->check() && (auth()->user()->hasRole('owner') || auth()->user()->storeAssignments()->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)->exists()))
-            ;
+            ->auth(function () {
+                // Ensure team context is already set by middleware before this point
+                $user = auth()->user();
+                if (!$user) {
+                    return false;
+                }
+
+                // Allow access if user has owner role in current team context
+                if ($user->hasRole('owner')) {
+                    return true;
+                }
+
+                // Fallback: allow if user has explicit owner assignment in any store
+                return $user->storeAssignments()
+                    ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+                    ->exists();
+            });
 
         if ($this->shouldUseDomain($ownerDomain)) {
             $panel->domain($ownerDomain)->path('/');
