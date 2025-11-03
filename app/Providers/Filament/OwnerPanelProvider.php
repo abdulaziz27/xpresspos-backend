@@ -95,10 +95,25 @@ class OwnerPanelProvider extends PanelProvider
     protected function shouldUseDomain(?string $domain): bool
     {
         if (blank($domain)) {
+            \Log::warning('OwnerPanelProvider: Domain is blank', [
+                'env_owner_domain' => env('OWNER_DOMAIN'),
+            ]);
             return false;
         }
 
+        $isProduction = app()->environment('production');
+        $hasLocalhost = \Illuminate\Support\Str::contains($domain, ['localhost', '127.0.0.1']);
+        $shouldUse = $isProduction && !$hasLocalhost;
+
+        \Log::info('OwnerPanelProvider: shouldUseDomain check', [
+            'domain' => $domain,
+            'is_production' => $isProduction,
+            'app_env' => app()->environment(),
+            'has_localhost' => $hasLocalhost,
+            'should_use_domain' => $shouldUse,
+        ]);
+
         // Only use domain routing in production environment
-        return app()->environment('production') && ! \Illuminate\Support\Str::contains($domain, ['localhost', '127.0.0.1']);
+        return $shouldUse;
     }
 }
