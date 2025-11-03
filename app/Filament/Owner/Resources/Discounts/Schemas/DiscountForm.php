@@ -10,6 +10,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use App\Support\Money;
 
 class DiscountForm
 {
@@ -49,15 +50,20 @@ class DiscountForm
                             ->schema([
                                 TextInput::make('value')
                                     ->required()
-                                    ->numeric()
-                                    ->minValue(0)
-                                    ->step(0.01)
                                     ->prefix(fn (callable $get) => $get('type') === 'fixed' ? 'Rp' : null)
                                     ->suffix(fn (callable $get) => $get('type') === 'percentage' ? '%' : null)
-                                    ->placeholder(fn (callable $get) => $get('type') === 'percentage' ? '10' : '50000')
+                                    ->placeholder(fn (callable $get) => $get('type') === 'percentage' ? '10' : '50.000')
                                     ->helperText(fn (callable $get) => $get('type') === 'percentage' 
                                         ? 'Enter percentage (e.g., 10 for 10%)' 
-                                        : 'Enter fixed amount in Rupiah'),
+                                        : 'Bisa input: 50000 atau 50.000')
+                                    ->rule('required|numeric|min:0')
+                                    ->dehydrateStateUsing(function ($state, callable $get) {
+                                        // Only parse if it's fixed amount (Rp), not percentage
+                                        if ($get('type') === 'fixed') {
+                                            return Money::parseToDecimal($state);
+                                        }
+                                        return $state;
+                                    }),
 
                                 DatePicker::make('expired_date')
                                     ->label('Expiry Date')

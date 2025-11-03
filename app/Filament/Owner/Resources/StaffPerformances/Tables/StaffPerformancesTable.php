@@ -35,12 +35,12 @@ class StaffPerformancesTable
 
                 TextColumn::make('total_sales')
                     ->label('Total Sales')
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->total_sales ?? 0)))
                     ->sortable(),
 
                 TextColumn::make('average_order_value')
                     ->label('Avg Order Value')
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->average_order_value ?? 0)))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
@@ -52,7 +52,7 @@ class StaffPerformancesTable
 
                 TextColumn::make('sales_per_hour')
                     ->label('Sales/Hour')
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->sales_per_hour ?? 0)))
                     ->sortable()
                     ->color(function ($state) {
                         if ($state >= 500000) return 'success';
@@ -69,7 +69,7 @@ class StaffPerformancesTable
 
                 TextColumn::make('refund_amount')
                     ->label('Refund Amount')
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->refund_amount ?? 0)))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 

@@ -58,12 +58,10 @@ class PaymentForm
                             ->schema([
                                 TextInput::make('amount')
                                     ->label('Jumlah')
-                                    ->numeric()
                                     ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->minValue(0.01)
                                     ->placeholder('100.000')
                                     ->helperText('Bisa input: 100000 atau 100.000')
+                                    ->rule('required|numeric|min:0.01')
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->required(),
 
@@ -108,12 +106,10 @@ class PaymentForm
                             ->schema([
                                 TextInput::make('gateway_fee')
                                     ->label('Biaya Gateway')
-                                    ->numeric()
                                     ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->minValue(0)
                                     ->placeholder('5.000')
                                     ->helperText('Bisa input: 5000 atau 5.000')
+                                    ->rule('nullable|numeric|min:0')
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->default(0),
 

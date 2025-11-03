@@ -76,13 +76,11 @@ class CogsHistoryForm
 
                                 TextInput::make('unit_cost')
                                     ->label('Biaya per Unit')
-                                    ->numeric()
                                     ->prefix('Rp')
-                                    ->step(0.01)
                                     ->required()
-                                    ->minValue(0)
                                     ->placeholder('8.000')
                                     ->helperText('Bisa input: 8000 atau 8.000')
+                                    ->rule('required|numeric|min:0')
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, callable $set, callable $get) {

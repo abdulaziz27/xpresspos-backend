@@ -50,7 +50,7 @@ class PaymentReconciliation extends Page implements HasTable
                     ->toggleable(),
                 
                 Tables\Columns\TextColumn::make('amount')
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->amount ?? 0)))
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('status')
@@ -66,7 +66,7 @@ class PaymentReconciliation extends Page implements HasTable
                 
                 Tables\Columns\TextColumn::make('gateway_fee')
                     ->label('Gateway Fee')
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->gateway_fee ?? 0)))
                     ->sortable()
                     ->toggleable(),
                 
@@ -75,7 +75,7 @@ class PaymentReconciliation extends Page implements HasTable
                     ->getStateUsing(fn (SubscriptionPayment $record): float => 
                         $record->amount - $record->gateway_fee
                     )
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? 0)))
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('payment_method')

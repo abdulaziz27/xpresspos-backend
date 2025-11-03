@@ -83,15 +83,38 @@ class OwnerPanelProvider extends PanelProvider
             ->authPasswordBroker('users')
             ->auth(function () {
                 // Filament v4 panel-level access gate
-                // Team context should already be set by EnsureFilamentTeamContext middleware
                 if (!auth()->check()) {
                     return false;
                 }
 
                 $user = auth()->user();
 
-                // Check if user has owner role or owner assignment
+                // CRITICAL: Always ensure team context is set before role checks
+                // Cannot rely on middleware order - explicitly set here
+                $storeId = $user->store_id;
+                
+                // Try to get from primary store if not directly set
+                if (!$storeId) {
+                    $primaryStore = $user->primaryStore();
+                    $storeId = $primaryStore?->id;
+                }
+
+                // If no store found, deny access immediately
+                if (!$storeId) {
+                    \Log::warning('OwnerPanel auth gate: User has no store', [
+                        'user_id' => $user->id,
+                        'user_email' => $user->email,
+                    ]);
+                    return false;
+                }
+
+                // Set team context BEFORE any role check
+                setPermissionsTeamId($storeId);
+
+                // Now check if user has owner role (will use correct team context)
                 $hasOwnerRole = $user->hasRole('owner');
+                
+                // Also check store assignments as fallback
                 $hasOwnerAssignment = $user->storeAssignments()
                     ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
                     ->exists();
@@ -99,10 +122,11 @@ class OwnerPanelProvider extends PanelProvider
                 \Log::info('OwnerPanel auth gate', [
                     'user_id' => $user->id,
                     'user_email' => $user->email,
+                    'store_id' => $storeId,
+                    'team_context_set' => getPermissionsTeamId(),
                     'has_owner_role' => $hasOwnerRole,
                     'has_owner_assignment' => $hasOwnerAssignment,
                     'roles' => $user->getRoleNames()->toArray(),
-                    'current_team_id' => getPermissionsTeamId(),
                 ]);
 
                 return $hasOwnerRole || $hasOwnerAssignment;

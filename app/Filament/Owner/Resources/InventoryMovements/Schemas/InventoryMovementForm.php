@@ -73,12 +73,10 @@ class InventoryMovementForm
 
                                 TextInput::make('unit_cost')
                                     ->label('Biaya per Unit')
-                                    ->numeric()
                                     ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->minValue(0)
                                     ->placeholder('8.000')
                                     ->helperText('Bisa input: 8000 atau 8.000')
+                                    ->rule('nullable|numeric|min:0')
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->live()
                                     ->afterStateUpdated(function (callable $get, callable $set) {

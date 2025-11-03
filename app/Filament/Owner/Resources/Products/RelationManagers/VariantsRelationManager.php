@@ -48,11 +48,11 @@ class VariantsRelationManager extends RelationManager
 
                 Forms\Components\TextInput::make('price_adjustment')
                     ->label('Price Adjustment')
-                    ->numeric()
                     ->default(0)
                     ->prefix('Rp')
                     ->placeholder('5.000')
                     ->helperText('Bisa input: 5000 atau 5.000')
+                    ->rule('nullable|numeric')
                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                     ->columnSpan(1),
 

@@ -51,12 +51,10 @@ class ExpenseForm
                             ->schema([
                                 TextInput::make('amount')
                                     ->label('Jumlah')
-                                    ->numeric()
                                     ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->minValue(0.01)
                                     ->placeholder('50.000')
                                     ->helperText('Bisa input: 50000 atau 50.000')
+                                    ->rule('required|numeric|min:0.01')
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->required(),
 

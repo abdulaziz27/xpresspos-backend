@@ -72,12 +72,10 @@ class SubscriptionForm
 
                         TextInput::make('amount')
                             ->label('Amount')
-                            ->numeric()
                             ->prefix('Rp')
-                            ->step(0.01)
-                            ->minValue(0)
                             ->placeholder('100.000')
                             ->helperText('Bisa input: 100000 atau 100.000')
+                            ->rule('required|numeric|min:0')
                             ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                             ->required(),
                     ])

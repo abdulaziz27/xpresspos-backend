@@ -62,13 +62,13 @@ class RecipePerformanceWidget extends BaseWidget
 
                 TextColumn::make('total_cost')
                     ->label('Recipe Cost')
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->total_cost ?? 0)))
                     ->sortable()
                     ->alignEnd(),
 
                 TextColumn::make('cost_per_unit')
                     ->label('Cost/Unit')
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->cost_per_unit ?? 0)))
                     ->sortable()
                     ->alignEnd()
                     ->color('success'),

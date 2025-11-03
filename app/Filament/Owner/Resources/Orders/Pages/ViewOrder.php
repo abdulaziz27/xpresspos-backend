@@ -58,13 +58,13 @@ class ViewOrder extends ViewRecord
                                 // Kolom kiri: ringkasan biaya
                                 Grid::make(2)
                                     ->schema([
-                                        TextEntry::make('subtotal_amount')->label('Subtotal')->formatStateUsing(fn($s) => Currency::rupiah((float) $s)),
-                                        TextEntry::make('tax_amount')->label('Pajak')->formatStateUsing(fn($s) => Currency::rupiah((float) $s)),
-                                        TextEntry::make('discount_amount')->label('Diskon')->formatStateUsing(fn($s) => Currency::rupiah((float) $s)),
-                                        TextEntry::make('service_charge_amount')->label('Biaya Layanan')->formatStateUsing(fn($s) => Currency::rupiah((float) $s)),
+                                        TextEntry::make('subtotal_amount')->label('Subtotal')->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->subtotal ?? 0))),
+                                        TextEntry::make('tax_amount')->label('Pajak')->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->tax_amount ?? 0))),
+                                        TextEntry::make('discount_amount')->label('Diskon')->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->discount_amount ?? 0))),
+                                        TextEntry::make('service_charge_amount')->label('Biaya Layanan')->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->service_charge ?? 0))),
                                         TextEntry::make('total_amount')
                                             ->label('Total')
-                                            ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                                            ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->total_amount ?? 0)))
                                             ->weight('medium')
                                             ->color('success')
                                             ->columnSpanFull(),

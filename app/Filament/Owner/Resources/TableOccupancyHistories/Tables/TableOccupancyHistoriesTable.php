@@ -79,7 +79,7 @@ class TableOccupancyHistoriesTable
 
                 TextColumn::make('order_total')
                     ->label('Order Total')
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->bill_amount ?? 0)))
                     ->sortable()
                     ->placeholder('No order'),
 

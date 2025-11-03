@@ -33,7 +33,7 @@ class RefundsTable
 
                 TextColumn::make('amount')
                     ->label('Refund Amount')
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->amount ?? 0)))
                     ->sortable(),
 
                 TextColumn::make('status')

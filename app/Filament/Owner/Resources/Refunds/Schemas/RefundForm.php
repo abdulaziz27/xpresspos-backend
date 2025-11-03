@@ -80,12 +80,10 @@ class RefundForm
                             ->schema([
                                 TextInput::make('amount')
                                     ->required()
-                                    ->numeric()
                                     ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->minValue(0)
                                     ->placeholder('50.000')
                                     ->helperText('Bisa input: 50000 atau 50.000')
+                                    ->rule('required|numeric|min:0')
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state)),
 
                                 Select::make('status')

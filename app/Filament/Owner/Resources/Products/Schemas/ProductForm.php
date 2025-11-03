@@ -57,22 +57,18 @@ class ProductForm
                                 TextInput::make('price')
                                     ->label('Harga')
                                     ->required()
-                                    ->numeric()
                                     ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->minValue(0)
                                     ->helperText('Bisa input: 10500 atau 10.500')
                                     ->placeholder('10.500')
+                                    ->rule('required|numeric|min:0')
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state)),
 
                                 TextInput::make('cost_price')
                                     ->label('Harga Pokok')
-                                    ->numeric()
                                     ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->minValue(0)
                                     ->helperText('Bisa input: 8000 atau 8.000')
                                     ->placeholder('8.000')
+                                    ->rule('nullable|numeric|min:0')
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state)),
 
                                 TextInput::make('sort_order')

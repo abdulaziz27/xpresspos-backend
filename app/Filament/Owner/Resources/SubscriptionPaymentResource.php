@@ -97,7 +97,7 @@ class SubscriptionPaymentResource extends Resource
                     ->searchable(),
                 
                 Tables\Columns\TextColumn::make('amount')
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->amount ?? 0)))
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('status')
@@ -207,10 +207,10 @@ class SubscriptionPaymentResource extends Resource
                                     ->copyable(),
                                 
                 Infolists\Components\TextEntry::make('amount')
-                                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s)),
+                                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->amount ?? 0))),
                                 
                                 Infolists\Components\TextEntry::make('gateway_fee')
-                                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->gateway_fee ?? 0)))
                                     ->placeholder('No fee'),
                                 
                                 Infolists\Components\TextEntry::make('status')

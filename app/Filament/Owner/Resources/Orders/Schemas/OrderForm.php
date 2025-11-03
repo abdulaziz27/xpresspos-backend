@@ -140,23 +140,19 @@ class OrderForm
 
                                 TextInput::make('discount_amount')
                                     ->label('Diskon')
-                                    ->numeric()
                                     ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->minValue(0)
                                     ->placeholder('10.000')
                                     ->helperText('Bisa input: 10000 atau 10.000')
+                                    ->rule('nullable|numeric|min:0')
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->default(0),
 
                                 TextInput::make('service_charge')
                                     ->label('Biaya Layanan')
-                                    ->numeric()
                                     ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->minValue(0)
                                     ->placeholder('5.000')
                                     ->helperText('Bisa input: 5000 atau 5.000')
+                                    ->rule('nullable|numeric|min:0')
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->default(0),
                             ]),
