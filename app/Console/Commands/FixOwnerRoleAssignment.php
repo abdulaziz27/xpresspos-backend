@@ -112,7 +112,8 @@ class FixOwnerRoleAssignment extends Command
         $this->info("✅ Found owner role: {$ownerRole->name} (ID: {$ownerRole->id}, Store: {$ownerRole->store_id})");
 
         // Check current role assignment
-        $currentRoles = $user->roles()->where('store_id', $storeId)->get();
+        // Disambiguate store_id column to avoid ambiguous column errors
+        $currentRoles = $user->roles()->where('roles.store_id', $storeId)->get();
         $hasOwnerRole = $currentRoles->contains('id', $ownerRole->id);
 
         if ($hasOwnerRole && !$force) {
