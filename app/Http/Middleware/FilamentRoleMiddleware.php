@@ -20,7 +20,20 @@ class FilamentRoleMiddleware
             return $next($request);
         }
 
+        // Log early for debugging
+        \Log::info('FilamentRoleMiddleware: Entry', [
+            'url' => $request->fullUrl(),
+            'route' => $request->route()?->getName(),
+            'guard' => auth()->getDefaultDriver(),
+            'is_authenticated' => auth()->check(),
+            'user_id' => auth()->id(),
+        ]);
+
         if (!auth()->check()) {
+            \Log::warning('FilamentRoleMiddleware: User not authenticated', [
+                'url' => $request->fullUrl(),
+                'guard' => auth()->getDefaultDriver(),
+            ]);
             return redirect()->route('filament.admin.auth.login');
         }
 
@@ -64,8 +77,11 @@ class FilamentRoleMiddleware
                 'has_owner_assignment' => $hasOwnerAssignment,
                 'current_team_id' => getPermissionsTeamId(),
                 'all_roles_count' => $user->roles()->count(),
+                'role_names' => $user->getRoleNames()->toArray(),
+                'guard' => auth()->getDefaultDriver(),
                 'url' => $request->fullUrl(),
                 'host' => $request->getHost(),
+                'route' => $request->route()?->getName(),
             ]);
                 
             if (!$hasOwnerRole && !$hasOwnerAssignment) {

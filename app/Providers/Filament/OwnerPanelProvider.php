@@ -81,7 +81,10 @@ class OwnerPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->authGuard('web')
-            ->authPasswordBroker('users');
+            ->authPasswordBroker('users')
+            // Optional: Additional auth callback for debugging (comment out if not needed)
+            // ->auth(fn () => auth()->check() && (auth()->user()->hasRole('owner') || auth()->user()->storeAssignments()->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)->exists()))
+            ;
 
         if ($this->shouldUseDomain($ownerDomain)) {
             $panel->domain($ownerDomain)->path('/');
