@@ -12,18 +12,41 @@ class EnsureFilamentTeamContext
     {
         $user = auth()->user();
         
-        if ($user && $user->store_id) {
-            // Always set team context for Filament routes
-            setPermissionsTeamId($user->store_id);
+        if ($user) {
+            $storeId = $user->store_id;
             
-            // Debug logging
-            \Log::info('EnsureFilamentTeamContext', [
-                'user_id' => $user->id,
-                'store_id' => $user->store_id,
-                'url' => $request->fullUrl(),
-                'roles_count' => $user->roles()->count(),
-                'has_owner_role' => $user->hasRole('owner'),
-            ]);
+            // If user doesn't have direct store_id, try to get from primary store assignment
+            if (!$storeId) {
+                $primaryStore = $user->primaryStore();
+                $storeId = $primaryStore?->id;
+                
+                // Update user's store_id attribute for consistency
+                if ($storeId) {
+                    $user->setAttribute('store_id', $storeId);
+                }
+            }
+            
+            if ($storeId) {
+                // Always set team context for Filament routes
+                setPermissionsTeamId($storeId);
+                
+                // Debug logging for production troubleshooting
+                \Log::info('EnsureFilamentTeamContext', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'store_id' => $storeId,
+                    'user_store_id' => $user->getOriginal('store_id'),
+                    'url' => $request->fullUrl(),
+                    'host' => $request->getHost(),
+                    'current_team_id' => getPermissionsTeamId(),
+                ]);
+            } else {
+                \Log::warning('EnsureFilamentTeamContext: User without store_id', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'url' => $request->fullUrl(),
+                ]);
+            }
         }
 
         return $next($request);

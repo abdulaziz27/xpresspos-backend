@@ -28,27 +28,52 @@ class FilamentRoleMiddleware
         
         // For owner panel, check if user has owner role in any store or has store assignment as owner
         if ($role === 'owner') {
-            // Set team context first
-            if ($user->store_id) {
-                setPermissionsTeamId($user->store_id);
+            // CRITICAL: Set team context first before any role/permission checks
+            // This ensures Spatie Permission queries use the correct team context
+            $storeId = $user->store_id;
+            
+            // Try to get store_id from primary store assignment if user doesn't have direct store_id
+            if (!$storeId) {
+                $primaryStore = $user->primaryStore();
+                $storeId = $primaryStore?->id;
             }
             
-            $hasOwnerRole = $user->roles()->where('name', 'owner')->exists();
+            // Set team context if we have a store_id
+            if ($storeId) {
+                setPermissionsTeamId($storeId);
+            }
+            
+            // Use hasRole() method which properly respects team context
+            // This is more reliable than direct query because Spatie Permission
+            // automatically filters by team context when using hasRole()
+            $hasOwnerRole = $storeId ? $user->hasRole('owner') : false;
+            
+            // Also check store assignments as fallback
             $hasOwnerAssignment = $user->storeAssignments()
                 ->where('assignment_role', 'owner')
                 ->exists();
             
-            // Debug logging
+            // Debug logging for production troubleshooting
             \Log::info('FilamentRoleMiddleware owner check', [
                 'user_id' => $user->id,
                 'user_email' => $user->email,
-                'store_id' => $user->store_id,
+                'store_id' => $storeId,
+                'user_store_id' => $user->store_id,
                 'has_owner_role' => $hasOwnerRole,
                 'has_owner_assignment' => $hasOwnerAssignment,
+                'current_team_id' => getPermissionsTeamId(),
+                'all_roles_count' => $user->roles()->count(),
                 'url' => $request->fullUrl(),
+                'host' => $request->getHost(),
             ]);
                 
             if (!$hasOwnerRole && !$hasOwnerAssignment) {
+                \Log::warning('FilamentRoleMiddleware: Access denied', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'store_id' => $storeId,
+                    'url' => $request->fullUrl(),
+                ]);
                 abort(403, 'Unauthorized access to this panel.');
             }
         } else {
