@@ -80,24 +80,7 @@ class OwnerPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->authGuard('web')
-            ->authPasswordBroker('users')
-            ->auth(function () {
-                // Ensure team context is already set by middleware before this point
-                $user = auth()->user();
-                if (!$user) {
-                    return false;
-                }
-
-                // Allow access if user has owner role in current team context
-                if ($user->hasRole('owner')) {
-                    return true;
-                }
-
-                // Fallback: allow if user has explicit owner assignment in any store
-                return $user->storeAssignments()
-                    ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
-                    ->exists();
-            });
+            ->authPasswordBroker('users');
 
         if ($this->shouldUseDomain($ownerDomain)) {
             $panel->domain($ownerDomain)->path('/');
