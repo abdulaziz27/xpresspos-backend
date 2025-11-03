@@ -49,8 +49,9 @@ class FilamentRoleMiddleware
             $hasOwnerRole = $storeId ? $user->hasRole('owner') : false;
             
             // Also check store assignments as fallback
+            // Use enum value to ensure proper matching (database stores as string 'owner')
             $hasOwnerAssignment = $user->storeAssignments()
-                ->where('assignment_role', 'owner')
+                ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
                 ->exists();
             
             // Debug logging for production troubleshooting
