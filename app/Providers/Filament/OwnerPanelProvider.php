@@ -80,63 +80,66 @@ class OwnerPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->authGuard('web')
-            ->authPasswordBroker('users')
-            ->auth(function () {
-                // Filament v4 panel-level access gate
-                if (!auth()->check()) {
-                    return false;
-                }
+            ->authPasswordBroker('users');
 
-                $user = auth()->user();
-
-                // CRITICAL: Always ensure team context is set before role checks
-                // Cannot rely on middleware order - explicitly set here
-                $storeId = $user->store_id;
-                
-                // Try to get from primary store if not directly set
-                if (!$storeId) {
-                    $primaryStore = $user->primaryStore();
-                    $storeId = $primaryStore?->id;
-                }
-
-                // If no store found, deny access immediately
-                if (!$storeId) {
-                    \Log::warning('OwnerPanel auth gate: User has no store', [
-                        'user_id' => $user->id,
-                        'user_email' => $user->email,
-                    ]);
-                    return false;
-                }
-
-                // Set team context BEFORE any role check
-                setPermissionsTeamId($storeId);
-
-                // Now check if user has owner role (will use correct team context)
-                $hasOwnerRole = $user->hasRole('owner');
-                
-                // Also check store assignments as fallback
-                $hasOwnerAssignment = $user->storeAssignments()
-                    ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
-                    ->exists();
-
-                \Log::info('OwnerPanel auth gate', [
-                    'user_id' => $user->id,
-                    'user_email' => $user->email,
-                    'store_id' => $storeId,
-                    'team_context_set' => getPermissionsTeamId(),
-                    'has_owner_role' => $hasOwnerRole,
-                    'has_owner_assignment' => $hasOwnerAssignment,
-                    'roles' => $user->getRoleNames()->toArray(),
-                ]);
-
-                return $hasOwnerRole || $hasOwnerAssignment;
-            });
-
+        // Configure domain/path BEFORE auth() callback
         if ($this->shouldUseDomain($ownerDomain)) {
             $panel->domain($ownerDomain)->path('/');
         } else {
             $panel->path('owner-panel');
         }
+
+        // Auth gate must be LAST in the chain
+        $panel->auth(function () {
+            // Filament v4 panel-level access gate
+            if (!auth()->check()) {
+                return false;
+            }
+
+            $user = auth()->user();
+
+            // CRITICAL: Always ensure team context is set before role checks
+            // Cannot rely on middleware order - explicitly set here
+            $storeId = $user->store_id;
+            
+            // Try to get from primary store if not directly set
+            if (!$storeId) {
+                $primaryStore = $user->primaryStore();
+                $storeId = $primaryStore?->id;
+            }
+
+            // If no store found, deny access immediately
+            if (!$storeId) {
+                \Log::warning('OwnerPanel auth gate: User has no store', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                ]);
+                return false;
+            }
+
+            // Set team context BEFORE any role check
+            setPermissionsTeamId($storeId);
+
+            // Now check if user has owner role (will use correct team context)
+            $hasOwnerRole = $user->hasRole('owner');
+            
+            // Also check store assignments as fallback
+            $hasOwnerAssignment = $user->storeAssignments()
+                ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+                ->exists();
+
+            \Log::info('OwnerPanel auth gate', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'store_id' => $storeId,
+                'team_context_set' => getPermissionsTeamId(),
+                'has_owner_role' => $hasOwnerRole,
+                'has_owner_assignment' => $hasOwnerAssignment,
+                'roles' => $user->getRoleNames()->toArray(),
+            ]);
+
+            return $hasOwnerRole || $hasOwnerAssignment;
+        });
 
         return $panel;
     }
