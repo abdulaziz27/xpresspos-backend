@@ -290,6 +290,7 @@ Route::prefix('v1')
         Route::prefix('payments')->group(function (): void {
             Route::get('/', [PaymentController::class, 'index'])->name('api.v1.payments.index');
             Route::post('/', [PaymentController::class, 'store'])->name('api.v1.payments.store');
+            Route::post('complete-open-bill', [PaymentController::class, 'completeOpenBill'])->name('api.v1.payments.complete-open-bill');
             Route::get('methods', [PaymentController::class, 'paymentMethods'])->name('api.v1.payments.methods');
             Route::get('summary', [PaymentController::class, 'summary'])->name('api.v1.payments.summary');
             Route::post('receipt', [PaymentController::class, 'receipt'])->name('api.v1.payments.receipt');

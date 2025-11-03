@@ -57,6 +57,11 @@ class StoreOrderRequest extends FormRequest
             'items.*.product_options' => 'nullable|array',
             'items.*.product_options.*' => 'uuid|exists:product_options,id',
             'items.*.notes' => 'nullable|string|max:500',
+            
+            // Inventory management
+            'deduct_inventory' => 'nullable|boolean',
+            'operation_mode' => 'nullable|in:dine_in,takeaway,delivery',
+            'payment_mode' => 'nullable|in:direct,open_bill',
         ];
     }
 

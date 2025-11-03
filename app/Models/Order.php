@@ -104,6 +104,38 @@ class Order extends Model
     }
 
     /**
+     * Check if order has pending payment.
+     */
+    public function hasPendingPayment(): bool
+    {
+        return $this->payments()->where('status', 'pending')->exists();
+    }
+
+    /**
+     * Get pending payment for this order.
+     */
+    public function getPendingPayment(): ?Payment
+    {
+        return $this->payments()->where('status', 'pending')->first();
+    }
+
+    /**
+     * Get total paid amount (accessor).
+     */
+    public function getTotalPaidAttribute(): float
+    {
+        return $this->getTotalPaid();
+    }
+
+    /**
+     * Get remaining balance (accessor).
+     */
+    public function getRemainingBalanceAttribute(): float
+    {
+        return $this->getRemainingBalance();
+    }
+
+    /**
      * Generate unique order number.
      */
     public static function generateOrderNumber(): string

@@ -28,7 +28,7 @@ class OrderController extends Controller
     {
         $this->authorize('viewAny', Order::class);
 
-        $query = Order::with(['items.product', 'member', 'table', 'user:id,name']);
+        $query = Order::with(['items.product', 'member', 'table', 'user:id,name', 'payments']);
 
         // Apply filters
         if ($request->filled('status')) {
@@ -123,6 +123,18 @@ class OrderController extends Controller
                     $this->addItemToOrder($order, $itemData);
                 }
                 $calculationService->updateOrderTotals($order);
+                
+                // Deduct inventory if flag is true
+                if ($request->input('deduct_inventory', false)) {
+                    $this->deductInventoryForOrder($order);
+                    
+                    Log::info('Inventory deducted for new order', [
+                        'order_id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'items_count' => $order->items->count(),
+                        'user_id' => auth()->id()
+                    ]);
+                }
             }
 
             // Assign table if provided
@@ -214,7 +226,41 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
-            $order->update($request->validated());
+            // Handle inventory adjustment if items are being updated
+            if ($request->has('items') && $request->input('update_inventory', false)) {
+                // Store old items for restoration
+                $oldItems = $order->items()->with('product')->get();
+                
+                // Restore stock for old items
+                $this->restoreInventoryForItems($oldItems);
+                
+                // Delete old items
+                $order->items()->delete();
+                
+                // Add new items
+                $calculationService = app(OrderCalculationService::class);
+                foreach ($request->input('items') as $itemData) {
+                    $this->addItemToOrder($order, $itemData);
+                }
+                
+                // Deduct stock for new items
+                $this->deductInventoryForOrder($order->fresh());
+                
+                $calculationService->updateOrderTotals($order);
+                
+                Log::info('Inventory adjusted for order update', [
+                    'order_id' => $order->id,
+                    'old_items_count' => $oldItems->count(),
+                    'new_items_count' => count($request->input('items')),
+                    'user_id' => auth()->id()
+                ]);
+            }
+
+            // Update other order fields
+            $updateData = $request->only(['operation_mode', 'table_id', 'notes', 'status', 'member_id', 'service_charge', 'discount_amount']);
+            $order->update(array_filter($updateData, function($value) {
+                return $value !== null;
+            }));
 
             // Update table assignment if changed
             if ($request->has('table_id') && $order->table_id !== $request->input('table_id')) {
@@ -232,7 +278,9 @@ class OrderController extends Controller
                 }
             }
 
-            $order->calculateTotals();
+            if (!$request->has('items')) {
+                $order->calculateTotals();
+            }
 
             DB::commit();
 
@@ -735,10 +783,8 @@ class OrderController extends Controller
             'notes' => $itemData['notes'] ?? null,
         ]);
 
-        // Update inventory
-        if ($product->track_inventory) {
-            $product->reduceStock($itemData['quantity']);
-        }
+        // NOTE: Inventory is now managed explicitly via deduct_inventory flag
+        // The automatic inventory deduction has been removed to give explicit control
 
         return $orderItem;
     }
@@ -746,10 +792,15 @@ class OrderController extends Controller
     /**
      * Cancel an order.
      */
-    public function cancel(string $id): JsonResponse
+    public function cancel(Request $request, string $id): JsonResponse
     {
         $order = Order::findOrFail($id);
         $this->authorize('update', $order);
+
+        $request->validate([
+            'restore_inventory' => 'nullable|boolean',
+            'reason' => 'nullable|string|max:500',
+        ]);
 
         if ($order->status === 'cancelled') {
             return response()->json([
@@ -797,11 +848,17 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
-            // Restore inventory for all items
-            foreach ($order->items as $item) {
-                if ($item->product && $item->product->track_inventory) {
-                    $item->product->increaseStock($item->quantity);
-                }
+            // Restore inventory if requested
+            if ($request->input('restore_inventory', false)) {
+                $items = $order->items()->with('product')->get();
+                $this->restoreInventoryForItems($items);
+                
+                Log::info('Inventory restored for cancelled order', [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'items_count' => $items->count(),
+                    'user_id' => auth()->id()
+                ]);
             }
 
             // Free table if assigned
@@ -812,8 +869,14 @@ class OrderController extends Controller
             // Cancel pending payments
             $order->payments()->where('status', 'pending')->update(['status' => 'cancelled']);
 
-            // Update order status
-            $order->update(['status' => 'cancelled']);
+            // Update order status with optional reason
+            $order->update([
+                'status' => 'cancelled',
+                'notes' => $request->input('reason') ? 
+                    ($order->notes ? $order->notes . "\n\nCancellation reason: " . $request->input('reason') : 
+                    "Cancellation reason: " . $request->input('reason')) : 
+                    $order->notes
+            ]);
 
             DB::commit();
 
@@ -824,6 +887,7 @@ class OrderController extends Controller
                 'data' => new OrderResource($order),
                 'message' => 'Order cancelled successfully',
                 'meta' => [
+                    'inventory_restored' => $request->input('restore_inventory', false),
                     'timestamp' => now()->toISOString(),
                     'version' => 'v1'
                 ]
@@ -850,4 +914,59 @@ class OrderController extends Controller
                 ]
             ], 500);
         }
-    }}
+    }
+
+    /**
+     * Deduct inventory for order items.
+     */
+    private function deductInventoryForOrder(Order $order): void
+    {
+        foreach ($order->items as $item) {
+            $product = $item->product;
+            
+            // Only deduct if product tracks inventory
+            if ($product && $product->track_inventory) {
+                $newStock = $product->stock - $item->quantity;
+                
+                // Prevent negative stock
+                if ($newStock < 0) {
+                    throw new \Exception("Insufficient stock for product: {$product->name}. Available: {$product->stock}, Requested: {$item->quantity}");
+                }
+                
+                $product->decrement('stock', $item->quantity);
+                
+                Log::info('Inventory deducted', [
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'quantity' => $item->quantity,
+                    'old_stock' => $product->stock + $item->quantity,
+                    'new_stock' => $product->stock,
+                    'order_id' => $order->id
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Restore inventory for items.
+     */
+    private function restoreInventoryForItems($items): void
+    {
+        foreach ($items as $item) {
+            $product = $item->product;
+            
+            // Only restore if product tracks inventory
+            if ($product && $product->track_inventory) {
+                $product->increment('stock', $item->quantity);
+                
+                Log::info('Inventory restored', [
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'quantity' => $item->quantity,
+                    'new_stock' => $product->stock,
+                    'order_id' => $item->order_id ?? null
+                ]);
+            }
+        }
+    }
+}
