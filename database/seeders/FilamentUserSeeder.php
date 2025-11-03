@@ -29,11 +29,19 @@ class FilamentUserSeeder extends Seeder
         );
 
         // Assign admin_sistem role (global role without store_id)
+        // Note: No team context needed for global roles
         $adminSistemRole = \Spatie\Permission\Models\Role::where('name', 'admin_sistem')
             ->whereNull('store_id')
             ->first();
-        if ($adminSistemRole && !$admin->hasRole($adminSistemRole)) {
-            $admin->assignRole($adminSistemRole);
+        if ($adminSistemRole) {
+            if (!$admin->hasRole($adminSistemRole)) {
+                $admin->assignRole($adminSistemRole);
+                $this->command->info("✅ Assigned admin_sistem role to {$admin->email}");
+            } else {
+                $this->command->info("✅ Admin role already assigned for user {$admin->email}");
+            }
+        } else {
+            $this->command->error("❌ Admin_sistem role not found. Please ensure PermissionsAndRolesSeeder ran successfully.");
         }
 
         // Get primary store ID
@@ -59,10 +67,28 @@ class FilamentUserSeeder extends Seeder
             ->where('store_id', $primaryStoreId)
             ->first();
         
-        if ($ownerRole && !$owner->hasRole($ownerRole)) {
-            // Set team context before assigning role
+        if ($ownerRole) {
+            // CRITICAL: Set team context BEFORE checking hasRole()
+            // This ensures hasRole() check uses correct team context
             setPermissionsTeamId($primaryStoreId);
-            $owner->assignRole($ownerRole);
+            
+            // Check if role already assigned with proper team context
+            if (!$owner->hasRole($ownerRole)) {
+                // Assign role with team context already set
+                $owner->assignRole($ownerRole);
+                
+                // Verify assignment was successful
+                $owner->refresh(); // Refresh to clear any cache
+                setPermissionsTeamId($primaryStoreId);
+                
+                if (!$owner->hasRole('owner')) {
+                    $this->command->warn("⚠️  Warning: Role assignment may have failed. User ID: {$owner->id}, Store ID: {$primaryStoreId}");
+                }
+            } else {
+                $this->command->info("✅ Owner role already assigned for user {$owner->email}");
+            }
+        } else {
+            $this->command->error("❌ Owner role not found for store {$primaryStoreId}. Please ensure PermissionsAndRolesSeeder ran successfully.");
         }
 
         // Ensure owner user has store context
