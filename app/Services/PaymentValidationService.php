@@ -13,6 +13,16 @@ class PaymentValidationService
      */
     public function validatePayment(Order $order, array $paymentData): array
     {
+        // Skip validation for pending payments (open bill placeholder)
+        if (isset($paymentData['payment_method']) && $paymentData['payment_method'] === 'pending') {
+            return [
+                'valid' => true,
+                'errors' => [],
+                'remaining_balance' => $order->total_amount,
+                'requested_amount' => $paymentData['amount'] ?? 0,
+            ];
+        }
+        
         $errors = [];
         
         // Check order status
