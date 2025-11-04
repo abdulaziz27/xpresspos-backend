@@ -35,6 +35,10 @@ class OrderController extends Controller
             $query->byStatus($request->input('status'));
         }
 
+        if ($request->filled('operation_mode')) {
+            $query->where('operation_mode', $request->input('operation_mode'));
+        }
+
         if ($request->filled('date')) {
             $query->whereDate('created_at', $request->input('date'));
         }
