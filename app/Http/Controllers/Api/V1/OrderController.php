@@ -10,6 +10,7 @@ use App\Http\Resources\OrderResource;
 use App\Http\Resources\OrderCollection;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Member;
 use App\Models\Table;
@@ -28,7 +29,15 @@ class OrderController extends Controller
     {
         $this->authorize('viewAny', Order::class);
 
-        $query = Order::with(['items.product', 'member', 'table', 'user:id,name', 'payments']);
+        // Build query with eager loading - ✅ WAJIB: Load items dan product untuk setiap item
+        $query = Order::with([
+            'items',           // ✅ WAJIB: Load order items
+            'items.product',   // ✅ WAJIB: Load product details untuk setiap item
+            'member',
+            'table',
+            'user:id,name',
+            'payments'
+        ]);
 
         // Apply filters
         if ($request->filled('status')) {
@@ -75,6 +84,16 @@ class OrderController extends Controller
         // Pagination
         $perPage = min($request->input('per_page', 15), 100);
         $orders = $query->paginate($perPage);
+
+        // Log untuk debugging
+        $firstOrder = $orders->first();
+        Log::info('📋 Fetching orders', [
+            'status_filter' => $request->input('status'),
+            'total_orders' => $orders->total(),
+            'items_loaded' => $firstOrder ? $firstOrder->items->count() : 0,
+            'first_order_total' => $firstOrder ? $firstOrder->total_amount : null,
+            'first_order_id' => $firstOrder ? $firstOrder->id : null,
+        ]);
 
         return response()->json([
             'success' => true,
@@ -230,34 +249,46 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
-            // Handle inventory adjustment if items are being updated
-            if ($request->has('items') && $request->input('update_inventory', false)) {
-                // Store old items for restoration
-                $oldItems = $order->items()->with('product')->get();
+            Log::info('📝 Updating order', [
+                'order_id' => $id,
+                'has_items' => $request->has('items'),
+                'update_inventory' => $request->input('update_inventory', false),
+                'restore_inventory' => $request->input('restore_inventory', false),
+                'cancel_payment' => $request->input('cancel_payment', false),
+            ]);
+
+            // ✅ FITUR BARU: Handle inventory update saat edit items (granular approach)
+            // Hanya jalan jika parameter 'update_inventory' = true
+            if ($request->has('update_inventory') && $request->input('update_inventory', false) && $request->has('items')) {
+                $this->updateInventoryForOrderEdit($order, $request->input('items'));
                 
-                // Restore stock for old items
-                $this->restoreInventoryForItems($oldItems);
+                // Update items setelah inventory adjustment
+                $this->updateOrderItems($order, $request->input('items'));
                 
-                // Delete old items
-                $order->items()->delete();
+                // Recalculate totals
+                $order->calculateTotals();
+            } elseif ($request->has('items')) {
+                // Update items tanpa inventory adjustment (backward compatible)
+                $this->updateOrderItems($order, $request->input('items'));
+                $order->calculateTotals();
+            }
+
+            // ✅ FITUR BARU: Handle restore inventory saat cancel order
+            // Hanya jalan jika parameter 'restore_inventory' = true
+            if ($request->has('restore_inventory') && $request->input('restore_inventory', false)) {
+                $items = $order->items()->with('product')->get();
+                $this->restoreInventoryForItems($items);
                 
-                // Add new items
-                $calculationService = app(OrderCalculationService::class);
-                foreach ($request->input('items') as $itemData) {
-                    $this->addItemToOrder($order, $itemData);
-                }
-                
-                // Deduct stock for new items
-                $this->deductInventoryForOrder($order->fresh());
-                
-                $calculationService->updateOrderTotals($order);
-                
-                Log::info('Inventory adjusted for order update', [
+                Log::info('✅ Inventory restored via update endpoint', [
                     'order_id' => $order->id,
-                    'old_items_count' => $oldItems->count(),
-                    'new_items_count' => count($request->input('items')),
-                    'user_id' => auth()->id()
+                    'items_count' => $items->count()
                 ]);
+            }
+
+            // ✅ FITUR BARU: Handle cancel payment saat order dibatalkan
+            // Hanya jalan jika parameter 'cancel_payment' = true
+            if ($request->has('cancel_payment') && $request->input('cancel_payment', false)) {
+                $this->cancelPendingPayment($order);
             }
 
             // Update other order fields
@@ -282,6 +313,7 @@ class OrderController extends Controller
                 }
             }
 
+            // Recalculate totals if items were not updated
             if (!$request->has('items')) {
                 $order->calculateTotals();
             }
@@ -870,8 +902,8 @@ class OrderController extends Controller
                 $order->table->makeAvailable();
             }
 
-            // Cancel pending payments
-            $order->payments()->where('status', 'pending')->update(['status' => 'cancelled']);
+            // Cancel pending payments (use new method for consistency)
+            $this->cancelPendingPayment($order);
 
             // Update order status with optional reason
             $order->update([
@@ -971,6 +1003,217 @@ class OrderController extends Controller
                     'order_id' => $item->order_id ?? null
                 ]);
             }
+        }
+    }
+
+    /**
+     * ✅ NEW METHOD: Update inventory saat edit open bill
+     * Method ini TIDAK akan berjalan untuk request existing
+     * Granular approach: compare old vs new items per product_id
+     */
+    private function updateInventoryForOrderEdit(Order $order, array $newItems): void
+    {
+        try {
+            Log::info('📦 [NEW FEATURE] Updating inventory for order edit', [
+                'order_id' => $order->id,
+            ]);
+
+            // Get old items keyed by product_id
+            $oldItems = $order->items()->with('product')->get()->keyBy('product_id');
+            $newItemsCollection = collect($newItems)->keyBy(function ($item) {
+                return $item['product_id'];
+            });
+
+            Log::info('Inventory update comparison', [
+                'old_items_count' => $oldItems->count(),
+                'new_items_count' => $newItemsCollection->count(),
+            ]);
+
+            // 1. Check untuk items yang dihapus (restore stock)
+            foreach ($oldItems as $productId => $oldItem) {
+                if (!$newItemsCollection->has($productId)) {
+                    $product = $oldItem->product;
+                    if ($product && $product->track_inventory) {
+                        $oldStock = $product->stock;
+                        $product->increment('stock', $oldItem->quantity);
+                        
+                        Log::info("✅ Restored stock for deleted item", [
+                            'product_id' => $product->id,
+                            'product_name' => $product->name,
+                            'quantity' => $oldItem->quantity,
+                            'old_stock' => $oldStock,
+                            'new_stock' => $product->stock
+                        ]);
+                    }
+                }
+            }
+
+            // 2. Check untuk items yang berubah quantity atau item baru
+            foreach ($newItemsCollection as $productId => $newItem) {
+                $product = Product::find($productId);
+                if (!$product || !$product->track_inventory) {
+                    Log::info("ℹ️ Skipping product (not found or tracking disabled)", [
+                        'product_id' => $productId
+                    ]);
+                    continue;
+                }
+
+                if ($oldItems->has($productId)) {
+                    // Item existing, check perubahan quantity
+                    $oldQuantity = $oldItems[$productId]->quantity;
+                    $newQuantity = (int) $newItem['quantity'];
+                    $diff = $newQuantity - $oldQuantity;
+
+                    if ($diff > 0) {
+                        // Quantity bertambah, kurangi stock
+                        $oldStock = $product->stock;
+                        $newStock = $product->stock - $diff;
+                        
+                        if ($newStock < 0) {
+                            throw new \Exception("Stock tidak cukup untuk {$product->name}. Stock tersedia: {$product->stock}, dibutuhkan: {$diff}");
+                        }
+                        
+                        $product->update(['stock' => $newStock]);
+                        
+                        Log::info("✅ Deducted stock for increased quantity", [
+                            'product_id' => $product->id,
+                            'product_name' => $product->name,
+                            'quantity_diff' => -$diff,
+                            'old_stock' => $oldStock,
+                            'new_stock' => $product->stock
+                        ]);
+                    } elseif ($diff < 0) {
+                        // Quantity berkurang, kembalikan stock
+                        $oldStock = $product->stock;
+                        $product->increment('stock', abs($diff));
+                        
+                        Log::info("✅ Restored stock for decreased quantity", [
+                            'product_id' => $product->id,
+                            'product_name' => $product->name,
+                            'quantity_diff' => abs($diff),
+                            'old_stock' => $oldStock,
+                            'new_stock' => $product->stock
+                        ]);
+                    } else {
+                        Log::info("ℹ️ No quantity change", [
+                            'product_id' => $product->id,
+                            'product_name' => $product->name
+                        ]);
+                    }
+                } else {
+                    // Item baru ditambahkan
+                    $quantity = (int) $newItem['quantity'];
+                    $oldStock = $product->stock;
+                    $newStock = $product->stock - $quantity;
+                    
+                    if ($newStock < 0) {
+                        throw new \Exception("Stock tidak cukup untuk {$product->name}. Stock tersedia: {$product->stock}, dibutuhkan: {$quantity}");
+                    }
+                    
+                    $product->update(['stock' => $newStock]);
+                    
+                    Log::info("✅ Deducted stock for new item", [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name,
+                        'quantity' => $quantity,
+                        'old_stock' => $oldStock,
+                        'new_stock' => $product->stock
+                    ]);
+                }
+            }
+
+            Log::info('✅ Inventory update completed successfully', [
+                'order_id' => $order->id
+            ]);
+        } catch (\Exception $e) {
+            Log::error('❌ Failed to update inventory', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * ✅ NEW METHOD: Cancel pending payment saat order dibatalkan
+     * Update payment_method menjadi 'cancelled' dan status menjadi 'cancelled'
+     */
+    private function cancelPendingPayment(Order $order): void
+    {
+        try {
+            Log::info('💳 [NEW FEATURE] Canceling pending payment for order', [
+                'order_id' => $order->id
+            ]);
+
+            $payment = Payment::where('order_id', $order->id)
+                ->where('status', 'pending')
+                ->first();
+
+            if ($payment) {
+                $payment->update([
+                    'payment_method' => 'cancelled',
+                    'status' => 'cancelled',
+                ]);
+                
+                Log::info('✅ Pending payment cancelled successfully', [
+                    'payment_id' => $payment->id,
+                    'order_id' => $order->id
+                ]);
+            } else {
+                Log::info('ℹ️ No pending payment found for this order', [
+                    'order_id' => $order->id
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('❌ Failed to cancel pending payment', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * ✅ NEW METHOD: Update order items
+     * Update order items jika request punya items
+     */
+    private function updateOrderItems(Order $order, array $items): void
+    {
+        try {
+            Log::info('📝 Updating order items', [
+                'order_id' => $order->id,
+                'items_count' => count($items)
+            ]);
+
+            // Delete existing items
+            $order->items()->delete();
+
+            // Insert new items
+            foreach ($items as $item) {
+                $order->items()->create([
+                    'store_id' => $order->store_id,
+                    'product_id' => $item['product_id'],
+                    'product_name' => $item['product_name'] ?? null,
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'total_price' => $item['total_price'] ?? ($item['unit_price'] * $item['quantity']),
+                    'notes' => $item['notes'] ?? null,
+                ]);
+            }
+
+            // ✅ CRITICAL: Recalculate totals setelah items di-update
+            $order->calculateTotals();
+
+            Log::info('✅ Order items updated successfully', [
+                'order_id' => $order->id,
+                'new_total_amount' => $order->fresh()->total_amount
+            ]);
+        } catch (\Exception $e) {
+            Log::error('❌ Failed to update order items', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
         }
     }
 }
