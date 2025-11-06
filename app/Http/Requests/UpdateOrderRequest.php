@@ -52,13 +52,16 @@ class UpdateOrderRequest extends FormRequest
                           ->where('status', true);
                 })
             ],
+            'items.*.product_name' => 'nullable|string|max:255',
             'items.*.quantity' => 'required_with:items|integer|min:1',
-            'items.*.unit_price' => 'nullable|numeric|min:0',
+            'items.*.unit_price' => 'required_with:items|numeric|min:0',
+            'items.*.total_price' => 'nullable|numeric|min:0',
             'items.*.notes' => 'nullable|string|max:500',
             
             // Inventory management
             'update_inventory' => 'nullable|boolean',
             'restore_inventory' => 'nullable|boolean',
+            'cancel_payment' => 'nullable|boolean',
             'operation_mode' => 'nullable|in:dine_in,takeaway,delivery',
         ];
     }
