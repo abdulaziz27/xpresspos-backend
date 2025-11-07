@@ -455,6 +455,86 @@ class ReportController extends Controller
     }
 
     /**
+     * Get sales recap report (grouped by payment method and operation mode).
+     */
+    public function salesRecap(Request $request): JsonResponse
+    {
+        $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $cacheKey = $this->generateCacheKey('sales_recap', $request->all());
+
+        $report = Cache::remember($cacheKey, 300, function () use ($request) {
+            return $this->reportService->generateSalesRecap(
+                startDate: Carbon::parse($request->start_date),
+                endDate: Carbon::parse($request->end_date)
+            );
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $report,
+            'message' => 'Sales recap retrieved successfully'
+        ]);
+    }
+
+    /**
+     * Get best sellers report (products and categories).
+     */
+    public function bestSellers(Request $request): JsonResponse
+    {
+        $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'limit' => 'sometimes|integer|min:1|max:100',
+        ]);
+
+        $cacheKey = $this->generateCacheKey('best_sellers', $request->all());
+
+        $report = Cache::remember($cacheKey, 600, function () use ($request) {
+            return $this->reportService->generateBestSellersReport(
+                startDate: Carbon::parse($request->start_date),
+                endDate: Carbon::parse($request->end_date),
+                limit: $request->integer('limit', 10)
+            );
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $report,
+            'message' => 'Best sellers retrieved successfully'
+        ]);
+    }
+
+    /**
+     * Get sales summary with profit calculations.
+     */
+    public function salesSummary(Request $request): JsonResponse
+    {
+        $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $cacheKey = $this->generateCacheKey('sales_summary', $request->all());
+
+        $report = Cache::remember($cacheKey, 300, function () use ($request) {
+            return $this->reportService->generateSalesSummaryReport(
+                startDate: Carbon::parse($request->start_date),
+                endDate: Carbon::parse($request->end_date)
+            );
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $report,
+            'message' => 'Sales summary retrieved successfully'
+        ]);
+    }
+
+    /**
      * Generate cache key for reports.
      */
     private function generateCacheKey(string $reportType, array $parameters): string
