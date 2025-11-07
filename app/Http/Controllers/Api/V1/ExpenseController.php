@@ -316,4 +316,73 @@ class ExpenseController extends Controller
             'message' => 'Expense summary retrieved successfully'
         ]);
     }
+
+    /**
+     * Store expense for a specific cash session.
+     */
+    public function storeForSession(Request $request, string $sessionId): JsonResponse
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:0',
+            'description' => 'required|string|max:255',
+            'category' => 'required|string|max:100',
+            'receipt_number' => 'nullable|string|max:100',
+            'vendor' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Validate cash session exists and is open
+            $cashSession = CashSession::findOrFail($sessionId);
+            
+            if ($cashSession->status === 'closed') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot add expense to a closed cash session'
+                ], 422);
+            }
+
+            // Verify session belongs to user's store
+            if ($cashSession->store_id !== request()->user()->store_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access to this cash session'
+                ], 403);
+            }
+
+            $expense = Expense::create([
+                'store_id' => request()->user()->store_id,
+                'user_id' => request()->user()->id,
+                'cash_session_id' => $sessionId,
+                'category' => $request->category,
+                'description' => $request->description,
+                'amount' => $request->amount,
+                'receipt_number' => $request->receipt_number,
+                'vendor' => $request->vendor,
+                'expense_date' => now()->toDateString(),
+                'notes' => $request->notes,
+            ]);
+
+            // Update cash session expected balance
+            $cashSession->calculateExpectedBalance();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'data' => $expense->load('user:id,name,email'),
+                'message' => 'Expense added successfully'
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to add expense',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

@@ -338,8 +338,13 @@ Route::prefix('v1')
         Route::prefix('cash-sessions')->group(function (): void {
             Route::get('/', [CashSessionController::class, 'index'])->name('api.v1.cash-sessions.index');
             Route::post('/', [CashSessionController::class, 'store'])->name('api.v1.cash-sessions.store');
+            Route::get('current', [CashSessionController::class, 'current'])->name('api.v1.cash-sessions.current');
+            Route::get('summary', [CashSessionController::class, 'summary'])->name('api.v1.cash-sessions.summary');
             Route::get('{cashSession}', [CashSessionController::class, 'show'])->name('api.v1.cash-sessions.show');
             Route::put('{cashSession}', [CashSessionController::class, 'update'])->name('api.v1.cash-sessions.update');
+            Route::post('{cashSession}/close', [CashSessionController::class, 'close'])->name('api.v1.cash-sessions.close');
+            Route::post('{cashSession}/expenses', [ExpenseController::class, 'storeForSession'])->name('api.v1.cash-sessions.expenses.store');
+            Route::delete('{cashSession}', [CashSessionController::class, 'destroy'])->name('api.v1.cash-sessions.destroy');
         });
 
         // Expenses
@@ -378,6 +383,9 @@ Route::prefix('v1')
         Route::prefix('reports')->group(function (): void {
             Route::get('dashboard', [ReportController::class, 'dashboard'])->name('api.v1.reports.dashboard');
             Route::get('sales', [ReportController::class, 'sales'])->name('api.v1.reports.sales');
+            Route::get('sales-recap', [ReportController::class, 'salesRecap'])->name('api.v1.reports.sales-recap');
+            Route::get('best-sellers', [ReportController::class, 'bestSellers'])->name('api.v1.reports.best-sellers');
+            Route::get('sales-summary', [ReportController::class, 'salesSummary'])->name('api.v1.reports.sales-summary');
             Route::get('inventory', [ReportController::class, 'inventory'])->name('api.v1.reports.inventory');
             Route::get('cash-flow', [ReportController::class, 'cashFlow'])->name('api.v1.reports.cash-flow');
             Route::get('product-performance', [ReportController::class, 'productPerformance'])->name('api.v1.reports.product-performance');
