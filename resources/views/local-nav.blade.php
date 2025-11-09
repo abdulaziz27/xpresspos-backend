@@ -114,7 +114,7 @@
                             <p><strong>Production URLs:</strong></p>
                             <p>• Landing: https://xpresspos.id</p>
                             <p>• API: https://api.xpresspos.id</p>
-                            <p>• Owner: https://user.xpresspos.id</p>
+                            <p>• Owner: https://dashboard.xpresspos.id</p>
                             <p>• Admin: https://admin.xpresspos.id</p>
                         </div>
                     </div>

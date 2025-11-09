@@ -46,7 +46,7 @@ spec:
             - name: SESSION_DOMAIN
               value: .xpresspos.id
             - name: SANCTUM_STATEFUL_DOMAINS
-              value: api.xpresspos.id,xpresspos.id,user.xpresspos.id,admin.xpresspos.id
+              value: dashboard.xpresspos.id,admin.xpresspos.id,api.xpresspos.id
           readinessProbe:
             httpGet:
               path: /healthz

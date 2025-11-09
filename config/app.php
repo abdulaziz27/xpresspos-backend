@@ -56,6 +56,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Owner Dashboard URL
+    |--------------------------------------------------------------------------
+    |
+    | This URL is used for redirecting users to the owner dashboard after
+    | authentication or subscription completion. In production, this should
+    | be set to the owner domain (e.g., https://dashboard.xpresspos.id).
+    |
+    */
+
+    'owner_url' => env('OWNER_URL', env('APP_URL') . '/owner-panel'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

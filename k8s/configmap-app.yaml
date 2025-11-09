@@ -14,7 +14,8 @@ data:
   APP_TIMEZONE: Asia/Jakarta
   FRONTEND_URL: https://xpresspos.id
   ADMIN_URL: https://admin.xpresspos.id
-  OWNER_URL: https://user.xpresspos.id
+  OWNER_DOMAIN: dashboard.xpresspos.id
+  OWNER_URL: https://dashboard.xpresspos.id
   API_URL: https://api.xpresspos.id
   SESSION_DRIVER: cookie
   SESSION_LIFETIME: "120"
@@ -25,15 +26,15 @@ data:
   QUEUE_CONNECTION: sync
   BROADCAST_DRIVER: log
   FILESYSTEM_DISK: public
-  SANCTUM_STATEFUL_DOMAINS: api.xpresspos.id,xpresspos.id,user.xpresspos.id,admin.xpresspos.id
-  CORS_ALLOWED_ORIGINS: https://api.xpresspos.id,https://xpresspos.id,https://user.xpresspos.id,https://admin.xpresspos.id
+  SANCTUM_STATEFUL_DOMAINS: dashboard.xpresspos.id,admin.xpresspos.id,api.xpresspos.id
+  CORS_ALLOWED_ORIGINS: https://api.xpresspos.id,https://xpresspos.id,https://user.xpresspos.id,https://admin.xpresspos.id,https://dashboard.xpresspos.id
   OCTANE_SERVER: roadrunner
   OCTANE_HTTPS: "true"
   OCTANE_CACHE_TABLE: octane_cache
   OCTANE_MAX_REQUESTS: "250"
   FILAMENT_APP_URL: https://admin.xpresspos.id
   FILAMENT_FILESYSTEM_DISK: public
-  OWNER_APP_URL: https://user.xpresspos.id
+  OWNER_APP_URL: https://dashboard.xpresspos.id
   COMPANY_PROFILE_URL: https://xpresspos.id
   BCRYPT_ROUNDS: "12"
   QUEUE_WORKER_TIMEOUT: "60"

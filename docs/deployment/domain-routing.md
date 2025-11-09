@@ -6,14 +6,14 @@
 |-----------------------|--------------------------------------|-------------------------------------------------|
 | `xpresspos.id`        | Landing / marketing site             | `routes/web.php`
 | `api.xpresspos.id`    | REST API (v1, Sanctum, dsb.)         | `routes/api.php` (tanpa prefix `/api`)
-| `user.xpresspos.id`   | Owner dashboard (autentikasi web)    | `routes/owner.php`
+| `dashboard.xpresspos.id`   | Owner dashboard (autentikasi web)    | `routes/owner.php`
 | `admin.xpresspos.id`  | Filament admin panel                 | `app/Providers/Filament/AdminPanelProvider.php`
 
 Semua domain dikonfigurasi lewat `config/domains.php` dan parameter env:
 
 ```
 LANDING_DOMAIN=xpresspos.id
-OWNER_DOMAIN=user.xpresspos.id
+OWNER_DOMAIN=dashboard.xpresspos.id
 ADMIN_DOMAIN=admin.xpresspos.id
 API_DOMAIN=api.xpresspos.id
 ```
@@ -39,6 +39,6 @@ Tambahkan server block untuk setiap domain yang mem-proxy ke service Octane (`12
 2. Jalankan workflow `CI-CD` (build → deploy).  
 3. Verifikasi:
    - `curl -k https://api.xpresspos.id/healthz`
-   - Buka `https://xpresspos.id`, `https://user.xpresspos.id`, `https://admin.xpresspos.id`
+   - Buka `https://xpresspos.id`, `https://dashboard.xpresspos.id`, `https://admin.xpresspos.id`
 
 Dokumen ini perlu diperbarui bila ada domain tambahan atau perubahan topologi (misal migrasi ke Kubernetes / layanan terpisah).

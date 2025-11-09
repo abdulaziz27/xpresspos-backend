@@ -312,7 +312,7 @@ class LandingController extends Controller
         return view('landing.payment-success', [
             'subscription' => $subscription,
             'showLoginInfo' => $subscription->provisioned_user_id ? true : false,
-            'loginUrl' => $subscription->onboarding_url ?? (app()->environment('local') ? '/owner-panel' : config('domains.owner', 'https://owner.xpresspos.id'))
+            'loginUrl' => $subscription->onboarding_url ?? (app()->environment('local') ? '/owner-panel' : config('app.owner_url', config('domains.owner', 'https://dashboard.xpresspos.id')))
         ]);
     }
 

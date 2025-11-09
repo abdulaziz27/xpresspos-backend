@@ -206,7 +206,7 @@
 
                     <!-- Action Buttons -->
                     <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                        <a href="{{ app()->environment('local') ? '/owner-panel' : config('domains.owner', 'http://owner.xpresspos.id') }}" 
+                        <a href="{{ app()->environment('local') ? '/owner-panel' : config('app.owner_url', config('domains.owner', 'https://dashboard.xpresspos.id')) }}" 
                            class="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-xl">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
@@ -303,7 +303,7 @@
 <script>
 // Auto-redirect to dashboard after 10 seconds
 setTimeout(function() {
-    const dashboardUrl = '{{ app()->environment("local") ? "/owner-panel" : config("domains.owner", "http://owner.xpresspos.id") }}';
+    const dashboardUrl = '{{ app()->environment("local") ? "/owner-panel" : config("app.owner_url", config("domains.owner", "https://dashboard.xpresspos.id")) }}';
     if (confirm('Redirect ke dashboard owner dalam 5 detik. Klik OK untuk redirect sekarang atau Cancel untuk tetap di halaman ini.')) {
         window.location.href = dashboardUrl;
     }
