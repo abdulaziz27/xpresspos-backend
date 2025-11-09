@@ -28,16 +28,26 @@ class OrderItemResource extends JsonResource
             'updated_at' => $this->updated_at?->toISOString(),
             
             // Relationships
-            'product' => $this->whenLoaded('product', function () {
-                return [
+            // ✅ CRITICAL: Product harus muncul jika di-eager load
+            'product' => $this->relationLoaded('product') && $this->product
+                ? [
                     'id' => $this->product->id,
                     'name' => $this->product->name,
                     'sku' => $this->product->sku,
                     'image' => $this->product->image,
                     'track_inventory' => $this->product->track_inventory,
                     'stock' => $this->product->stock,
-                ];
-            }),
+                ]
+                : $this->whenLoaded('product', function () {
+                    return [
+                        'id' => $this->product->id,
+                        'name' => $this->product->name,
+                        'sku' => $this->product->sku,
+                        'image' => $this->product->image,
+                        'track_inventory' => $this->product->track_inventory,
+                        'stock' => $this->product->stock,
+                    ];
+                }),
             
             // Computed attributes
             'formatted_options' => $this->when($this->product_options, function () {

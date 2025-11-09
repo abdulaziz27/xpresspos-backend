@@ -1408,4 +1408,214 @@ class ReportService
     {
         return ['message' => 'Efficiency recommendations implementation pending'];
     }
+
+    /**
+     * Generate sales recap grouped by payment method and operation mode.
+     */
+    public function generateSalesRecap(Carbon $startDate, Carbon $endDate): array
+    {
+        $storeId = request()->user()->store_id;
+
+        // Get payment method breakdown
+        $paymentMethods = Payment::where('payments.store_id', $storeId)
+            ->where('payments.status', 'completed')
+            ->whereBetween('payments.created_at', [$startDate->startOfDay(), $endDate->endOfDay()])
+            ->select('payment_method', DB::raw('COUNT(*) as count'), DB::raw('SUM(amount) as total_amount'))
+            ->groupBy('payment_method')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'payment_method' => $item->payment_method,
+                    'count' => (int) $item->count,
+                    'total_amount' => (float) $item->total_amount,
+                ];
+            });
+
+        // Get operation mode breakdown
+        $operationModes = Order::where('store_id', $storeId)
+            ->where('status', 'completed')
+            ->whereBetween('completed_at', [$startDate->startOfDay(), $endDate->endOfDay()])
+            ->select('operation_mode', DB::raw('COUNT(*) as count'), DB::raw('SUM(total_amount) as total_amount'))
+            ->groupBy('operation_mode')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'operation_mode' => $item->operation_mode,
+                    'count' => (int) $item->count,
+                    'total_amount' => (float) $item->total_amount,
+                ];
+            });
+
+        // Calculate totals
+        $totalCash = $paymentMethods->where('payment_method', 'cash')->sum('total_amount');
+        $totalNonCash = $paymentMethods->whereNotIn('payment_method', ['cash'])->sum('total_amount');
+        $totalTransactions = $paymentMethods->sum('count');
+        $grandTotal = $paymentMethods->sum('total_amount');
+
+        return [
+            'payment_methods' => $paymentMethods->values()->toArray(),
+            'operation_modes' => $operationModes->values()->toArray(),
+            'totals' => [
+                'total_transactions' => $totalTransactions,
+                'total_cash' => $totalCash,
+                'total_non_cash' => $totalNonCash,
+                'grand_total' => $grandTotal,
+            ],
+        ];
+    }
+
+    /**
+     * Generate best sellers report (products and categories).
+     */
+    public function generateBestSellersReport(Carbon $startDate, Carbon $endDate, int $limit = 10): array
+    {
+        $storeId = request()->user()->store_id;
+
+        // Get best selling products
+        $products = DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->join('products', 'order_items.product_id', '=', 'products.id')
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->where('orders.store_id', $storeId)
+            ->where('orders.status', 'completed')
+            ->whereBetween('orders.completed_at', [$startDate->startOfDay(), $endDate->endOfDay()])
+            ->select(
+                'products.id as product_id',
+                'products.name as product_name',
+                'products.sku',
+                'products.image',
+                'categories.name as category_name',
+                DB::raw('SUM(order_items.quantity) as total_quantity_sold'),
+                DB::raw('SUM(order_items.total_price) as total_revenue'),
+                DB::raw('COUNT(DISTINCT orders.id) as order_count')
+            )
+            ->groupBy('products.id', 'products.name', 'products.sku', 'products.image', 'categories.name')
+            ->orderByDesc('total_quantity_sold')
+            ->limit($limit)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product_name,
+                    'sku' => $item->sku,
+                    'category_name' => $item->category_name,
+                    'total_quantity_sold' => (int) $item->total_quantity_sold,
+                    'total_revenue' => (float) $item->total_revenue,
+                    'order_count' => (int) $item->order_count,
+                    'image' => $item->image,
+                ];
+            });
+
+        // Get best selling categories
+        $categories = DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->join('products', 'order_items.product_id', '=', 'products.id')
+            ->join('categories', 'products.category_id', '=', 'categories.id')
+            ->where('orders.store_id', $storeId)
+            ->where('orders.status', 'completed')
+            ->whereBetween('orders.completed_at', [$startDate->startOfDay(), $endDate->endOfDay()])
+            ->select(
+                'categories.id as category_id',
+                'categories.name as category_name',
+                DB::raw('SUM(order_items.quantity) as total_quantity_sold'),
+                DB::raw('SUM(order_items.total_price) as total_revenue'),
+                DB::raw('COUNT(DISTINCT orders.id) as order_count')
+            )
+            ->groupBy('categories.id', 'categories.name')
+            ->orderByDesc('total_quantity_sold')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'category_id' => $item->category_id,
+                    'category_name' => $item->category_name,
+                    'total_quantity_sold' => (int) $item->total_quantity_sold,
+                    'total_revenue' => (float) $item->total_revenue,
+                    'order_count' => (int) $item->order_count,
+                ];
+            });
+
+        return [
+            'products' => $products->toArray(),
+            'categories' => $categories->toArray(),
+        ];
+    }
+
+    /**
+     * Generate sales summary with profit calculations.
+     */
+    public function generateSalesSummaryReport(Carbon $startDate, Carbon $endDate): array
+    {
+        $storeId = request()->user()->store_id;
+
+        // Get completed orders in date range
+        $orders = Order::where('store_id', $storeId)
+            ->where('status', 'completed')
+            ->whereBetween('completed_at', [$startDate->startOfDay(), $endDate->endOfDay()])
+            ->get();
+
+        // Calculate basic metrics
+        $grossSales = $orders->sum('subtotal');
+        $totalDiscount = $orders->sum('discount_amount');
+        $netSales = $grossSales - $totalDiscount;
+        $totalRevenue = $orders->sum('total_amount');
+        $totalTax = $orders->sum('tax_amount');
+        $totalServiceCharge = $orders->sum('service_charge');
+        $totalTransactions = $orders->count();
+
+        // Calculate cost of goods sold (COGS) and profit
+        $totalCost = 0;
+        $orderIds = $orders->pluck('id');
+
+        if ($orderIds->isNotEmpty()) {
+            $totalCost = DB::table('order_items')
+                ->join('products', 'order_items.product_id', '=', 'products.id')
+                ->whereIn('order_items.order_id', $orderIds)
+                ->sum(DB::raw('order_items.quantity * COALESCE(products.cost_price, 0)'));
+        }
+
+        $grossProfit = $netSales - $totalCost;
+        
+        // Get expenses in the same period
+        $totalExpenses = Expense::where('store_id', $storeId)
+            ->whereBetween('expense_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->sum('amount');
+
+        $netProfit = $grossProfit - $totalExpenses;
+        $grossProfitMargin = $grossSales > 0 ? ($grossProfit / $grossSales) * 100 : 0;
+
+        // Daily statistics for charting
+        $dailyStats = Order::where('store_id', $storeId)
+            ->where('status', 'completed')
+            ->whereBetween('completed_at', [$startDate->startOfDay(), $endDate->endOfDay()])
+            ->select(
+                DB::raw('DATE(completed_at) as date'),
+                DB::raw('SUM(total_amount) as total_sales'),
+                DB::raw('COUNT(*) as transaction_count')
+            )
+            ->groupBy('date')
+            ->orderBy('date', 'asc')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'date' => $item->date,
+                    'total_sales' => (float) $item->total_sales,
+                    'transaction_count' => (int) $item->transaction_count,
+                ];
+            });
+
+        return [
+            'gross_sales' => (float) $grossSales,
+            'net_sales' => (float) $netSales,
+            'gross_profit' => (float) $grossProfit,
+            'net_profit' => (float) $netProfit,
+            'total_transactions' => $totalTransactions,
+            'gross_profit_margin' => round($grossProfitMargin, 2),
+            'total_revenue' => (float) $totalRevenue,
+            'total_cost' => (float) $totalCost,
+            'total_tax' => (float) $totalTax,
+            'total_discount' => (float) $totalDiscount,
+            'total_service_charge' => (float) $totalServiceCharge,
+            'daily_statistics' => $dailyStats->toArray(),
+        ];
+    }
 }

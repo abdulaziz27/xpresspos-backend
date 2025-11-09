@@ -16,11 +16,13 @@ class Payment extends Model
     protected $fillable = [
         'store_id',
         'order_id', // Required for POS customer transactions
-        'payment_method', // Enum: cash, credit_card, debit_card, qris, bank_transfer, e_wallet (match migration)
+        'payment_method', // Enum: cash, credit_card, debit_card, qris, bank_transfer, e_wallet, pending (match migration)
         'amount',
+        'received_amount',
         'reference_number',
         'status',
         'processed_at',
+        'paid_at',
         'notes',
         'gateway',
         'gateway_transaction_id',
@@ -32,10 +34,14 @@ class Payment extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'received_amount' => 'decimal:2',
         'gateway_fee' => 'decimal:2',
         'processed_at' => 'datetime',
+        'paid_at' => 'datetime',
         'gateway_response' => 'array',
     ];
+
+    protected $appends = ['change_amount', 'is_pending', 'is_completed'];
 
 
 
@@ -161,5 +167,45 @@ class Payment extends Model
     public function scopeWithGatewayFees($query)
     {
         return $query->where('gateway_fee', '>', 0);
+    }
+
+    /**
+     * Get change amount (accessor).
+     */
+    public function getChangeAmountAttribute(): float
+    {
+        return max(0, ($this->received_amount ?? 0) - $this->amount);
+    }
+
+    /**
+     * Check if payment is pending (accessor).
+     */
+    public function getIsPendingAttribute(): bool
+    {
+        return $this->status === 'pending';
+    }
+
+    /**
+     * Check if payment is completed (accessor).
+     */
+    public function getIsCompletedAttribute(): bool
+    {
+        return $this->status === 'completed';
+    }
+
+    /**
+     * Scope to get pending payments.
+     */
+    public function scopePending($query)
+    {
+        return $query->where('status', 'pending');
+    }
+
+    /**
+     * Scope to get payments for a specific order.
+     */
+    public function scopeForOrder($query, string $orderId)
+    {
+        return $query->where('order_id', $orderId);
     }
 }

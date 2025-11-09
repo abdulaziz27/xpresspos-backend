@@ -78,23 +78,36 @@ class PaymentController extends Controller
         $order = Order::findOrFail($request->input('order_id'));
         $this->authorize('update', $order);
 
-        // Validate payment using PaymentValidationService
-        $validationService = app(PaymentValidationService::class);
-        $validation = $validationService->validatePayment($order, $request->validated());
+        // Check if this is a pending payment for open bill
+        $isPendingPayment = $request->input('payment_method') === 'pending' 
+                            && $request->input('status') === 'pending';
 
-        if (!$validation['valid']) {
-            return response()->json([
-                'success' => false,
-                'error' => [
-                    'code' => 'PAYMENT_VALIDATION_FAILED',
-                    'message' => 'Payment validation failed.',
-                    'details' => $validation['errors']
-                ],
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'version' => 'v1'
-                ]
-            ], 422);
+        if (!$isPendingPayment) {
+            // Normal payment - validate balance
+            $validationService = app(PaymentValidationService::class);
+            $validation = $validationService->validatePayment($order, $request->validated());
+
+            if (!$validation['valid']) {
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'PAYMENT_VALIDATION_FAILED',
+                        'message' => 'Payment validation failed.',
+                        'details' => $validation['errors']
+                    ],
+                    'meta' => [
+                        'timestamp' => now()->toISOString(),
+                        'version' => 'v1'
+                    ]
+                ], 422);
+            }
+        } else {
+            // Pending payment - log for audit
+            Log::info('Creating pending payment for open bill', [
+                'order_id' => $order->id,
+                'amount' => $request->input('amount'),
+                'user_id' => auth()->id()
+            ]);
         }
 
         try {
@@ -104,28 +117,38 @@ class PaymentController extends Controller
                 'store_id' => $order->store_id,
                 'payment_method' => $request->input('payment_method'),
                 'amount' => $request->input('amount'),
+                'received_amount' => $request->input('received_amount', 0),
                 'reference_number' => $request->input('reference_number'),
-                'status' => 'pending',
+                'status' => $isPendingPayment ? 'pending' : 'pending',
                 'notes' => $request->input('notes'),
             ]);
 
-            // Process payment based on method
-            $this->processPaymentByMethod($payment, $request->validated());
+            // Only process payment for non-pending payments
+            if (!$isPendingPayment) {
+                // Process payment based on method
+                $this->processPaymentByMethod($payment, $request->validated());
 
-            // Check if order is now fully paid and complete it
-            $order = $order->fresh();
-            if ($order->isFullyPaid() && $order->status !== 'completed') {
-                $order->complete();
+                // Check if order is now fully paid and complete it
+                $order = $order->fresh();
+                if ($order->isFullyPaid() && $order->status !== 'completed') {
+                    $order->complete();
+                }
             }
 
             DB::commit();
 
             $payment->load('order');
 
+            Log::info('Payment created successfully', [
+                'payment_id' => $payment->id,
+                'is_pending' => $isPendingPayment,
+                'order_status' => $order->fresh()->status
+            ]);
+
             return response()->json([
                 'success' => true,
                 'data' => new PaymentResource($payment),
-                'message' => 'Payment processed successfully',
+                'message' => $isPendingPayment ? 'Pending payment created for open bill' : 'Payment processed successfully',
                 'meta' => [
                     'order_total' => $order->total_amount,
                     'total_paid' => $order->payments()->completed()->sum('amount'),
@@ -387,6 +410,124 @@ class PaymentController extends Controller
         // In a real implementation, this would integrate with e-wallet providers
         // For now, we'll simulate successful processing
         $payment->markAsProcessed();
+    }
+
+    /**
+     * Complete an open bill order with payment.
+     */
+    public function completeOpenBill(Request $request): JsonResponse
+    {
+        $request->validate([
+            'order_id' => 'required|uuid|exists:orders,id',
+            'payment_method' => 'required|string|in:cash,credit_card,debit_card,qris,e_wallet,bank_transfer',
+            'amount' => 'required|numeric|min:0.01',
+            'received_amount' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $order = Order::findOrFail($request->input('order_id'));
+        $this->authorize('update', $order);
+
+        // Find pending payment (only one should exist per order)
+        $pendingPayment = Payment::where('order_id', $order->id)
+            ->where('status', 'pending')
+            ->first();
+
+        if (!$pendingPayment) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'NO_PENDING_PAYMENT',
+                    'message' => 'No pending payment found for this order.',
+                    'details' => 'Cannot complete open bill without a pending payment. Please create a pending payment first.'
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+
+        try {
+            DB::beginTransaction();
+            
+            Log::info('Completing open bill payment', [
+                'order_id' => $order->id,
+                'payment_id' => $pendingPayment->id,
+                'payment_method' => $request->input('payment_method'),
+                'user_id' => auth()->id()
+            ]);
+
+            // Update pending payment with actual payment method and details
+            $pendingPayment->update([
+                'payment_method' => $request->input('payment_method'),
+                'amount' => $request->input('amount'),
+                'received_amount' => $request->input('received_amount', $request->input('amount')),
+                'status' => 'pending', // Will be marked as processed by processPaymentByMethod
+                'notes' => $request->input('notes'),
+            ]);
+
+            // Process payment based on method
+            $this->processPaymentByMethod($pendingPayment, $request->all());
+
+            // Check if order is fully paid and complete it
+            $order = $order->fresh();
+            if ($order->isFullyPaid() && $order->status !== 'completed') {
+                $order->complete();
+            }
+
+            DB::commit();
+            
+            $pendingPayment->load('order');
+            
+            Log::info('Open bill payment completed successfully', [
+                'payment_id' => $pendingPayment->id,
+                'order_status' => $order->status,
+                'user_id' => auth()->id()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => new PaymentResource($pendingPayment->fresh()),
+                'message' => 'Open bill payment completed successfully',
+                'meta' => [
+                    'order_total' => $order->total_amount,
+                    'total_paid' => $order->payments()->where('status', 'completed')->sum('amount'),
+                    'remaining_amount' => max(0, $order->total_amount - $order->payments()->where('status', 'completed')->sum('amount')),
+                    'order_status' => $order->status,
+                    'change_amount' => $request->input('received_amount') 
+                        ? max(0, $request->input('received_amount') - $request->input('amount'))
+                        : 0,
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Open bill payment processing failed', [
+                'order_id' => $order->id,
+                'payment_id' => $pendingPayment->id ?? null,
+                'payment_method' => $request->input('payment_method'),
+                'amount' => $request->input('amount'),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user_id' => auth()->id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'PAYMENT_PROCESSING_FAILED',
+                    'message' => 'Failed to process payment. Please try again.',
+                    'details' => config('app.debug') ? $e->getMessage() : null
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 500);
+        }
     }
 
     /**

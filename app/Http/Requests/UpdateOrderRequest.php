@@ -37,10 +37,32 @@ class UpdateOrderRequest extends FormRequest
                     $query->where('store_id', request()->user()->store_id);
                 })
             ],
-            'status' => 'sometimes|in:draft,open,completed',
+            'status' => 'sometimes|in:draft,open,completed,cancelled',
             'service_charge' => 'sometimes|numeric|min:0|max:999999.99',
             'discount_amount' => 'sometimes|numeric|min:0|max:999999.99',
             'notes' => 'nullable|string|max:1000',
+            
+            // Items update
+            'items' => 'nullable|array',
+            'items.*.product_id' => [
+                'required_with:items',
+                'integer',
+                Rule::exists('products', 'id')->where(function ($query) {
+                    $query->where('store_id', request()->user()->store_id)
+                          ->where('status', true);
+                })
+            ],
+            'items.*.product_name' => 'nullable|string|max:255',
+            'items.*.quantity' => 'required_with:items|integer|min:1',
+            'items.*.unit_price' => 'required_with:items|numeric|min:0',
+            'items.*.total_price' => 'nullable|numeric|min:0',
+            'items.*.notes' => 'nullable|string|max:500',
+            
+            // Inventory management
+            'update_inventory' => 'nullable|boolean',
+            'restore_inventory' => 'nullable|boolean',
+            'cancel_payment' => 'nullable|boolean',
+            'operation_mode' => 'nullable|in:dine_in,takeaway,delivery',
         ];
     }
 
@@ -52,7 +74,7 @@ class UpdateOrderRequest extends FormRequest
         return [
             'member_id.exists' => 'The selected member is invalid or does not belong to your store.',
             'table_id.exists' => 'The selected table is invalid or does not belong to your store.',
-            'status.in' => 'The order status must be one of: draft, open, completed.',
+            'status.in' => 'The order status must be one of: draft, open, completed, cancelled.',
             'service_charge.numeric' => 'The service charge must be a valid number.',
             'service_charge.min' => 'The service charge cannot be negative.',
             'service_charge.max' => 'The service charge is too large.',

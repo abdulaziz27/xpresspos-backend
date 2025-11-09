@@ -21,11 +21,15 @@ class ProcessPaymentRequest extends FormRequest
     public function rules(): array
     {
         $paymentMethods = array_column(PaymentMethodEnum::getAll(), 'id');
+        // Add 'pending' for open bill payments
+        $paymentMethods[] = 'pending';
         
         return [
             'order_id' => 'required|uuid|exists:orders,id',
             'payment_method' => 'required|string|in:' . implode(',', $paymentMethods),
             'amount' => 'required|numeric|min:0.01|max:999999.99',
+            'received_amount' => 'nullable|numeric|min:0',
+            'status' => 'nullable|string|in:pending,completed,failed',
             'reference_number' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:1000',
         ];

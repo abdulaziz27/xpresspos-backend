@@ -18,12 +18,15 @@ class OrderResource extends JsonResource
             'id' => $this->id,
             'order_number' => $this->order_number,
             'status' => $this->status,
-            'subtotal' => $this->subtotal,
-            'tax_amount' => $this->tax_amount,
-            'discount_amount' => $this->discount_amount,
-            'service_charge' => $this->service_charge,
-            'total_amount' => $this->total_amount,
-            'total_items' => $this->total_items,
+            'operation_mode' => $this->operation_mode,
+            'payment_mode' => $this->payment_mode,
+            'subtotal' => $this->subtotal ?? 0,
+            'tax_amount' => $this->tax_amount ?? 0,
+            'discount_amount' => $this->discount_amount ?? 0,
+            'service_charge' => $this->service_charge ?? 0,
+            // ✅ CRITICAL: Total amount harus selalu ada, calculate jika null
+            'total_amount' => $this->total_amount ?? ($this->subtotal ?? 0) + ($this->tax_amount ?? 0) + ($this->service_charge ?? 0) - ($this->discount_amount ?? 0),
+            'total_items' => $this->total_items ?? 0,
             // 'payment_method' => $this->payment_method, // REMOVED: Field tidak ada di database
             'notes' => $this->notes,
             'created_at' => $this->created_at?->toISOString(),
@@ -46,7 +49,10 @@ class OrderResource extends JsonResource
                 return new TableResource($this->table);
             }),
             
-            'items' => OrderItemResource::collection($this->whenLoaded('items')),
+            // ✅ CRITICAL: Items harus selalu muncul jika di-eager load
+            'items' => $this->relationLoaded('items') 
+                ? OrderItemResource::collection($this->items)
+                : ($this->whenLoaded('items') ? OrderItemResource::collection($this->items) : []),
             
             'payments' => PaymentResource::collection($this->whenLoaded('payments')),
             
