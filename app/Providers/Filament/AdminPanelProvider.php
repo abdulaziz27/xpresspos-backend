@@ -75,7 +75,18 @@ class AdminPanelProvider extends PanelProvider
             ->default();
 
         if ($this->shouldUseDomain($adminDomain)) {
+            // CRITICAL: For domain routing, we need to ensure URL is set correctly
+            // This prevents issues where Filament can't properly match routes
+            $fullDomain = 'https://' . $adminDomain;
+            \Illuminate\Support\Facades\URL::forceRootUrl($fullDomain);
+            
             $panel->domain($adminDomain)->path('/');
+            
+            \Log::info('AdminPanelProvider: Domain routing configured', [
+                'domain' => $adminDomain,
+                'full_url' => $fullDomain,
+                'app_url' => config('app.url'),
+            ]);
         } else {
             $panel->path('admin-panel');
         }
