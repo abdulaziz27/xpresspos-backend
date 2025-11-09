@@ -129,6 +129,14 @@ Route::prefix('main')->group(function () {
     })->name('main.cart');
 });
 
+// Health check endpoint for Docker healthcheck
+Route::get('/healthz', function () {
+    return response()->json([
+        'status' => 'healthy',
+        'timestamp' => now()->toISOString(),
+    ]);
+})->name('healthz');
+
 // API prefix routes for local development
 Route::prefix('api-demo')->group(function () {
     Route::get('/', function () {
