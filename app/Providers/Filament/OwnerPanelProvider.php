@@ -84,7 +84,18 @@ class OwnerPanelProvider extends PanelProvider
 
         // Configure domain/path BEFORE auth() callback
         if ($this->shouldUseDomain($ownerDomain)) {
+            // CRITICAL: For domain routing, we need to ensure URL is set correctly
+            // This prevents issues where Filament can't properly match routes
+            $fullDomain = 'https://' . $ownerDomain;
+            \Illuminate\Support\Facades\URL::forceRootUrl($fullDomain);
+            
             $panel->domain($ownerDomain)->path('/');
+            
+            \Log::info('OwnerPanelProvider: Domain routing configured', [
+                'domain' => $ownerDomain,
+                'full_url' => $fullDomain,
+                'app_url' => config('app.url'),
+            ]);
         } else {
             $panel->path('owner-panel');
         }
