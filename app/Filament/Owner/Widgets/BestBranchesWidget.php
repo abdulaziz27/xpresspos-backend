@@ -63,10 +63,16 @@ class BestBranchesWidget extends BaseWidget
             ->whereBetween('payments.created_at', [$start, $end])
             ->groupBy('stores.id', 'stores.name');
 
-        if ($owner?->team_id) {
-            $query->where('stores.team_id', $owner->team_id);
-        } elseif ($owner?->store_id) {
-            $query->where('payments.store_id', $owner->store_id);
+        // Restrict to stores assigned to this owner (all branches), defaulting to primary store if none
+        $storeIds = collect();
+        if ($owner) {
+            $storeIds = $owner->storeAssignments()->pluck('store_id');
+            if ($storeIds->isEmpty() && $owner->store_id) {
+                $storeIds = collect([$owner->store_id]);
+            }
+        }
+        if ($storeIds->isNotEmpty()) {
+            $query->whereIn('stores.id', $storeIds->all());
         } else {
             $query->whereRaw('1 = 0');
         }

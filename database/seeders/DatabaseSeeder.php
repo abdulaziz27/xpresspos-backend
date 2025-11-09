@@ -194,6 +194,7 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class,
             DiscountSeeder::class,
             OwnerDemoSeeder::class,
+            OwnerPanelSeeder::class,
         ]);
     }
 

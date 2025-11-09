@@ -60,7 +60,7 @@ class ProductForm
                                     ->prefix('Rp')
                                     ->helperText('Bisa input: 10500 atau 10.500')
                                     ->placeholder('10.500')
-                                    ->rule('required|numeric|min:0')
+                                    ->rules(['required', 'numeric', 'min:0'])
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state)),
 
                                 TextInput::make('cost_price')
@@ -68,7 +68,7 @@ class ProductForm
                                     ->prefix('Rp')
                                     ->helperText('Bisa input: 8000 atau 8.000')
                                     ->placeholder('8.000')
-                                    ->rule('nullable|numeric|min:0')
+                                    ->rules(['nullable', 'numeric', 'min:0'])
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state)),
 
                                 TextInput::make('sort_order')

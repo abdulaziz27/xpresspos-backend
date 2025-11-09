@@ -85,7 +85,7 @@ class OwnerDashboardService
             ->selectRaw('product_id, product_name, SUM(quantity) as total_quantity, SUM(total_price) as total_revenue')
             ->groupBy('product_id', 'product_name')
             ->orderByDesc('total_quantity')
-            ->limit(5)
+            ->limit(10)
             ->get()
             ->map(function ($row) {
                 return [

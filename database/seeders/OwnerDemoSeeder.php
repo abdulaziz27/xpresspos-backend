@@ -38,7 +38,7 @@ class OwnerDemoSeeder extends Seeder
 
         if (!$store) {
             $store = Store::create([
-                'name' => 'Demo Coffee Shop',
+                'name' => 'Arasta Coffee - Central',
                 'email' => 'demo-owner@posxpress.com',
                 'phone' => '+628123456789',
                 'address' => 'Jl. Demo Raya No. 1',
