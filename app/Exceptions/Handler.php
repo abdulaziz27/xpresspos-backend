@@ -10,6 +10,7 @@ use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use App\Exceptions\OwnerPanelAccessDeniedException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -53,6 +54,11 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Throwable $e): Response
     {
+        // Handle OwnerPanelAccessDeniedException with detailed messages
+        if ($e instanceof OwnerPanelAccessDeniedException) {
+            return $this->renderOwnerPanelAccessDenied($request, $e);
+        }
+
         // Handle ValidationException separately to use invalidJson method
         if ($e instanceof ValidationException) {
             return $this->invalidJson($request, $e);
@@ -61,6 +67,11 @@ class Handler extends ExceptionHandler
         // Handle API requests with JSON responses
         if ($this->isApiRequest($request)) {
             return $this->renderApiException($request, $e);
+        }
+
+        // Handle Filament requests with better error messages
+        if ($this->isFilamentRequest($request)) {
+            return $this->renderFilamentException($request, $e);
         }
 
         return parent::render($request, $e);
@@ -227,6 +238,10 @@ class Handler extends ExceptionHandler
             $details['guards'] = $e->guards();
         }
 
+        if ($e instanceof OwnerPanelAccessDeniedException) {
+            $details = array_merge($details, $e->toArray());
+        }
+
         if (config('app.debug')) {
             $details['exception'] = get_class($e);
             $details['file'] = $e->getFile();
@@ -235,5 +250,128 @@ class Handler extends ExceptionHandler
         }
 
         return $details;
+    }
+
+    /**
+     * Render OwnerPanelAccessDeniedException with informative message
+     */
+    protected function renderOwnerPanelAccessDenied(Request $request, OwnerPanelAccessDeniedException $e): Response
+    {
+        // For Filament requests, show error page with detailed message
+        if ($this->isFilamentRequest($request)) {
+            // Flash error message to session for Filament to display
+            session()->flash('error', $e->getMessage());
+            
+            // Log the access denial with full context
+            \Log::warning('OwnerPanel access denied', [
+                'reason' => $e->getReason(),
+                'user_email' => $e->getUserEmail(),
+                'store_id' => $e->getStoreId(),
+                'user_roles' => $e->getUserRoles(),
+                'url' => $request->fullUrl(),
+                'ip' => $request->ip(),
+            ]);
+
+            // Return 403 with custom view or redirect to login with message
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'OWNER_PANEL_ACCESS_DENIED',
+                        'message' => $e->getMessage(),
+                        'reason' => $e->getReason(),
+                        'user_email' => $e->getUserEmail(),
+                    ]
+                ], 403);
+            }
+
+            // For Filament, redirect to login with error message
+            return redirect()
+                ->route('filament.owner.auth.login')
+                ->with('error', $e->getMessage());
+        }
+
+        // For API requests
+        if ($this->isApiRequest($request)) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'OWNER_PANEL_ACCESS_DENIED',
+                    'message' => $e->getMessage(),
+                    'reason' => $e->getReason(),
+                ]
+            ], 403);
+        }
+
+        // Default: use parent handler but with custom message
+        return parent::render($request, $e);
+    }
+
+    /**
+     * Render Filament-specific exceptions with better messages
+     */
+    protected function renderFilamentException(Request $request, Throwable $e): Response
+    {
+        // Handle AccessDeniedHttpException for Filament
+        if ($e instanceof AccessDeniedHttpException) {
+            $message = $e->getMessage();
+            
+            // If message is generic, provide more context
+            if (in_array($message, ['Forbidden', 'Unauthorized access to this panel.', 'Access denied'])) {
+                $user = auth()->user();
+                $userRoles = $user ? $user->getRoleNames()->toArray() : [];
+                
+                $detailedMessage = 'Anda tidak memiliki izin untuk mengakses halaman ini. ';
+                
+                if ($user) {
+                    $detailedMessage .= 'Akun Anda (' . $user->email . ') memiliki role: ' . implode(', ', $userRoles) . '. ';
+                    
+                    if (empty($userRoles)) {
+                        $detailedMessage .= 'Silakan hubungi administrator untuk menetapkan role yang sesuai.';
+                    } else {
+                        $detailedMessage .= 'Jika Anda yakin seharusnya memiliki akses, silakan hubungi administrator.';
+                    }
+                } else {
+                    $detailedMessage .= 'Silakan login terlebih dahulu.';
+                }
+
+                session()->flash('error', $detailedMessage);
+                
+                \Log::warning('Filament access denied', [
+                    'message' => $message,
+                    'user_id' => $user?->id,
+                    'user_email' => $user?->email,
+                    'user_roles' => $userRoles,
+                    'url' => $request->fullUrl(),
+                ]);
+            }
+
+            // Redirect to appropriate login page based on panel
+            if ($request->is('owner-panel/*') || $request->getHost() === env('OWNER_DOMAIN')) {
+                return redirect()
+                    ->route('filament.owner.auth.login')
+                    ->with('error', $message ?: 'Anda tidak memiliki izin untuk mengakses dashboard toko.');
+            }
+
+            if ($request->is('admin-panel/*') || $request->getHost() === env('ADMIN_DOMAIN')) {
+                return redirect()
+                    ->route('filament.admin.auth.login')
+                    ->with('error', $message ?: 'Anda tidak memiliki izin untuk mengakses panel admin.');
+            }
+        }
+
+        return parent::render($request, $e);
+    }
+
+    /**
+     * Check if request is for Filament panel
+     */
+    protected function isFilamentRequest(Request $request): bool
+    {
+        return $request->is('owner-panel/*') ||
+               $request->is('admin-panel/*') ||
+               $request->routeIs('filament.*') ||
+               $request->getHost() === env('OWNER_DOMAIN') ||
+               $request->getHost() === env('ADMIN_DOMAIN');
     }
 }

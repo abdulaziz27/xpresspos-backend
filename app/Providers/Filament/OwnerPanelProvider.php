@@ -93,10 +93,34 @@ class OwnerPanelProvider extends PanelProvider
         $panel->auth(function () {
             // Filament v4 panel-level access gate
             if (!auth()->check()) {
-                return false;
+                \Log::warning('OwnerPanel auth gate: User not authenticated', [
+                    'url' => request()->fullUrl(),
+                    'ip' => request()->ip(),
+                ]);
+                throw new \App\Exceptions\OwnerPanelAccessDeniedException(
+                    'not_authenticated',
+                    null,
+                    null,
+                    []
+                );
             }
 
             $user = auth()->user();
+            $userRoles = $user->getRoleNames()->toArray();
+
+            // Check if email is verified
+            if (!$user->email_verified_at) {
+                \Log::warning('OwnerPanel auth gate: Email not verified', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                ]);
+                throw new \App\Exceptions\OwnerPanelAccessDeniedException(
+                    'email_not_verified',
+                    $user->email,
+                    null,
+                    $userRoles
+                );
+            }
 
             // Allow admin_sistem and super_admin to access owner panel for monitoring/troubleshooting
             // These are internal roles that need to see the customer perspective
@@ -104,7 +128,7 @@ class OwnerPanelProvider extends PanelProvider
                 \Log::info('OwnerPanel auth gate: Admin system access granted', [
                     'user_id' => $user->id,
                     'user_email' => $user->email,
-                    'roles' => $user->getRoleNames()->toArray(),
+                    'roles' => $userRoles,
                 ]);
                 return true;
             }
@@ -119,13 +143,36 @@ class OwnerPanelProvider extends PanelProvider
                 $storeId = $primaryStore?->id;
             }
 
-            // If no store found, deny access immediately
+            // If no store found, deny access with informative message
             if (!$storeId) {
                 \Log::warning('OwnerPanel auth gate: User has no store', [
                     'user_id' => $user->id,
                     'user_email' => $user->email,
+                    'roles' => $userRoles,
                 ]);
-                return false;
+                throw new \App\Exceptions\OwnerPanelAccessDeniedException(
+                    'no_store',
+                    $user->email,
+                    null,
+                    $userRoles
+                );
+            }
+
+            // Check if store is active
+            $store = \App\Models\Store::find($storeId);
+            if ($store && $store->status !== 'active') {
+                \Log::warning('OwnerPanel auth gate: Store is not active', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'store_id' => $storeId,
+                    'store_status' => $store->status,
+                ]);
+                throw new \App\Exceptions\OwnerPanelAccessDeniedException(
+                    'store_inactive',
+                    $user->email,
+                    $storeId,
+                    $userRoles
+                );
             }
 
             // Set team context BEFORE any role check
@@ -146,10 +193,35 @@ class OwnerPanelProvider extends PanelProvider
                 'team_context_set' => getPermissionsTeamId(),
                 'has_owner_role' => $hasOwnerRole,
                 'has_owner_assignment' => $hasOwnerAssignment,
-                'roles' => $user->getRoleNames()->toArray(),
+                'roles' => $userRoles,
             ]);
 
-            return $hasOwnerRole || $hasOwnerAssignment;
+            // If user doesn't have owner role or assignment, provide detailed error
+            if (!$hasOwnerRole && !$hasOwnerAssignment) {
+                // Determine the most specific reason
+                $reason = !$hasOwnerRole && !$hasOwnerAssignment 
+                    ? 'no_owner_role'  // Primary reason: missing owner role
+                    : (!$hasOwnerAssignment ? 'no_owner_assignment' : 'no_owner_role');
+                
+                \Log::warning('OwnerPanel auth gate: Access denied', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'store_id' => $storeId,
+                    'has_owner_role' => $hasOwnerRole,
+                    'has_owner_assignment' => $hasOwnerAssignment,
+                    'roles' => $userRoles,
+                    'reason' => $reason,
+                ]);
+
+                throw new \App\Exceptions\OwnerPanelAccessDeniedException(
+                    $reason,
+                    $user->email,
+                    $storeId,
+                    $userRoles
+                );
+            }
+
+            return true;
         });
 
         return $panel;
