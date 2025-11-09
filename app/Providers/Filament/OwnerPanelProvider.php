@@ -114,7 +114,38 @@ class OwnerPanelProvider extends PanelProvider
             }
 
             $user = auth()->user();
-            $userRoles = $user->getRoleNames()->toArray();
+            
+            // CRITICAL: Set team context FIRST before any role checks
+            // This prevents SQL ambiguity errors in Spatie Permission queries
+            $storeId = $user->store_id;
+            
+            // Try to get from primary store if not directly set
+            if (!$storeId) {
+                $primaryStore = $user->primaryStore();
+                $storeId = $primaryStore?->id;
+            }
+            
+            // Set team context immediately if we have a store
+            if ($storeId) {
+                setPermissionsTeamId($storeId);
+            }
+            
+            // Get roles with team context already set to avoid SQL ambiguity
+            $userRoles = [];
+            try {
+                $userRoles = $user->getRoleNames()->toArray();
+            } catch (\Exception $e) {
+                // Fallback: get roles directly from relationship
+                \Log::warning('OwnerPanel auth gate: Error getting role names, using fallback', [
+                    'error' => $e->getMessage(),
+                    'user_id' => $user->id,
+                    'store_id' => $storeId,
+                ]);
+                if ($storeId) {
+                    $roles = $user->roles()->get();
+                    $userRoles = $roles->pluck('name')->toArray();
+                }
+            }
 
             // Check if email is verified
             if (!$user->email_verified_at) {
@@ -132,6 +163,7 @@ class OwnerPanelProvider extends PanelProvider
 
             // Allow admin_sistem and super_admin to access owner panel for monitoring/troubleshooting
             // These are internal roles that need to see the customer perspective
+            // Check these roles WITHOUT team context (they are global roles)
             if ($user->hasRole(['admin_sistem', 'super_admin'])) {
                 \Log::info('OwnerPanel auth gate: Admin system access granted', [
                     'user_id' => $user->id,
@@ -139,16 +171,6 @@ class OwnerPanelProvider extends PanelProvider
                     'roles' => $userRoles,
                 ]);
                 return true;
-            }
-
-            // CRITICAL: Always ensure team context is set before role checks
-            // Cannot rely on middleware order - explicitly set here
-            $storeId = $user->store_id;
-            
-            // Try to get from primary store if not directly set
-            if (!$storeId) {
-                $primaryStore = $user->primaryStore();
-                $storeId = $primaryStore?->id;
             }
 
             // If no store found, deny access with informative message
@@ -183,10 +205,7 @@ class OwnerPanelProvider extends PanelProvider
                 );
             }
 
-            // Set team context BEFORE any role check
-            setPermissionsTeamId($storeId);
-
-            // Now check if user has owner role (will use correct team context)
+            // Team context is already set above, now check if user has owner role
             $hasOwnerRole = $user->hasRole('owner');
             
             // Also check store assignments as fallback
