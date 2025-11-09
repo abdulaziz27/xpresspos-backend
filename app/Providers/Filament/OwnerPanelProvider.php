@@ -91,6 +91,14 @@ class OwnerPanelProvider extends PanelProvider
 
         // Auth gate must be LAST in the chain
         $panel->auth(function () {
+            // Log entry to auth gate for debugging
+            \Log::info('OwnerPanel auth gate: ENTRY', [
+                'url' => request()->fullUrl(),
+                'ip' => request()->ip(),
+                'is_authenticated' => auth()->check(),
+                'user_id' => auth()->id(),
+            ]);
+            
             // Filament v4 panel-level access gate
             if (!auth()->check()) {
                 \Log::warning('OwnerPanel auth gate: User not authenticated', [
