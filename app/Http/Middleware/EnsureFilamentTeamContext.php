@@ -10,6 +10,13 @@ class EnsureFilamentTeamContext
 {
     public function handle(Request $request, Closure $next): Response
     {
+        \Log::info('EnsureFilamentTeamContext: Entry', [
+            'url' => $request->fullUrl(),
+            'route' => $request->route()?->getName(),
+            'is_authenticated' => auth()->check(),
+            'user_id' => auth()->id(),
+        ]);
+        
         $user = auth()->user();
         
         if ($user) {
@@ -47,6 +54,10 @@ class EnsureFilamentTeamContext
                     'url' => $request->fullUrl(),
                 ]);
             }
+        } else {
+            \Log::warning('EnsureFilamentTeamContext: No authenticated user', [
+                'url' => $request->fullUrl(),
+            ]);
         }
 
         return $next($request);
