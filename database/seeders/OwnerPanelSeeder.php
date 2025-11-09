@@ -24,14 +24,34 @@ class OwnerPanelSeeder extends Seeder
             $legacy->update(['name' => 'Arasta Coffee - Central']);
         }
 
+        // Get primary store first to set as default store_id
+        $primaryStore = Store::where('name', 'Arasta Coffee - Pusat')
+            ->orWhere('name', 'Arasta Coffee - Central')
+            ->first();
+        
+        // If primary store doesn't exist yet, we'll create it in the loop
+        // For now, get any existing store or use first store from config
+        if (!$primaryStore) {
+            $primaryStore = Store::first();
+        }
+
         $owner = User::firstOrCreate(
-            ['email' => 'owner@xpresspos.com'],
+            ['email' => 'owner@xpresspos.id'],
             [
                 'name' => 'Arasta Owner',
-                'password' => bcrypt('password'),
+                'password' => bcrypt('password123'),
                 'email_verified_at' => now(),
+                'store_id' => $primaryStore?->id, // Set store_id if primary store exists
             ]
         );
+
+        // CRITICAL: Always ensure store_id is set, even for existing users
+        // This prevents issues where user was created by another seeder without store_id
+        if (!$owner->store_id && $primaryStore) {
+            $owner->store_id = $primaryStore->id;
+            $owner->save();
+            $this->command->info("Updated store_id for {$owner->email} to {$primaryStore->id}");
+        }
 
         // Rename any legacy English branch names to Indonesian to avoid duplicates
         $renameMap = [
@@ -91,9 +111,27 @@ class OwnerPanelSeeder extends Seeder
             $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
                 ->where('store_id', $store->id)
                 ->first();
+            
             if ($ownerRole) {
+                // CRITICAL: Always set team context BEFORE any role operation
                 setPermissionsTeamId($store->id);
+                
+                // Force remove any existing role assignments for this user in this store
+                // to ensure clean state (prevents duplicate role assignments)
+                $owner->roles()->wherePivot('store_id', $store->id)->detach();
+                
+                // Assign role fresh
                 $owner->assignRole($ownerRole);
+                
+                // Verify assignment was successful
+                $owner->refresh();
+                setPermissionsTeamId($store->id); // Set context again after refresh
+                
+                if (!$owner->hasRole('owner')) {
+                    $this->command->warn("⚠️ Failed to assign owner role to {$owner->email} for store {$store->name}");
+                }
+            } else {
+                $this->command->warn("⚠️ Owner role not found for store {$store->name} (ID: {$store->id})");
             }
 
             StoreUserAssignment::updateOrCreate(
@@ -101,10 +139,14 @@ class OwnerPanelSeeder extends Seeder
                 ['assignment_role' => 'owner', 'is_primary' => $idx === 0]
             );
 
-            // Ensure the owner's primary store_id points to Central branch
-            if ($idx === 0 && $owner->store_id !== $store->id) {
-                $owner->store_id = $store->id;
-                $owner->save();
+            // CRITICAL: Ensure the owner's primary store_id points to Central branch (first store)
+            // This is essential for auth gate to work correctly
+            if ($idx === 0) {
+                if ($owner->store_id !== $store->id) {
+                    $owner->store_id = $store->id;
+                    $owner->save();
+                    $this->command->info("✅ Set primary store_id for {$owner->email} to {$store->name} (ID: {$store->id})");
+                }
             }
 
             $categoryMap = [];

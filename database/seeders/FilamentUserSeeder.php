@@ -20,7 +20,7 @@ class FilamentUserSeeder extends Seeder
         
         // Create System Admin user
         $admin = User::firstOrCreate(
-            ['email' => 'admin@xpresspos.com'],
+            ['email' => 'admin@xpresspos.id'],
             [
                 'name' => 'System Admin',
                 'password' => Hash::make('password123'),
@@ -53,7 +53,7 @@ class FilamentUserSeeder extends Seeder
 
         // Create Store Owner user
         $owner = User::firstOrCreate(
-            ['email' => 'owner@xpresspos.com'],
+            ['email' => 'owner@xpresspos.id'],
             [
                 'name' => 'Store Owner',
                 'password' => Hash::make('password123'),
@@ -104,8 +104,8 @@ class FilamentUserSeeder extends Seeder
         $this->assignUserToStore($owner, $primaryStoreId, 'owner');
 
         $this->command->info('Filament users created successfully!');
-        $this->command->info('Admin: admin@xpresspos.com / password123');
-        $this->command->info('Owner: owner@xpresspos.com / password123');
+        $this->command->info('Admin: admin@xpresspos.id / password123');
+        $this->command->info('Owner: owner@xpresspos.id / password123');
     }
 
     private function assignUserToStore(User $user, string $storeId, string $role): void

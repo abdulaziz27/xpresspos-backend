@@ -39,7 +39,7 @@ class OwnerDemoSeeder extends Seeder
         if (!$store) {
             $store = Store::create([
                 'name' => 'Arasta Coffee - Central',
-                'email' => 'demo-owner@posxpress.com',
+                'email' => 'store@xpresspos.id',
                 'phone' => '+628123456789',
                 'address' => 'Jl. Demo Raya No. 1',
                 'settings' => [
@@ -53,25 +53,54 @@ class OwnerDemoSeeder extends Seeder
 
         config(['demo.store_id' => $store->id]);
 
-        // Ensure owner assignment exists
-        $owner = User::where('email', 'aziz@xpress.com')->first();
+        // Ensure owner assignment exists (will use owner@xpresspos.id from FilamentUserSeeder)
+        $owner = User::where('email', 'owner@xpresspos.id')->first();
+        
         if (!$owner) {
-            $owner = User::create([
-                'name' => 'Abdul Aziz',
-                'email' => 'aziz@xpress.com',
-                'password' => bcrypt('password'),
-                'store_id' => $store->id,
-            ]);
-            
-            // Assign role with team context
-            setPermissionsTeamId($store->id);
-            $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
-                ->where('store_id', $store->id)
-                ->first();
-            if ($ownerRole) {
-                $owner->assignRole($ownerRole);
-            }
+            $owner = User::firstOrCreate(
+                ['email' => 'owner@xpresspos.id'],
+                [
+                    'name' => 'Store Owner',
+                    'password' => bcrypt('password123'),
+                    'store_id' => $store->id,
+                    'email_verified_at' => now(),
+                ]
+            );
         }
+
+        // CRITICAL: Always ensure store_id is set, even for existing users
+        if ($owner->store_id !== $store->id) {
+            $owner->store_id = $store->id;
+            $owner->save();
+            $this->command->info("Updated store_id for {$owner->email} to {$store->id}");
+        }
+        
+        // Assign role with team context
+        $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
+            ->where('store_id', $store->id)
+            ->first();
+        
+        if ($ownerRole) {
+            // CRITICAL: Always set team context BEFORE any role operation
+            setPermissionsTeamId($store->id);
+            
+            // Force remove any existing role assignments for this user in this store
+            $owner->roles()->wherePivot('store_id', $store->id)->detach();
+            
+            // Assign role fresh
+            $owner->assignRole($ownerRole);
+            
+            // Verify assignment
+            $owner->refresh();
+            setPermissionsTeamId($store->id);
+            
+            if (!$owner->hasRole('owner')) {
+                $this->command->warn("⚠️ Failed to assign owner role to {$owner->email} for store {$store->name}");
+            }
+        } else {
+            $this->command->warn("⚠️ Owner role not found for store {$store->name} (ID: {$store->id})");
+        }
+        
         if ($owner) {
             StoreUserAssignment::updateOrCreate(
                 ['store_id' => $store->id, 'user_id' => $owner->id],
@@ -86,20 +115,34 @@ class OwnerDemoSeeder extends Seeder
             })->first();
         
         if (!$manager) {
-            $manager = User::create([
-                'name' => 'Store Manager',
-                'email' => 'manager@posxpress.com',
-                'password' => bcrypt('password'),
-                'store_id' => $store->id,
-            ]);
+            $manager = User::firstOrCreate(
+                ['email' => 'manager@xpresspos.id'],
+                [
+                    'name' => 'Store Manager',
+                    'password' => bcrypt('password123'),
+                    'store_id' => $store->id,
+                    'email_verified_at' => now(),
+                ]
+            );
             
             // Assign role with team context
-            setPermissionsTeamId($store->id);
             $managerRole = \Spatie\Permission\Models\Role::where('name', 'manager')
                 ->where('store_id', $store->id)
                 ->first();
+            
             if ($managerRole) {
+                // CRITICAL: Always set team context BEFORE any role operation
+                setPermissionsTeamId($store->id);
+                
+                // Force remove any existing role assignments for this user in this store
+                $manager->roles()->wherePivot('store_id', $store->id)->detach();
+                
+                // Assign role fresh
                 $manager->assignRole($managerRole);
+                
+                // Verify assignment
+                $manager->refresh();
+                setPermissionsTeamId($store->id);
             }
         }
         StoreUserAssignment::updateOrCreate(
@@ -113,20 +156,34 @@ class OwnerDemoSeeder extends Seeder
             })->first();
             
         if (!$cashier) {
-            $cashier = User::create([
-                'name' => 'Demo Cashier',
-                'email' => 'cashier@posxpress.com',
-                'password' => bcrypt('password'),
-                'store_id' => $store->id,
-            ]);
+            $cashier = User::firstOrCreate(
+                ['email' => 'cashier@xpresspos.id'],
+                [
+                    'name' => 'Store Cashier',
+                    'password' => bcrypt('password123'),
+                    'store_id' => $store->id,
+                    'email_verified_at' => now(),
+                ]
+            );
             
             // Assign role with team context
-            setPermissionsTeamId($store->id);
             $cashierRole = \Spatie\Permission\Models\Role::where('name', 'cashier')
                 ->where('store_id', $store->id)
                 ->first();
+            
             if ($cashierRole) {
+                // CRITICAL: Always set team context BEFORE any role operation
+                setPermissionsTeamId($store->id);
+                
+                // Force remove any existing role assignments for this user in this store
+                $cashier->roles()->wherePivot('store_id', $store->id)->detach();
+                
+                // Assign role fresh
                 $cashier->assignRole($cashierRole);
+                
+                // Verify assignment
+                $cashier->refresh();
+                setPermissionsTeamId($store->id);
             }
         }
         StoreUserAssignment::updateOrCreate(

@@ -98,6 +98,17 @@ class OwnerPanelProvider extends PanelProvider
 
             $user = auth()->user();
 
+            // Allow admin_sistem and super_admin to access owner panel for monitoring/troubleshooting
+            // These are internal roles that need to see the customer perspective
+            if ($user->hasRole(['admin_sistem', 'super_admin'])) {
+                \Log::info('OwnerPanel auth gate: Admin system access granted', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'roles' => $user->getRoleNames()->toArray(),
+                ]);
+                return true;
+            }
+
             // CRITICAL: Always ensure team context is set before role checks
             // Cannot rely on middleware order - explicitly set here
             $storeId = $user->store_id;

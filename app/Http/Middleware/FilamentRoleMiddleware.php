@@ -94,9 +94,9 @@ class FilamentRoleMiddleware
                 abort(403, 'Unauthorized access to this panel.');
             }
         } else {
-            // For admin_sistem role, check for admin_sistem or super-admin
+            // For admin_sistem role, check for admin_sistem or super_admin
             if ($role === 'admin_sistem') {
-                $hasAdminRole = $user->hasRole(['admin_sistem', 'super-admin']);
+                $hasAdminRole = $user->hasRole(['admin_sistem', 'super_admin']);
                 if (!$hasAdminRole) {
                     abort(403, 'Unauthorized access to this panel.');
                 }

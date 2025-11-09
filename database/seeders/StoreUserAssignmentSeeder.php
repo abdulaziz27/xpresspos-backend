@@ -44,6 +44,9 @@ class StoreUserAssignmentSeeder extends Seeder
             }
 
             // Determine role based on user's existing roles
+            // CRITICAL: Set team context before checking roles
+            setPermissionsTeamId($store->id);
+            
             $role = AssignmentRoleEnum::STAFF; // default
             
             if ($user->hasRole('owner')) {

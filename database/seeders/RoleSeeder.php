@@ -15,7 +15,7 @@ class RoleSeeder extends Seeder
     {
         // Create roles
         $roles = [
-            'super-admin',
+            'super_admin',
             'admin_sistem', 
             'owner',
             'cashier',
@@ -42,7 +42,7 @@ class RoleSeeder extends Seeder
         }
 
         // Assign permissions to roles
-        $superAdmin = Role::findByName('super-admin');
+        $superAdmin = Role::findByName('super_admin');
         $superAdmin->givePermissionTo(Permission::all());
 
         $adminSistem = Role::findByName('admin_sistem');
