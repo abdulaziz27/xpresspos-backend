@@ -74,13 +74,15 @@ class Member extends Model
         $this->increment('loyalty_points', $points);
         $balanceAfter = $this->fresh()->loyalty_points;
 
-        // Update tier if necessary
-        $this->updateTier();
+        // Update tier only if crossed a boundary (optimized)
+        if ($this->shouldCheckTierUpdate($balanceBefore, $balanceAfter)) {
+            $this->updateTier();
+        }
 
         return $this->loyaltyTransactions()->create([
             'store_id' => $this->store_id,
             'order_id' => $metadata['order_id'] ?? null,
-            'user_id' => auth()->id(),
+            'user_id' => $metadata['user_id'] ?? auth()->id(), // Use order's user_id as fallback when auth() is null (Observer context)
             'type' => 'earned',
             'points' => $points,
             'balance_before' => $balanceBefore,
@@ -103,13 +105,15 @@ class Member extends Model
         $this->decrement('loyalty_points', $points);
         $balanceAfter = $this->fresh()->loyalty_points;
 
-        // Update tier if necessary
-        $this->updateTier();
+        // Update tier only if crossed a boundary (optimized)
+        if ($this->shouldCheckTierUpdate($balanceBefore, $balanceAfter)) {
+            $this->updateTier();
+        }
 
         $this->loyaltyTransactions()->create([
             'store_id' => $this->store_id,
             'order_id' => $metadata['order_id'] ?? null,
-            'user_id' => auth()->id(),
+            'user_id' => $metadata['user_id'] ?? auth()->id(), // Use order's user_id as fallback when auth() is null (Observer context)
             'type' => 'redeemed',
             'points' => -$points, // Negative for redemption
             'balance_before' => $balanceBefore,
@@ -130,12 +134,15 @@ class Member extends Model
         $this->increment('loyalty_points', $points);
         $balanceAfter = $this->fresh()->loyalty_points;
 
-        // Update tier if necessary
-        $this->updateTier();
+        // Update tier only if crossed a boundary (optimized)
+        if ($this->shouldCheckTierUpdate($balanceBefore, $balanceAfter)) {
+            $this->updateTier();
+        }
 
         return $this->loyaltyTransactions()->create([
             'store_id' => $this->store_id,
-            'user_id' => auth()->id(),
+            'order_id' => $metadata['order_id'] ?? null,
+            'user_id' => $metadata['user_id'] ?? auth()->id(), // Use order's user_id as fallback when auth() is null (Observer context)
             'type' => 'adjusted',
             'points' => $points,
             'balance_before' => $balanceBefore,
@@ -207,6 +214,47 @@ class Member extends Model
     }
 
     /**
+     * Check if tier update is needed based on point boundaries.
+     * This optimizes performance by only checking tier when crossing thresholds.
+     */
+    protected function shouldCheckTierUpdate(int $oldPoints, int $newPoints): bool
+    {
+        // Always check if points changed significantly or if no tier assigned
+        if (!$this->tier_id) {
+            return true;
+        }
+
+        $boundaries = $this->getTierBoundaries();
+        
+        // Check if crossed any tier boundary
+        foreach ($boundaries as $threshold) {
+            if (($oldPoints < $threshold && $newPoints >= $threshold) ||
+                ($oldPoints >= $threshold && $newPoints < $threshold)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Get tier boundaries (min_points) with caching.
+     * Cached for 1 hour to avoid repeated database queries.
+     */
+    protected function getTierBoundaries(): array
+    {
+        $cacheKey = 'tier_boundaries_' . $this->store_id;
+        
+        return cache()->remember($cacheKey, 3600, function() {
+            return MemberTier::where('store_id', $this->store_id)
+                ->active()
+                ->orderBy('min_points')
+                ->pluck('min_points')
+                ->toArray();
+        });
+    }
+
+    /**
      * Get points needed for next tier.
      */
     public function getPointsToNextTier(): int
@@ -234,16 +282,21 @@ class Member extends Model
 
     /**
      * Calculate loyalty points earned from purchase amount.
+     * 
+     * For Rupiah currency: 1 point per Rp 1.000 spent
+     * Can be customized per store in the future
      */
     public function calculatePointsFromPurchase(float $amount): int
     {
-        // Default: 1 point per $1 spent, can be customized per store
-        $pointsPerDollar = 1;
+        // For Rupiah: 1 point per Rp 1.000 spent
+        $pointsPerThousand = 1; // 1 point per Rp 1.000
         
         // Apply tier multiplier if available
         $tierMultiplier = $this->tier?->benefits['points_multiplier'] ?? 1;
         
-        return intval(floor($amount * $pointsPerDollar * $tierMultiplier));
+        // Calculate: (amount / 1000) * pointsPerThousand * tierMultiplier
+        // Example: Rp 35.000 / 1000 * 1 * 1 = 35 points
+        return intval(floor(($amount / 1000) * $pointsPerThousand * $tierMultiplier));
     }
 
     /**

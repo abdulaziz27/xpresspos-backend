@@ -244,10 +244,15 @@ Route::prefix('v1')
         Route::prefix('members')->group(function (): void {
             Route::get('/', [MemberController::class, 'index'])->name('api.v1.members.index');
             Route::post('/', [MemberController::class, 'store'])->name('api.v1.members.store');
+            Route::get('tiers', [MemberController::class, 'tiers'])->name('api.v1.members.tiers');
+            Route::get('tier-statistics', [MemberController::class, 'tierStatistics'])->name('api.v1.members.tier-statistics');
             Route::get('{member}', [MemberController::class, 'show'])->name('api.v1.members.show');
+            Route::get('{member}/statistics', [MemberController::class, 'statistics'])->name('api.v1.members.statistics');
+            Route::get('{member}/loyalty-history', [MemberController::class, 'loyaltyHistory'])->name('api.v1.members.loyalty-history');
             Route::put('{member}', [MemberController::class, 'update'])->name('api.v1.members.update');
-            Route::post('{member}/loyalty-points/add', [MemberController::class, 'addLoyaltyPoints']);
-            Route::post('{member}/loyalty-points/redeem', [MemberController::class, 'redeemLoyaltyPoints']);
+            Route::post('{member}/loyalty-points/add', [MemberController::class, 'addLoyaltyPoints'])->name('api.v1.members.loyalty-points.add');
+            Route::post('{member}/loyalty-points/redeem', [MemberController::class, 'redeemLoyaltyPoints'])->name('api.v1.members.loyalty-points.redeem');
+            Route::post('{member}/loyalty-points/adjust', [MemberController::class, 'adjustLoyaltyPoints'])->name('api.v1.members.loyalty-points.adjust');
         });
 
         // Staff management

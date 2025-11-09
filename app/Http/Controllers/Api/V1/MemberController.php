@@ -95,6 +95,10 @@ class MemberController extends Controller
                 ...$request->validated()
             ]);
 
+            // Immediately assign the appropriate tier based on opening points
+            $member->updateTier();
+            $member->refresh();
+
             DB::commit();
 
             return response()->json([

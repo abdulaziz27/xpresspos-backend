@@ -14,14 +14,16 @@ class OrderObserver
      */
     public function created(Order $order): void
     {
-        // Log order creation for audit trail
-        Log::info('Order created', [
-            'order_id' => $order->id,
-            'order_number' => $order->order_number,
-            'store_id' => $order->store_id,
-            'total_amount' => $order->total_amount,
-            'status' => $order->status,
-        ]);
+        // Log order creation in debug mode only
+        if (config('app.debug')) {
+            Log::debug('Order created', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'store_id' => $order->store_id,
+                'total_amount' => $order->total_amount,
+                'status' => $order->status,
+            ]);
+        }
     }
 
     /**
@@ -30,7 +32,7 @@ class OrderObserver
     public function updated(Order $order): void
     {
         // Handle status changes
-        if ($order->isDirty('status')) {
+        if ($order->wasChanged('status')) {
             $this->handleStatusChange($order);
         }
     }
@@ -43,13 +45,16 @@ class OrderObserver
         $oldStatus = $order->getOriginal('status');
         $newStatus = $order->status;
         
-        Log::info('Order status changed', [
-            'order_id' => $order->id,
-            'old_status' => $oldStatus,
-            'new_status' => $newStatus,
-            'operation_mode' => $order->operation_mode,
-            'payment_mode' => $order->payment_mode,
-        ]);
+        // Log status changes only for important transitions or in debug mode
+        if (config('app.debug') || $newStatus === 'completed' || $newStatus === 'cancelled') {
+            Log::info('Order status changed', [
+                'order_id' => $order->id,
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
+                'operation_mode' => $order->operation_mode,
+                'payment_mode' => $order->payment_mode,
+            ]);
+        }
         
         // Process inventory based on new status
         $inventoryService = app(\App\Services\FlexibleInventoryService::class);
@@ -112,16 +117,19 @@ class OrderObserver
             $result = $planLimitService->incrementUsage($store, 'transactions', 1);
             
             if ($result['success']) {
-                Log::info('Transaction usage incremented for completed order', [
-                    'order_id' => $order->id,
-                    'store_id' => $store->id,
-                    'old_usage' => $result['old_usage'],
-                    'new_usage' => $result['new_usage'],
-                    'usage_percentage' => $result['usage_percentage'],
-                    'quota_exceeded' => $result['quota_exceeded'],
-                ]);
+                // Only log in debug mode or when quota is close to limit
+                if (config('app.debug') || $result['usage_percentage'] > 80) {
+                    Log::info('Transaction usage incremented for completed order', [
+                        'order_id' => $order->id,
+                        'store_id' => $store->id,
+                        'old_usage' => $result['old_usage'],
+                        'new_usage' => $result['new_usage'],
+                        'usage_percentage' => $result['usage_percentage'],
+                        'quota_exceeded' => $result['quota_exceeded'],
+                    ]);
+                }
                 
-                // Log if quota was exceeded
+                // Always log if quota was exceeded (important!)
                 if ($result['quota_exceeded']) {
                     Log::warning('Store has exceeded transaction quota', [
                         'store_id' => $store->id,
@@ -131,6 +139,7 @@ class OrderObserver
                     ]);
                 }
             } else {
+                // Always log errors
                 Log::error('Failed to increment transaction usage', [
                     'order_id' => $order->id,
                     'store_id' => $store->id,
@@ -138,12 +147,51 @@ class OrderObserver
                 ]);
             }
             
+            // Process loyalty points for member
+            $this->processLoyaltyPoints($order);
+            
         } catch (\Exception $e) {
             Log::error('Error handling order completion for usage tracking', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+        }
+    }
+
+    /**
+     * Process loyalty points for completed order.
+     */
+    private function processLoyaltyPoints(Order $order): void
+    {
+        // Only process if order has a member
+        if (!$order->member_id) {
+            return;
+        }
+
+        try {
+            $loyaltyService = app(\App\Services\LoyaltyService::class);
+            $loyaltyService->processOrderLoyalty($order);
+            
+            // Only log in debug mode - production logs would be too verbose
+            if (config('app.debug')) {
+                Log::info('Loyalty points processed successfully', [
+                    'order_id' => $order->id,
+                    'member_id' => $order->member_id,
+                    'order_amount' => $order->total_amount,
+                ]);
+            }
+            
+        } catch (\Exception $e) {
+            // Always log errors - these are important for debugging
+            Log::error('Failed to process loyalty points for order', [
+                'order_id' => $order->id,
+                'member_id' => $order->member_id,
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
+            
+            // Don't throw exception - loyalty point failure shouldn't block order completion
         }
     }
 
