@@ -2,28 +2,28 @@
 
 ## 📋 Ringkasan
 
-Aplikasi XpressPOS menggunakan **domain-based routing** di production dan **path-based routing** di lokal. Dokumen ini menjelaskan semua perbedaan routing antara kedua environment.
+Aplikasi XpressPOS menggunakan **path-based routing** untuk Owner dan Admin panels di semua environment (local dan production). API tetap menggunakan subdomain. Dokumen ini menjelaskan routing structure.
 
 ---
 
-## 🌐 Domain Configuration
+## 🌐 URL Configuration
 
 ### Production Environment
 
-| Domain | Fungsi | Routing Method |
-|--------|--------|----------------|
+| URL / Domain | Fungsi | Routing Method |
+|--------------|--------|----------------|
 | `xpresspos.id` | Landing page & marketing | Domain-based |
-| `dashboard.xpresspos.id` | Owner dashboard (Filament) | Domain-based |
-| `admin.xpresspos.id` | Admin panel (Filament) | Domain-based |
-| `api.xpresspos.id` | REST API | Domain-based |
+| `xpresspos.id/owner` | Owner dashboard (Filament) | Path-based |
+| `xpresspos.id/admin` | Admin panel (Filament) | Path-based |
+| `api.xpresspos.id` | REST API | Domain-based (subdomain) |
 
 ### Local Environment
 
 | Path | Fungsi | Routing Method |
 |------|--------|----------------|
 | `http://localhost/` | Landing page | Path-based |
-| `http://localhost/owner-panel` | Owner dashboard (Filament) | Path-based |
-| `http://localhost/admin-panel` | Admin panel (Filament) | Path-based |
+| `http://localhost/owner` | Owner dashboard (Filament) | Path-based |
+| `http://localhost/admin` | Admin panel (Filament) | Path-based |
 | `http://localhost/api/*` | REST API | Path-based |
 
 ---
@@ -60,89 +60,87 @@ http://localhost/payment/failed           → LandingController@paymentFailed
 
 ### 2. Owner Dashboard Routes (Filament Panel)
 
-#### Production (`dashboard.xpresspos.id`)
+#### Production (`xpresspos.id/owner`)
 ```
-https://dashboard.xpresspos.id/                    → Filament Owner Dashboard
-https://dashboard.xpresspos.id/login               → Filament Login Page
-https://dashboard.xpresspos.id/categories          → Categories Resource
-https://dashboard.xpresspos.id/products            → Products Resource
-https://dashboard.xpresspos.id/orders              → Orders Resource
-https://dashboard.xpresspos.id/cash-sessions       → Cash Sessions Resource
-... (semua Filament resources di root path)
+https://xpresspos.id/owner/                         → Filament Owner Dashboard
+https://xpresspos.id/owner/login                    → Filament Login Page
+https://xpresspos.id/owner/categories               → Categories Resource
+https://xpresspos.id/owner/products                 → Products Resource
+https://xpresspos.id/owner/orders                   → Orders Resource
+https://xpresspos.id/owner/cash-sessions            → Cash Sessions Resource
+... (semua Filament resources dengan prefix /owner)
 ```
 
 **Konfigurasi:**
-- Domain: `dashboard.xpresspos.id`
-- Path: `/` (root)
-- Method: `$panel->domain('dashboard.xpresspos.id')->path('/')`
-- URL Force: `URL::forceRootUrl('https://dashboard.xpresspos.id')` ✅ **CRITICAL**
+- Domain: `null` (tidak menggunakan domain routing)
+- Path: `/owner`
+- Method: `$panel->path('owner')`
 
-#### Local (`localhost/owner-panel`)
+#### Local (`localhost/owner`)
 ```
-http://localhost/owner-panel/                      → Filament Owner Dashboard
-http://localhost/owner-panel/login                  → Filament Login Page
-http://localhost/owner-panel/categories            → Categories Resource
-http://localhost/owner-panel/products               → Products Resource
-http://localhost/owner-panel/orders                → Orders Resource
-http://localhost/owner-panel/cash-sessions          → Cash Sessions Resource
-... (semua Filament resources dengan prefix /owner-panel)
+http://localhost/owner/                             → Filament Owner Dashboard
+http://localhost/owner/login                        → Filament Login Page
+http://localhost/owner/categories                   → Categories Resource
+http://localhost/owner/products                     → Products Resource
+http://localhost/owner/orders                       → Orders Resource
+http://localhost/owner/cash-sessions                → Cash Sessions Resource
+... (semua Filament resources dengan prefix /owner)
 ```
 
 **Konfigurasi:**
 - Domain: `null` (tidak menggunakan domain)
-- Path: `/owner-panel`
-- Method: `$panel->path('owner-panel')`
+- Path: `/owner`
+- Method: `$panel->path('owner')`
 
-**File:** `app/Providers/Filament/OwnerPanelProvider.php` (lines 85-101)
+**File:** `app/Providers/Filament/OwnerPanelProvider.php`
 
-**Conditional Logic:**
+**Implementation:**
 ```php
-if ($this->shouldUseDomain($ownerDomain)) {
-    // Production: domain-based routing
-    $fullDomain = 'https://' . $ownerDomain;
-    URL::forceRootUrl($fullDomain); // CRITICAL untuk route matching
-    $panel->domain($ownerDomain)->path('/');
-} else {
-    // Local: path-based routing
-    $panel->path('owner-panel');
-}
+// Path-based routing untuk semua environment
+$panel->path('owner');
 ```
 
 ---
 
 ### 3. Admin Panel Routes (Filament Panel)
 
-#### Production (`admin.xpresspos.id`)
+#### Production (`xpresspos.id/admin`)
 ```
-https://admin.xpresspos.id/                        → Filament Admin Dashboard
-https://admin.xpresspos.id/login                   → Filament Login Page
-https://admin.xpresspos.id/stores                  → Stores Resource
-https://admin.xpresspos.id/users                    → Users Resource
-https://admin.xpresspos.id/subscriptions           → Subscriptions Resource
-... (semua Filament admin resources di root path)
+https://xpresspos.id/admin/                         → Filament Admin Dashboard
+https://xpresspos.id/admin/login                    → Filament Login Page
+https://xpresspos.id/admin/stores                   → Stores Resource
+https://xpresspos.id/admin/users                     → Users Resource
+https://xpresspos.id/admin/subscriptions            → Subscriptions Resource
+... (semua Filament admin resources dengan prefix /admin)
 ```
 
 **Konfigurasi:**
-- Domain: `admin.xpresspos.id`
-- Path: `/` (root)
-- Method: `$panel->domain('admin.xpresspos.id')->path('/')`
+- Domain: `null` (tidak menggunakan domain routing)
+- Path: `/admin`
+- Method: `$panel->path('admin')`
 
-#### Local (`localhost/admin-panel`)
+#### Local (`localhost/admin`)
 ```
-http://localhost/admin-panel/                      → Filament Admin Dashboard
-http://localhost/admin-panel/login                  → Filament Login Page
-http://localhost/admin-panel/stores                 → Stores Resource
-http://localhost/admin-panel/users                  → Users Resource
-http://localhost/admin-panel/subscriptions         → Subscriptions Resource
-... (semua Filament admin resources dengan prefix /admin-panel)
+http://localhost/admin/                             → Filament Admin Dashboard
+http://localhost/admin/login                         → Filament Login Page
+http://localhost/admin/stores                       → Stores Resource
+http://localhost/admin/users                         → Users Resource
+http://localhost/admin/subscriptions                → Subscriptions Resource
+... (semua Filament admin resources dengan prefix /admin)
 ```
 
 **Konfigurasi:**
 - Domain: `null` (tidak menggunakan domain)
-- Path: `/admin-panel`
-- Method: `$panel->path('admin-panel')`
+- Path: `/admin`
+- Method: `$panel->path('admin')`
 
-**File:** `app/Providers/Filament/AdminPanelProvider.php` (lines 77-81)
+**File:** `app/Providers/Filament/AdminPanelProvider.php`
+
+**Implementation:**
+```php
+// Path-based routing untuk semua environment
+$panel->path('admin');
+```
 
 ---
 
@@ -186,7 +184,7 @@ http://localhost/api/v1/orders                      → API Orders
 // routes/web.php line 22
 Route::get('/dashboard', function () {
     return redirect()->to(config('app.owner_url') . '/dashboard');
-    // Redirects to: https://dashboard.xpresspos.id/dashboard
+    // Redirects to: https://xpresspos.id/owner/dashboard
 });
 ```
 
@@ -195,8 +193,8 @@ Route::get('/dashboard', function () {
 // routes/web.php line 22
 Route::get('/dashboard', function () {
     return redirect()->to(config('app.owner_url') . '/dashboard');
-    // config('app.owner_url') = http://localhost/owner-panel
-    // Redirects to: http://localhost/owner-panel/dashboard
+    // config('app.owner_url') = http://localhost/owner
+    // Redirects to: http://localhost/owner/dashboard
 });
 ```
 
@@ -209,15 +207,15 @@ Route::get('/dashboard', function () {
 #### Production
 ```php
 // resources/views/landing/payment-success.blade.php
-const dashboardUrl = '{{ config("app.owner_url", "https://dashboard.xpresspos.id") }}';
-// Redirects to: https://dashboard.xpresspos.id
+const dashboardUrl = '{{ config("app.owner_url", "/owner") }}';
+// Redirects to: https://xpresspos.id/owner
 ```
 
 #### Local
 ```php
 // resources/views/landing/payment-success.blade.php
-const dashboardUrl = '{{ "/owner-panel" }}';
-// Redirects to: http://localhost/owner-panel
+const dashboardUrl = '{{ config("app.owner_url", "/owner") }}';
+// Redirects to: http://localhost/owner
 ```
 
 ---
@@ -233,21 +231,19 @@ APP_URL=https://api.xpresspos.id
 
 # Domain Configuration
 MAIN_DOMAIN=xpresspos.id
-OWNER_DOMAIN=dashboard.xpresspos.id
-ADMIN_DOMAIN=admin.xpresspos.id
 API_DOMAIN=api.xpresspos.id
 
-# URL Configuration
-OWNER_URL=https://dashboard.xpresspos.id
-ADMIN_URL=https://admin.xpresspos.id
+# URL Configuration (path-based routing)
+OWNER_URL=https://xpresspos.id/owner
+ADMIN_URL=https://xpresspos.id/admin
 API_URL=https://api.xpresspos.id
 FRONTEND_URL=https://xpresspos.id
 
 # Session & Cookies
 SESSION_DOMAIN=.xpresspos.id
 SESSION_SECURE_COOKIE=true
-SANCTUM_STATEFUL_DOMAINS=dashboard.xpresspos.id,admin.xpresspos.id,api.xpresspos.id
-CORS_ALLOWED_ORIGINS=https://api.xpresspos.id,https://xpresspos.id,https://admin.xpresspos.id,https://dashboard.xpresspos.id
+SANCTUM_STATEFUL_DOMAINS=xpresspos.id,api.xpresspos.id
+CORS_ALLOWED_ORIGINS=https://api.xpresspos.id,https://xpresspos.id
 ```
 
 ### Local (`.env`)
@@ -259,13 +255,11 @@ APP_URL=http://localhost
 
 # Domain Configuration (tidak digunakan di local)
 # MAIN_DOMAIN=xpresspos.id
-# OWNER_DOMAIN=owner.localhost
-# ADMIN_DOMAIN=admin.localhost
 # API_DOMAIN=api.localhost
 
-# URL Configuration
-OWNER_URL=http://localhost/owner-panel
-ADMIN_URL=http://localhost/admin-panel
+# URL Configuration (path-based routing)
+OWNER_URL=http://localhost/owner
+ADMIN_URL=http://localhost/admin
 API_URL=http://localhost/api
 
 # Session & Cookies
@@ -299,33 +293,15 @@ if ($this->shouldUseDomain($ownerDomain)) {
 }
 ```
 
-#### Local Logic (lines 99-101)
+**Implementation:**
 ```php
-else {
-    $panel->path('owner-panel');
-}
-```
-
-#### shouldUseDomain() Method (lines 268-291)
-```php
-protected function shouldUseDomain(?string $domain): bool
-{
-    if (blank($domain)) {
-        return false;
-    }
-
-    $isProduction = app()->environment('production');
-    $hasLocalhost = Str::contains($domain, ['localhost', '127.0.0.1']);
-    $shouldUse = $isProduction && !$hasLocalhost;
-
-    // Only use domain routing in production environment
-    return $shouldUse;
-}
+// Path-based routing untuk semua environment
+$panel->path('owner');
 ```
 
 **Hasil:**
-- Production: `true` → menggunakan domain routing
-- Local: `false` → menggunakan path routing
+- Production: `https://xpresspos.id/owner`
+- Local: `http://localhost/owner`
 
 ---
 
@@ -333,21 +309,15 @@ protected function shouldUseDomain(?string $domain): bool
 
 **File:** `app/Providers/Filament/AdminPanelProvider.php`
 
-#### Production Logic (lines 77-78)
+**Implementation:**
 ```php
-if ($this->shouldUseDomain($adminDomain)) {
-    $panel->domain($adminDomain)->path('/');
-}
+// Path-based routing untuk semua environment
+$panel->path('admin');
 ```
 
-#### Local Logic (lines 79-81)
-```php
-else {
-    $panel->path('admin-panel');
-}
-```
-
-**Note:** Admin panel **BELUM** menggunakan `URL::forceRootUrl()` - mungkin perlu ditambahkan juga!
+**Hasil:**
+- Production: `https://xpresspos.id/admin`
+- Local: `http://localhost/admin`
 
 ---
 
@@ -433,7 +403,7 @@ $userRoles = $user->getRoleNames()->toArray(); // Now safe
 ```php
 // ✅ SUDAH DIPERBAIKI
 // Gunakan config() bukan hardcoded URL
-return redirect()->to(config('app.owner_url', 'https://dashboard.xpresspos.id'));
+return redirect()->to(config('app.owner_url', '/owner'));
 ```
 
 **Files:**
@@ -446,19 +416,19 @@ return redirect()->to(config('app.owner_url', 'https://dashboard.xpresspos.id'))
 
 ### Pre-Deployment
 
-- [ ] Pastikan semua domain environment variables ter-set di `.env.production.local`
+- [ ] Pastikan semua URL environment variables ter-set di `.env.production.local` (`OWNER_URL`, `ADMIN_URL`)
 - [ ] Pastikan `APP_ENV=production` di production
-- [ ] Pastikan `URL::forceRootUrl()` dipanggil untuk domain routing
-- [ ] Pastikan `config('app.owner_url')` ter-set dengan benar
+- [ ] Pastikan `config('app.owner_url')` dan `config('app.admin_url')` ter-set dengan benar
+- [ ] Pastikan Kubernetes ConfigMap dan Ingress sudah diupdate (hapus domain routing untuk owner/admin)
 
 ### Post-Deployment
 
-- [ ] Test login di `https://dashboard.xpresspos.id/login`
-- [ ] Verify routes terdaftar: `php artisan route:list --domain=dashboard.xpresspos.id`
-- [ ] Check log untuk "Domain routing configured"
+- [ ] Test login di `https://xpresspos.id/owner/login`
+- [ ] Test login di `https://xpresspos.id/admin/login`
+- [ ] Verify routes terdaftar: `php artisan route:list | grep owner` dan `php artisan route:list | grep admin`
 - [ ] Check log untuk "OwnerPanel auth gate: ENTRY"
 - [ ] Verify redirect setelah login berfungsi
-- [ ] Test semua Filament resources dapat diakses
+- [ ] Test semua Filament resources dapat diakses di `/owner` dan `/admin`
 
 ---
 

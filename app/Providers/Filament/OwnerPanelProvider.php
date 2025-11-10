@@ -25,8 +25,6 @@ class OwnerPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        $ownerDomain = env('OWNER_DOMAIN', 'dashboard.xpresspos.id');
-
         $panel = $panel
             ->id('owner')
             ->login()
@@ -35,6 +33,7 @@ class OwnerPanelProvider extends PanelProvider
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('img/logo-xpress.png'))
             ->sidebarCollapsibleOnDesktop()
+            ->darkMode(false) // Set default theme to light mode
             ->colors([
                 'primary' => Color::Green,
             ])
@@ -80,25 +79,8 @@ class OwnerPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->authGuard('web')
-            ->authPasswordBroker('users');
-
-        // Configure domain/path BEFORE auth() callback
-        if ($this->shouldUseDomain($ownerDomain)) {
-            // CRITICAL: For domain routing, we need to ensure URL is set correctly
-            // This prevents issues where Filament can't properly match routes
-            $fullDomain = 'https://' . $ownerDomain;
-            \Illuminate\Support\Facades\URL::forceRootUrl($fullDomain);
-            
-            $panel->domain($ownerDomain)->path('/');
-            
-            \Log::info('OwnerPanelProvider: Domain routing configured', [
-                'domain' => $ownerDomain,
-                'full_url' => $fullDomain,
-                'app_url' => config('app.url'),
-            ]);
-        } else {
-            $panel->path('owner-panel');
-        }
+            ->authPasswordBroker('users')
+            ->path('owner');
 
         // Auth gate must be LAST in the chain
         $panel->auth(function () {
@@ -266,30 +248,5 @@ class OwnerPanelProvider extends PanelProvider
         });
 
         return $panel;
-    }
-
-    protected function shouldUseDomain(?string $domain): bool
-    {
-        if (blank($domain)) {
-            \Log::warning('OwnerPanelProvider: Domain is blank', [
-                'env_owner_domain' => env('OWNER_DOMAIN'),
-            ]);
-            return false;
-        }
-
-        $isProduction = app()->environment('production');
-        $hasLocalhost = \Illuminate\Support\Str::contains($domain, ['localhost', '127.0.0.1']);
-        $shouldUse = $isProduction && !$hasLocalhost;
-
-        \Log::info('OwnerPanelProvider: shouldUseDomain check', [
-            'domain' => $domain,
-            'is_production' => $isProduction,
-            'app_env' => app()->environment(),
-            'has_localhost' => $hasLocalhost,
-            'should_use_domain' => $shouldUse,
-        ]);
-
-        // Only use domain routing in production environment
-        return $shouldUse;
     }
 }

@@ -27,9 +27,9 @@ Gunakan tabel berikut sebagai referensi saat mengisi GitHub Secrets atau membuat
 | `SSH_USER`              | `root` (atau user lain)                 | ✅ | Username SSH. |
 | `SSH_KEY`               | Private key OpenSSH                     | ✅ | Key yang punya akses ke server. |
 | `LANDING_DOMAIN`        | `xpresspos.id`                          | ✅ | Domain untuk landing page / marketing site. |
-| `OWNER_DOMAIN`          | `dashboard.xpresspos.id`                 | ✅ | Domain dashboard owner. |
-| `ADMIN_DOMAIN`          | `admin.xpresspos.id`                    | ✅ | Domain admin (Filament). |
-| `API_DOMAIN`            | `api.xpresspos.id`                      | ✅ | Domain API. |
+| `OWNER_URL`             | `https://xpresspos.id/owner`            | ✅ | URL dashboard owner (path-based routing). |
+| `ADMIN_URL`             | `https://xpresspos.id/admin`            | ✅ | URL admin panel (path-based routing). |
+| `API_DOMAIN`            | `api.xpresspos.id`                      | ✅ | Domain API (tetap subdomain). |
 | `ENV_PRODUCTION`        | Salin isi `deploy/.env.example` (isi nilai produksi) | ✅ | Digunakan untuk menulis `.env` di server. |
 
 > Baris dengan simbol ⭕️ opsional; biarkan kosong sampai layanannya tersedia.

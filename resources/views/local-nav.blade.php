@@ -73,7 +73,7 @@
                         </div>
                     </div>
                     <p class="text-gray-700 mb-4">Filament panel untuk pemilik toko mengelola produk, pesanan, dan laporan.</p>
-                    <a href="/owner-panel" class="inline-block bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition duration-300">
+                    <a href="/owner" class="inline-block bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition duration-300">
                         Open Owner Panel
                     </a>
                 </div>
@@ -92,7 +92,7 @@
                         </div>
                     </div>
                     <p class="text-gray-700 mb-4">Panel admin untuk mengelola sistem, user, dan konfigurasi global.</p>
-                    <a href="/admin-panel" class="inline-block bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition duration-300">
+                    <a href="/admin" class="inline-block bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition duration-300">
                         Open Admin Panel
                     </a>
                 </div>
@@ -114,8 +114,8 @@
                             <p><strong>Production URLs:</strong></p>
                             <p>• Landing: https://xpresspos.id</p>
                             <p>• API: https://api.xpresspos.id</p>
-                            <p>• Owner: https://dashboard.xpresspos.id</p>
-                            <p>• Admin: https://admin.xpresspos.id</p>
+                            <p>• Owner: https://xpresspos.id/owner</p>
+                            <p>• Admin: https://xpresspos.id/admin</p>
                         </div>
                     </div>
                 </div>

@@ -87,17 +87,8 @@ Route::domain(config('domains.api'))->group(function () {
     })->name('api.home');
 });
 
-// Owner domain routing (dashboard.xpresspos.id) - Filament handles all routes
-Route::domain(config('domains.owner'))->group(function () {
-    // Filament panel handles all routes at root domain
-    // No additional routes needed here
-});
-
-// Admin domain routing (admin.xpresspos.id) - Filament handles all routes
-Route::domain(config('domains.admin'))->group(function () {
-    // Filament panel handles all routes at root domain
-    // No additional routes needed here
-});
+// Owner and Admin panels now use path-based routing (/owner and /admin)
+// Filament handles all routes for these panels
 
 // Include landing routes for localhost development
 // require __DIR__.'/landing.php'; // Commented out to avoid route conflicts
@@ -107,9 +98,22 @@ Route::get('/', [LandingController::class, 'index'])->name('home');
 Route::get('/pricing', [LandingController::class, 'showPricing'])->name('pricing');
 Route::get('/checkout', [LandingController::class, 'showCheckout'])->name('checkout');
 
+// Auth routes for localhost fallback (also works as global fallback)
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [LandingController::class, 'showLogin'])->name('login');
+    Route::post('/login', [LandingController::class, 'login'])->name('login.post');
+    Route::get('/register', [LandingController::class, 'showRegister'])->name('register');
+    Route::post('/register', [LandingController::class, 'register'])->name('register.post');
+});
+
 Route::get('/forgot-password', function () {
     return view('landing.auth.forgot-password');
 })->name('forgot-password');
+
+// Redirect /home to login (Laravel default redirect)
+Route::get('/home', function () {
+    return redirect()->route('login');
+})->name('home.redirect');
 
 Route::get('/company', function () {
     return view('company', [

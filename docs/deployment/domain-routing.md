@@ -1,44 +1,52 @@
-# Domain Routing Guide
+# Routing Guide
 
-## Domain Mapping
+## URL Structure
 
-| Domain                | Fungsi                              | Source routes / entry point                     |
+| URL / Domain           | Fungsi                              | Source routes / entry point                     |
 |-----------------------|--------------------------------------|-------------------------------------------------|
 | `xpresspos.id`        | Landing / marketing site             | `routes/web.php`
+| `xpresspos.id/owner`  | Owner dashboard (Filament)           | `app/Providers/Filament/OwnerPanelProvider.php`
+| `xpresspos.id/admin`  | Admin panel (Filament)               | `app/Providers/Filament/AdminPanelProvider.php`
 | `api.xpresspos.id`    | REST API (v1, Sanctum, dsb.)         | `routes/api.php` (tanpa prefix `/api`)
-| `dashboard.xpresspos.id`   | Owner dashboard (autentikasi web)    | `routes/owner.php`
-| `admin.xpresspos.id`  | Filament admin panel                 | `app/Providers/Filament/AdminPanelProvider.php`
 
-Semua domain dikonfigurasi lewat `config/domains.php` dan parameter env:
+## Path-Based Routing
+
+Owner dan Admin panels menggunakan path-based routing untuk menghindari masalah dengan domain routing:
+- Owner Panel: `https://xpresspos.id/owner`
+- Admin Panel: `https://xpresspos.id/admin`
+
+Konfigurasi melalui environment variables:
 
 ```
 LANDING_DOMAIN=xpresspos.id
-OWNER_DOMAIN=dashboard.xpresspos.id
-ADMIN_DOMAIN=admin.xpresspos.id
+OWNER_URL=https://xpresspos.id/owner
+ADMIN_URL=https://xpresspos.id/admin
 API_DOMAIN=api.xpresspos.id
 ```
 
-## RouteServiceProvider
-- `app/Providers/RouteServiceProvider.php` mendeteksi domain produksi.  
-- Jika domain tidak diisi / masih `*.localhost`, framework kembali ke prefix (`/api`, `/owner`).  
-- Untuk domain produksi, route langsung diikat via `Route::domain($domain)`.
+## Filament Panels
 
-## Filament Admin
-- Panel admin menggunakan domain (`config('domains.admin')`).  
-- Jika domain valid, path panel otomatis root (`/`). Jika tidak, fallback ke `/admin`.
+- Owner Panel: Menggunakan `$panel->path('owner')` di `OwnerPanelProvider`
+- Admin Panel: Menggunakan `$panel->path('admin')` di `AdminPanelProvider`
+- Tidak lagi menggunakan domain routing untuk panels
 
-## Nginx
-Tambahkan server block untuk setiap domain yang mem-proxy ke service Octane (`127.0.0.1:8083`). Contoh `api.xpresspos.id` ada di server. Untuk domain lain, salin block dan ubah `server_name`.
+## Nginx / Ingress
+
+Hanya perlu konfigurasi untuk:
+- `xpresspos.id` (landing + owner + admin panels via paths)
+- `api.xpresspos.id` (API subdomain)
 
 ## Environment & Secrets
-- `.env.production` hanya menyertakan placeholder, gunakan `.env.production.local` untuk nilai nyata.  
-- Secrets GitHub `ENV_PRODUCTION` harus berisi semua domain + kredensial DB dan mail.
 
-## Checklist Deploy Multi Domain
-1. Pastikan domain environment sudah terisi (landing, owner, admin, api).  
+- `.env.production` hanya menyertakan placeholder, gunakan `.env.production.local` untuk nilai nyata.  
+- Secrets GitHub `ENV_PRODUCTION` harus berisi `OWNER_URL` dan `ADMIN_URL` (bukan `OWNER_DOMAIN` dan `ADMIN_DOMAIN`).
+
+## Checklist Deploy
+
+1. Pastikan environment variables sudah terisi (`OWNER_URL`, `ADMIN_URL`, `API_DOMAIN`).  
 2. Jalankan workflow `CI-CD` (build → deploy).  
 3. Verifikasi:
    - `curl -k https://api.xpresspos.id/healthz`
-   - Buka `https://xpresspos.id`, `https://dashboard.xpresspos.id`, `https://admin.xpresspos.id`
+   - Buka `https://xpresspos.id`, `https://xpresspos.id/owner`, `https://xpresspos.id/admin`
 
-Dokumen ini perlu diperbarui bila ada domain tambahan atau perubahan topologi (misal migrasi ke Kubernetes / layanan terpisah).
+Dokumen ini perlu diperbarui bila ada perubahan topologi routing.

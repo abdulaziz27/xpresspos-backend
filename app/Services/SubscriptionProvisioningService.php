@@ -327,11 +327,7 @@ class SubscriptionProvisioningService
      */
     private function generateLoginUrl(): string
     {
-        if (app()->environment('local')) {
-            return url('/owner-panel');
-        }
-        
-        return config('domains.owner', 'https://owner.xpresspos.id');
+        return config('app.owner_url', url('/owner'));
     }
 
     /**

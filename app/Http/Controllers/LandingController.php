@@ -39,12 +39,17 @@ class LandingController extends Controller
         if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
             $request->session()->regenerate();
             
-            // Redirect ke owner Filament panel
-            if (app()->environment('production') && env('OWNER_URL')) {
-                return redirect()->to(env('OWNER_URL'));
-            } else {
-                return redirect('/owner-panel');
+            $user = Auth::user();
+            
+            // Redirect berdasarkan role user
+            // Admin sistem dan super admin -> Admin panel
+            // Check role tanpa team context karena ini adalah global roles
+            if ($user->hasRole(['admin_sistem', 'super_admin'])) {
+                return redirect()->to(config('app.admin_url', '/admin'));
             }
+            
+            // Owner dan role lainnya -> Owner panel
+            return redirect()->to(config('app.owner_url', '/owner'));
         }
 
         throw ValidationException::withMessages([
@@ -76,11 +81,8 @@ class LandingController extends Controller
 
         Auth::login($user);
 
-        if (app()->environment('production') && env('OWNER_URL')) {
-            return redirect()->to(env('OWNER_URL'));
-        } else {
-            return redirect('/owner-panel');
-        }
+        // Redirect ke owner panel untuk user baru
+        return redirect()->to(config('app.owner_url', '/owner'));
     }
 
     public function logout(Request $request)
@@ -312,7 +314,7 @@ class LandingController extends Controller
         return view('landing.payment-success', [
             'subscription' => $subscription,
             'showLoginInfo' => $subscription->provisioned_user_id ? true : false,
-            'loginUrl' => $subscription->onboarding_url ?? (app()->environment('local') ? '/owner-panel' : config('app.owner_url', config('domains.owner', 'https://dashboard.xpresspos.id')))
+            'loginUrl' => $subscription->onboarding_url ?? config('app.owner_url', '/owner')
         ]);
     }
 

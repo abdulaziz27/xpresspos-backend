@@ -25,8 +25,6 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        $adminDomain = env('ADMIN_DOMAIN', 'admin.xpresspos.id');
-
         $panel = $panel
             ->id('admin')
             ->login()
@@ -34,6 +32,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogo(fn () => view('filament.brand-logo'))
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('img/logo-xpress.png'))
+            ->darkMode(false) // Set default theme to light mode
             ->colors([
                 'primary' => Color::Blue,
             ])
@@ -72,35 +71,9 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authGuard('web')
             ->authPasswordBroker('users')
-            ->default();
-
-        if ($this->shouldUseDomain($adminDomain)) {
-            // CRITICAL: For domain routing, we need to ensure URL is set correctly
-            // This prevents issues where Filament can't properly match routes
-            $fullDomain = 'https://' . $adminDomain;
-            \Illuminate\Support\Facades\URL::forceRootUrl($fullDomain);
-            
-            $panel->domain($adminDomain)->path('/');
-            
-            \Log::info('AdminPanelProvider: Domain routing configured', [
-                'domain' => $adminDomain,
-                'full_url' => $fullDomain,
-                'app_url' => config('app.url'),
-            ]);
-        } else {
-            $panel->path('admin-panel');
-        }
+            ->default()
+            ->path('admin');
 
         return $panel;
-    }
-
-    protected function shouldUseDomain(?string $domain): bool
-    {
-        if (blank($domain)) {
-            return false;
-        }
-
-        // Only use domain routing in production environment
-        return app()->environment('production') && ! Str::contains($domain, ['localhost', '127.0.0.1']);
     }
 }

@@ -64,10 +64,12 @@ class SubscriptionsTable
 
                 TextColumn::make('amount')
                     ->label('Amount')
-                    ->formatStateUsing(fn($s) => Currency::rupiah((float) $s))
+                    ->getStateUsing(fn($record) => $record->amount ?? 0)
+                    ->formatStateUsing(fn($state) => Currency::rupiah((float) $state))
                     ->sortable()
                     ->alignEnd()
-                    ->weight('medium'),
+                    ->weight('medium')
+                    ->placeholder('Rp 0'),
 
                 TextColumn::make('starts_at')
                     ->label('Starts At')

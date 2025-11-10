@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\KeyValue;
 use Filament\Schemas\Schema;
 use App\Support\Money;
 
@@ -106,14 +107,53 @@ class SubscriptionForm
                 Section::make('Metadata')
                     ->description('Additional subscription metadata and settings')
                     ->schema([
-                        Textarea::make('metadata')
-                            ->label('Metadata (JSON)')
-                            ->rows(5)
-                            ->helperText('Additional subscription data in JSON format')
-                            ->default('{}')
-                            ->placeholder('{"features": [], "limits": {}}'),
+                        Grid::make(2)
+                            ->schema([
+                                TextInput::make('metadata.payment_type')
+                                    ->label('Payment Type')
+                                    ->maxLength(255)
+                                    ->helperText('Jenis pembayaran (e.g., credit_card, bank_transfer)'),
+
+                                TextInput::make('metadata.bank')
+                                    ->label('Bank')
+                                    ->maxLength(255)
+                                    ->helperText('Nama bank jika menggunakan transfer bank'),
+                            ]),
+
+                        Grid::make(2)
+                            ->schema([
+                                TextInput::make('metadata.card_type')
+                                    ->label('Card Type')
+                                    ->maxLength(255)
+                                    ->helperText('Jenis kartu (e.g., visa, mastercard)'),
+
+                                TextInput::make('metadata.saved_token_id')
+                                    ->label('Saved Token ID')
+                                    ->maxLength(255)
+                                    ->helperText('ID token pembayaran yang tersimpan'),
+                            ]),
+
+                        Toggle::make('metadata.scheduled_downgrade')
+                            ->label('Scheduled Downgrade')
+                            ->default(false)
+                            ->helperText('Apakah subscription dijadwalkan untuk downgrade'),
+
+                        Textarea::make('metadata.notes')
+                            ->label('Notes')
+                            ->rows(3)
+                            ->maxLength(1000)
+                            ->helperText('Catatan tambahan tentang subscription'),
+
+                        KeyValue::make('metadata.custom')
+                            ->label('Custom Metadata')
+                            ->keyLabel('Key')
+                            ->valueLabel('Value')
+                            ->helperText('Tambahkan metadata kustom lainnya jika diperlukan')
+                            ->default([]),
                     ])
-                    ->columns(1),
+                    ->columns(1)
+                    ->collapsible()
+                    ->collapsed(false),
             ]);
     }
 }

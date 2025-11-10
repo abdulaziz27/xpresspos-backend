@@ -13,8 +13,6 @@ spec:
     - hosts:
         - api.xpresspos.id
         - xpresspos.id
-        - dashboard.xpresspos.id
-        - admin.xpresspos.id
       secretName: xpresspos-tls
   rules:
     - host: api.xpresspos.id
@@ -28,26 +26,6 @@ spec:
                 port:
                   number: 80
     - host: xpresspos.id
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: xpresspos-backend
-                port:
-                  number: 80
-    - host: dashboard.xpresspos.id
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: xpresspos-backend
-                port:
-                  number: 80
-    - host: admin.xpresspos.id
       http:
         paths:
           - path: /

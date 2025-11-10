@@ -22,9 +22,7 @@ class SubscriptionRenewalConfirmation extends Mailable
         $this->landingSubscription = $landingSubscription;
         
         // Generate login URL based on environment
-        $this->loginUrl = app()->environment('local') 
-            ? url('/owner-panel') 
-            : config('domains.owner', 'https://owner.xpresspos.id');
+        $this->loginUrl = config('app.owner_url', url('/owner'));
     }
 
     public function build()

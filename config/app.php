@@ -60,12 +60,23 @@ return [
     |--------------------------------------------------------------------------
     |
     | This URL is used for redirecting users to the owner dashboard after
-    | authentication or subscription completion. In production, this should
-    | be set to the owner domain (e.g., https://dashboard.xpresspos.id).
+    | authentication or subscription completion. Uses path-based routing.
     |
     */
 
-    'owner_url' => env('OWNER_URL', env('APP_URL') . '/owner-panel'),
+    'owner_url' => env('OWNER_URL', env('APP_URL') . '/owner'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Panel URL
+    |--------------------------------------------------------------------------
+    |
+    | This URL is used for redirecting users to the admin panel.
+    | Uses path-based routing.
+    |
+    */
+
+    'admin_url' => env('ADMIN_URL', env('APP_URL') . '/admin'),
 
     /*
     |--------------------------------------------------------------------------

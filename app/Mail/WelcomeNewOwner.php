@@ -24,9 +24,7 @@ class WelcomeNewOwner extends Mailable
         $this->temporaryPassword = $user->temporary_password;
         
         // Generate login URL based on environment
-        $this->loginUrl = app()->environment('local') 
-            ? url('/owner-panel') 
-            : config('domains.owner', 'https://owner.xpresspos.id');
+        $this->loginUrl = config('app.owner_url', url('/owner'));
     }
 
     public function build()
