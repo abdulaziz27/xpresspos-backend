@@ -92,7 +92,7 @@
             <div class="sm:mx-auto sm:w-full sm:max-w-md">
                 <!-- Logo -->
                 <div class="text-center animate-fade-in-up">
-                    <a href="{{ route('landing.main', [], false) ?: route('landing.home', [], false) ?: url('/') }}" class="inline-block">
+                    <a href="{{ config('app.url') }}" class="inline-block">
                         <h1 class="text-3xl font-bold text-blue-600">XpressPOS</h1>
                         <p class="text-sm text-gray-600 mt-1">Smart POS System</p>
                     </a>
@@ -107,7 +107,7 @@
             
             <!-- Back to Home -->
             <div class="mt-8 text-center animate-fade-in-up" style="animation-delay: 0.4s">
-                <a href="{{ route('landing.main', [], false) ?: route('landing.home', [], false) ?: url('/') }}" class="text-sm text-gray-600 hover:text-blue-600 transition-colors duration-300">
+                <a href="{{ config('app.url') }}" class="text-sm text-gray-600 hover:text-blue-600 transition-colors duration-300">
                     ← Kembali ke Beranda
                 </a>
             </div>
