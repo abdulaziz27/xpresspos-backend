@@ -52,17 +52,14 @@ class ProfitAnalysisWidget extends BaseWidget
             return [
                 Stat::make('Produk Teratas', $topProduct['product_name'] ?? 'N/A')
                     ->description($topProduct ? 'Profit: Rp ' . number_format($topProduct['profit'], 0, ',', '.') : 'Tidak ada data')
-                    ->descriptionIcon('heroicon-m-trophy')
                     ->color('success'),
 
                 Stat::make('Total Profit Hari Ini', 'Rp ' . number_format($totalProfit, 0, ',', '.'))
                     ->description('Dari ' . count($profitAnalysis) . ' produk')
-                    ->descriptionIcon('heroicon-m-currency-dollar')
                     ->color($totalProfit > 0 ? 'success' : 'gray'),
 
                 Stat::make('Rata-rata Margin', number_format($avgMargin, 1) . '%')
                     ->description('Di seluruh produk')
-                    ->descriptionIcon('heroicon-m-chart-pie')
                     ->color($avgMargin >= 30 ? 'success' : ($avgMargin >= 20 ? 'warning' : 'danger')),
             ];
 
@@ -70,7 +67,6 @@ class ProfitAnalysisWidget extends BaseWidget
             return [
                 Stat::make('Error', 'Tidak dapat memuat data')
                     ->description('Silakan coba lagi nanti')
-                    ->descriptionIcon('heroicon-m-exclamation-triangle')
                     ->color('danger'),
             ];
         }

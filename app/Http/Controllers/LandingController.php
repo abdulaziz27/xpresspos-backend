@@ -231,31 +231,36 @@ class LandingController extends Controller
     }
 
     /**
-     * Process payment method selection and redirect to Xendit.
+     * Process payment with selected payment method.
      */
     public function processPayment(Request $request)
     {
         $request->validate([
             'subscription_id' => 'required|exists:landing_subscriptions,id',
-            'payment_method' => 'required|in:bank_transfer,e_wallet,qris,credit_card'
+            'payment_method' => 'required|in:bank_transfer,e_wallet,qris,credit_card',
         ]);
 
         try {
             $subscription = LandingSubscription::findOrFail($request->subscription_id);
-            
-            // Create Xendit invoice with selected payment method
+
+            // Check if already paid
+            if ($subscription->payment_status === 'paid') {
+                return redirect()->route('landing.payment.success', ['subscription_id' => $subscription->id]);
+            }
+
             $xenditService = app(XenditService::class);
-            
+
+            // Create Xendit invoice with selected payment method
             $invoiceData = [
                 'external_id' => 'SUB-' . $subscription->id . '-' . time(),
-                'amount' => (int) $subscription->payment_amount, // Ensure integer
+                'amount' => (int) $subscription->payment_amount,
                 'description' => "XpressPOS {$subscription->plan_id} subscription - {$subscription->billing_cycle}",
                 'customer' => [
                     'given_names' => $subscription->name,
                     'email' => $subscription->email,
-                    'mobile_number' => $subscription->phone, // Should be in E.164 format
+                    'mobile_number' => $subscription->phone,
                 ],
-                // payment_methods will be determined by XenditService based on environment
+                'payment_methods' => [$request->payment_method],
             ];
 
             $xenditResponse = $xenditService->createInvoice($invoiceData);
@@ -264,13 +269,13 @@ class LandingController extends Controller
                 return back()->withErrors(['error' => 'Gagal membuat pembayaran: ' . $xenditResponse['error']]);
             }
 
-            // Update subscription with new payment info
+            // Update subscription with payment info
             $subscription->update([
                 'xendit_invoice_id' => $xenditResponse['data']['id'],
                 'payment_status' => 'pending'
             ]);
 
-            // Redirect to Xendit payment page (works in both local and production)
+            // Redirect to Xendit payment page
             return redirect($xenditResponse['data']['invoice_url']);
 
         } catch (\Exception $e) {
@@ -296,8 +301,19 @@ class LandingController extends Controller
             $result = $provisioningService->provisionSubscription($subscription);
             
             if ($result['success']) {
-                // Add provisioning success data to view
-                $subscription->refresh(); // Reload to get updated data
+                // Auto-login the user and redirect to owner dashboard
+                $user = \App\Models\User::find($result['user_id']);
+                
+                if ($user) {
+                    auth()->login($user);
+                    
+                    return redirect()
+                        ->route('filament.owner.pages.dashboard')
+                        ->with('success', 'Welcome! Your subscription is now active. Check your email for login credentials.');
+                }
+                
+                // Fallback: show success page with login info
+                $subscription->refresh();
                 
                 return view('landing.payment-success', [
                     'subscription' => $subscription,
@@ -308,6 +324,18 @@ class LandingController extends Controller
                 ]);
             } else {
                 \Log::error('Auto-provisioning failed', ['subscription_id' => $subscription->id, 'error' => $result['error']]);
+            }
+        }
+
+        // If already provisioned, try to auto-login
+        if ($subscription->provisioned_user_id) {
+            $user = \App\Models\User::find($subscription->provisioned_user_id);
+            
+            if ($user && !auth()->check()) {
+                auth()->login($user);
+                return redirect()
+                    ->route('filament.owner.pages.dashboard')
+                    ->with('success', 'Welcome back! Your payment was successful.');
             }
         }
 

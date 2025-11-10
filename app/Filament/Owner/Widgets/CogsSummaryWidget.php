@@ -20,15 +20,12 @@ class CogsSummaryWidget extends BaseWidget
             return [
                 Stat::make('COGS Hari Ini', 'Rp 0')
                     ->description('Biaya pokok penjualan hari ini')
-                    ->descriptionIcon('heroicon-m-currency-dollar')
                     ->color('gray'),
                 Stat::make('COGS Bulan Ini', 'Rp 0')
                     ->description('0.0% dibanding bulan lalu')
-                    ->descriptionIcon('heroicon-m-arrow-trending-up')
                     ->color('gray'),
                 Stat::make('Cakupan Resep', '0.0%')
                     ->description('0 dari 0 produk memiliki resep')
-                    ->descriptionIcon('heroicon-m-clipboard-document-list')
                     ->color('gray'),
             ];
         }
@@ -72,7 +69,6 @@ class CogsSummaryWidget extends BaseWidget
         return [
             Stat::make('COGS Hari Ini', 'Rp ' . number_format($todayCogs, 0, ',', '.'))
                 ->description('Biaya pokok penjualan hari ini')
-                ->descriptionIcon('heroicon-m-currency-dollar')
                 ->color($todayCogs > 0 ? 'success' : 'gray'),
 
             Stat::make('COGS Bulan Ini', 'Rp ' . number_format($monthCogs, 0, ',', '.'))
@@ -81,12 +77,10 @@ class CogsSummaryWidget extends BaseWidget
                         '+' . number_format($growthPercentage, 1) . '% dibanding bulan lalu' :
                         number_format($growthPercentage, 1) . '% dibanding bulan lalu'
                 )
-                ->descriptionIcon($growthPercentage > 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
                 ->color($growthPercentage > 0 ? 'success' : ($growthPercentage < 0 ? 'danger' : 'gray')),
 
             Stat::make('Cakupan Resep', number_format($recipeCoverage, 1) . '%')
                 ->description("{$productsWithRecipes} dari {$totalProducts} produk memiliki resep")
-                ->descriptionIcon('heroicon-m-clipboard-document-list')
                 ->color($recipeCoverage > 50 ? 'success' : ($recipeCoverage > 25 ? 'warning' : 'danger')),
         ];
     }

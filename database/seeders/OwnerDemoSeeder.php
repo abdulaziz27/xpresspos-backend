@@ -399,16 +399,17 @@ class OwnerDemoSeeder extends Seeder
             ]
         );
 
-        // Generate recent orders for today and the past 7 days
+        // Generate recent orders for today and the past 5 days (total 50 orders)
         // Use only enum-allowed methods from payments migration
         $paymentMethods = ['cash', 'qris', 'credit_card', 'debit_card', 'bank_transfer', 'e_wallet'];
-        $todayCount = 18; // enough for stats & graphs
-        $pastDays = 7;
+        $todayCount = 10; // 10 orders today
+        $pastDays = 4; // 4 days ago (total 5 days including today)
 
         $orderSeq = [];
         for ($d = 0; $d <= $pastDays; $d++) {
             $date = now()->subDays($d);
-            $ordersPerDay = $d === 0 ? $todayCount : rand(6, 14);
+            // Distribute 50 orders across 5 days: 10 today, 10 per past day
+            $ordersPerDay = $d === 0 ? $todayCount : 10;
             $dateKey = $date->format('Ymd');
             // Initialize sequence from existing orders on that date (if any)
             $orderSeq[$dateKey] = Order::withoutGlobalScopes()->whereDate('created_at', $date->toDateString())->count();

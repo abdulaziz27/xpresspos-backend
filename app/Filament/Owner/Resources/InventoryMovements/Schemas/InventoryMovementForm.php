@@ -42,14 +42,13 @@ class InventoryMovementForm
                                 Select::make('type')
                                     ->label('Jenis Pergerakan')
                                     ->options([
-                                        'sale' => 'Penjualan',
+                                        // Hanya tipe manual yang diizinkan dibuat dari UI:
+                                        // Pembelian, Penyesuaian, dan Transfer.
                                         'purchase' => 'Pembelian',
                                         'adjustment_in' => 'Penyesuaian Masuk',
                                         'adjustment_out' => 'Penyesuaian Keluar',
                                         'transfer_in' => 'Transfer Masuk',
                                         'transfer_out' => 'Transfer Keluar',
-                                        'return' => 'Retur',
-                                        'waste' => 'Waste/Rusak',
                                     ])
                                     ->required()
                                     ->live(),
@@ -138,7 +137,7 @@ class InventoryMovementForm
                             ->label('Catatan')
                             ->rows(3)
                             ->maxLength(1000)
-                            ->placeholder('Catatan tambahan terkait pergerakan ini'),
+                            ->placeholder('Catatan tambahan terkait pergerakan ini. Catatan: Penjualan/Produksi/Retur/Waste dibuat otomatis dari proses operasional.'),
                     ])
                     ->columns(1),
 

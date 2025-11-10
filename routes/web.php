@@ -95,6 +95,7 @@ Route::domain(config('domains.api'))->group(function () {
 
 // Localhost fallback routes (for development without domain setup)
 Route::get('/', [LandingController::class, 'index'])->name('home');
+Route::get('/', [LandingController::class, 'index'])->name('landing.home'); // Alias for landing.home
 Route::get('/pricing', [LandingController::class, 'showPricing'])->name('pricing');
 Route::get('/checkout', [LandingController::class, 'showCheckout'])->name('checkout');
 

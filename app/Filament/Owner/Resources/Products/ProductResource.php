@@ -31,7 +31,11 @@ class ProductResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
 
-
+    // Check if user can create more products based on subscription limit
+    public static function canCreate(): bool
+    {
+        return auth()->user()->canCreate('products');
+    }
 
     public static function form(Schema $schema): Schema
     {

@@ -56,22 +56,18 @@ class OwnerStatsWidget extends BaseWidget
         return [
             Stat::make('Total Transaksi', $ordersCount)
                 ->description('Jumlah transaksi pada rentang waktu')
-                ->descriptionIcon('heroicon-m-shopping-cart')
                 ->color('success'),
 
             Stat::make('Total Pendapatan', 'Rp ' . number_format($revenue, 0, ',', '.'))
                 ->description('Pendapatan pada rentang waktu')
-                ->descriptionIcon('heroicon-m-banknotes')
                 ->color('success'),
 
             Stat::make('Total Produk', Product::where('store_id', $storeId)->count())
                 ->description('Produk dalam katalog')
-                ->descriptionIcon('heroicon-m-cube')
                 ->color('info'),
 
             Stat::make('Member Aktif', Member::where('store_id', $storeId)->where('is_active', true)->count())
                 ->description('Member terdaftar')
-                ->descriptionIcon('heroicon-m-users')
                 ->color('warning'),
         ];
     }

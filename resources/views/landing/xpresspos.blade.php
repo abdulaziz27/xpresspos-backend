@@ -847,9 +847,10 @@
         position: absolute;
         top: -12px;
         left: 50%;
-        transform: translateX(-50%);
+        transform: translateX(-50%) rotate(0deg) !important;
         z-index: 30;
         white-space: nowrap;
+        display: inline-block;
     }
 
     /* Reduce excessive hover effects on pricing cards */

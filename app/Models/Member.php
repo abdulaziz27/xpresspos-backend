@@ -39,7 +39,44 @@ class Member extends Model
         'is_active' => 'boolean',
     ];
 
+    /**
+     * Boot the model.
+     */
+    protected static function boot()
+    {
+        parent::boot();
 
+        static::creating(function ($member) {
+            if (empty($member->member_number)) {
+                $member->member_number = static::generateMemberNumber($member->store_id);
+            }
+        });
+    }
+
+    /**
+     * Generate unique member number for the store.
+     */
+    protected static function generateMemberNumber(string $storeId): string
+    {
+        $prefix = 'MBR';
+        $date = now()->format('Ymd');
+        
+        // Get last member number for today
+        $lastMember = static::where('store_id', $storeId)
+            ->where('member_number', 'like', $prefix . $date . '%')
+            ->orderBy('member_number', 'desc')
+            ->first();
+        
+        if ($lastMember) {
+            // Extract sequence number and increment
+            $lastSequence = intval(substr($lastMember->member_number, -4));
+            $sequence = str_pad($lastSequence + 1, 4, '0', STR_PAD_LEFT);
+        } else {
+            $sequence = '0001';
+        }
+        
+        return $prefix . $date . $sequence;
+    }
 
     /**
      * Get the orders for the member.

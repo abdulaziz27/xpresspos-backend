@@ -49,15 +49,29 @@ class CogsHistoryResource extends Resource
 
     public static function getPages(): array
     {
+        // Read-only: riwayat COGS adalah hasil perhitungan otomatis, tidak bisa dibuat/diubah manual.
         return [
             'index' => ListCogsHistory::route('/'),
-            'create' => CreateCogsHistory::route('/create'),
-            'edit' => EditCogsHistory::route('/{record}/edit'),
         ];
     }
 
     public static function canViewAny(): bool
     {
         return true;
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit($record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
     }
 }

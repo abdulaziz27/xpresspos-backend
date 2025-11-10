@@ -89,6 +89,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.only' => \App\Http\Middleware\ApiOnlyMiddleware::class,
             'xendit.webhook.security' => \App\Http\Middleware\XenditWebhookSecurity::class,
             'dev.payment' => \App\Http\Middleware\DevelopmentPaymentMiddleware::class,
+            'subscription.feature' => \App\Http\Middleware\CheckSubscriptionFeature::class,
         ]);
 
         $middleware->web([

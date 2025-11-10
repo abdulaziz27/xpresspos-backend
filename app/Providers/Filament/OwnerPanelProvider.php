@@ -53,7 +53,8 @@ class OwnerPanelProvider extends PanelProvider
                 \App\Filament\Owner\Pages\OwnerDashboard::class,
             ])
             ->widgets([
-                \App\Filament\Owner\Widgets\SubscriptionDashboardWidget::class, // status subscription ringkas (v4 simplified) - dipindah ke paling atas
+                // \App\Filament\Owner\Widgets\UpgradeBannerWidget::class, // DISABLED - upgrade banner
+                \App\Filament\Owner\Widgets\SubscriptionDashboardWidget::class, // status subscription ringkas (v4 simplified)
                 \App\Filament\Owner\Widgets\OwnerStatsWidget::class, // ringkasan transaksi & pendapatan (dengan filter)
                 \App\Filament\Owner\Widgets\ProfitAnalysisWidget::class, // laba kotor & bersih (dengan filter)
                 \App\Filament\Owner\Widgets\SalesRevenueChartWidget::class, // grafik total pendapatan (bar)

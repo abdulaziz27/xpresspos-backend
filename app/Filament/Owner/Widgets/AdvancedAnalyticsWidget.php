@@ -9,6 +9,12 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 class AdvancedAnalyticsWidget extends BaseWidget
 {
     protected static ?int $sort = 2;
+    
+    // Only show for users with advanced_analytics feature
+    public static function canView(): bool
+    {
+        return auth()->user()->hasFeature('advanced_analytics');
+    }
 
     protected function getStats(): array
     {
@@ -29,22 +35,18 @@ class AdvancedAnalyticsWidget extends BaseWidget
         return [
             Stat::make('Today\'s Profit', 'Rp ' . number_format($totalProfit, 0, ',', '.'))
                 ->description('Total profit from all products')
-                ->descriptionIcon('heroicon-m-currency-dollar')
                 ->color('success'),
 
             Stat::make('Average Margin', number_format($avgMargin, 1) . '%')
                 ->description('Average profit margin across products')
-                ->descriptionIcon('heroicon-m-chart-pie')
                 ->color($avgMargin >= 30 ? 'success' : ($avgMargin >= 20 ? 'warning' : 'danger')),
 
             Stat::make('Top Selling Product', $topProduct['product_name'] ?? 'No sales')
                 ->description($topProduct ? 'Sold: ' . $topProduct['quantity_sold'] . ' units' : 'No products sold today')
-                ->descriptionIcon('heroicon-m-trophy')
                 ->color('info'),
 
             Stat::make('Items Sold', number_format($analytics['summary']['total_items_sold'] ?? 0))
                 ->description('Total items sold today')
-                ->descriptionIcon('heroicon-m-shopping-bag')
                 ->color('warning'),
         ];
     }
