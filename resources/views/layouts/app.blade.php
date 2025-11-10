@@ -17,7 +17,7 @@
             <a href="{{ route('landing') }}" class="text-lg font-semibold">POS Xpress</a>
             <nav class="flex items-center gap-4 text-sm">
                 <a href="{{ route('company') }}" class="hover:text-indigo-600">Company</a>
-                <a href="http://{{ config('domains.owner') }}" class="hover:text-indigo-600">Owner Dashboard</a>
+                <a href="{{ config('app.owner_url', url('/owner')) }}" class="hover:text-indigo-600">Owner Dashboard</a>
                 <a href="/admin" class="hover:text-indigo-600">Admin Panel</a>
                 <a href="{{ route('login') }}" class="rounded border border-indigo-500 px-3 py-1 text-indigo-600 hover:bg-indigo-50">Login</a>
             </nav>

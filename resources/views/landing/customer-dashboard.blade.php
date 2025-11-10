@@ -117,7 +117,7 @@
                                 </h3>
                                 <div class="space-y-3">
                                     @if($subscription->status === 'paid' || $subscription->status === 'active')
-                                    <a href="{{ config('domains.owner', 'http://owner.xpresspos.id') }}" 
+                                    <a href="{{ config('app.owner_url', url('/owner')) }}" 
                                        class="block w-full text-center bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors">
                                         Buka Dashboard
                                     </a>

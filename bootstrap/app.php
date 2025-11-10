@@ -31,32 +31,14 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
         then: function () {
-            // Check if we're in production with domain routing
-            if (app()->environment('production') && env('LANDING_DOMAIN')) {
-                // Domain-specific routing for production
-                Route::domain(env('LANDING_DOMAIN', 'xpresspos.id'))->middleware(['web', 'domain.routing'])->group(function () {
-                    // Landing routes are now handled in routes/web.php for domain xpresspos.id
-                });
+            // Path-based routing for Filament panels (applies to all environments)
+            Route::middleware(['web', 'auth'])->prefix('owner')->group(function () {
+                require base_path('routes/owner.php');
+            });
 
-                Route::domain(env('OWNER_DOMAIN', 'dashboard.xpresspos.id'))->middleware(['web', 'domain.routing'])->group(function () {
-                    require base_path('routes/owner.php');
-                });
-
-                Route::domain(env('ADMIN_DOMAIN', 'admin.xpresspos.id'))->middleware(['web', 'domain.routing'])->group(function () {
-                    require base_path('routes/admin.php');
-                });
-            } else {
-                // Path-based routing for local development
-                // Landing routes are now handled in routes/web.php for localhost
-                
-                Route::middleware(['web', 'auth'])->prefix('owner')->group(function () {
-                    require base_path('routes/owner.php');
-                });
-
-                Route::middleware(['web'])->prefix('admin')->group(function () {
-                    require base_path('routes/admin.php');
-                });
-            }
+            Route::middleware(['web'])->prefix('admin')->group(function () {
+                require base_path('routes/admin.php');
+            });
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

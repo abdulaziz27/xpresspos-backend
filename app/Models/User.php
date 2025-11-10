@@ -13,8 +13,10 @@ use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 use App\Services\StoreContext;
 use App\Traits\HasSubscriptionFeatures;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     use HasApiTokens, HasFactory, Notifiable, HasRoles, HasSubscriptionFeatures;
 
@@ -130,5 +132,57 @@ class User extends Authenticatable
     public function defaultPaymentMethod()
     {
         return $this->hasOne(PaymentMethod::class)->where('is_default', true);
+    }
+
+    /**
+     * Determine if the user can access the given Filament panel.
+     * Required by FilamentUser interface for production environment.
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // Set team context first to avoid SQL ambiguity
+        $storeId = $this->store_id ?? $this->primaryStore()?->id;
+        if ($storeId) {
+            setPermissionsTeamId($storeId);
+        }
+
+        // Admin panel - only admin_sistem and super_admin
+        if ($panel->getId() === 'admin') {
+            return $this->hasRole(['admin_sistem', 'super_admin']);
+        }
+
+        // Owner panel - owner role or admin_sistem/super_admin for monitoring
+        if ($panel->getId() === 'owner') {
+            // Allow admin_sistem and super_admin to access owner panel
+            if ($this->hasRole(['admin_sistem', 'super_admin'])) {
+                return true;
+            }
+
+            // Check email verification
+            if (!$this->email_verified_at) {
+                return false;
+            }
+
+            // Check if user has store
+            if (!$storeId) {
+                return false;
+            }
+
+            // Check if store is active
+            $store = Store::find($storeId);
+            if ($store && $store->status !== 'active') {
+                return false;
+            }
+
+            // Check owner role or assignment
+            $hasOwnerRole = $this->hasRole('owner');
+            $hasOwnerAssignment = $this->storeAssignments()
+                ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+                ->exists();
+
+            return $hasOwnerRole || $hasOwnerAssignment;
+        }
+
+        return false;
     }
 }

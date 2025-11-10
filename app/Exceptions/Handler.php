@@ -347,13 +347,13 @@ class Handler extends ExceptionHandler
             }
 
             // Redirect to appropriate login page based on panel
-            if ($request->is('owner-panel/*') || $request->getHost() === env('OWNER_DOMAIN')) {
+            if ($request->is('owner-panel/*') || $this->isOwnerPathRequest($request)) {
                 return redirect()
                     ->route('filament.owner.auth.login')
                     ->with('error', $message ?: 'Anda tidak memiliki izin untuk mengakses dashboard toko.');
             }
 
-            if ($request->is('admin-panel/*') || $request->getHost() === env('ADMIN_DOMAIN')) {
+            if ($request->is('admin-panel/*') || $this->isAdminPathRequest($request)) {
                 return redirect()
                     ->route('filament.admin.auth.login')
                     ->with('error', $message ?: 'Anda tidak memiliki izin untuk mengakses panel admin.');
@@ -371,7 +371,41 @@ class Handler extends ExceptionHandler
         return $request->is('owner-panel/*') ||
                $request->is('admin-panel/*') ||
                $request->routeIs('filament.*') ||
-               $request->getHost() === env('OWNER_DOMAIN') ||
-               $request->getHost() === env('ADMIN_DOMAIN');
+               $this->isOwnerPathRequest($request) ||
+               $this->isAdminPathRequest($request);
+    }
+
+    /**
+     * Determine if request targets the owner panel path.
+     */
+    protected function isOwnerPathRequest(Request $request): bool
+    {
+        $ownerPath = $this->getOwnerPath();
+
+        return $request->is($ownerPath) || $request->is($ownerPath . '/*');
+    }
+
+    /**
+     * Determine if request targets the admin panel path.
+     */
+    protected function isAdminPathRequest(Request $request): bool
+    {
+        $adminPath = $this->getAdminPath();
+
+        return $request->is($adminPath) || $request->is($adminPath . '/*');
+    }
+
+    protected function getOwnerPath(): string
+    {
+        $defaultOwnerUrl = rtrim(config('app.url'), '/') . '/owner';
+
+        return trim(parse_url(config('app.owner_url', $defaultOwnerUrl), PHP_URL_PATH) ?: 'owner', '/');
+    }
+
+    protected function getAdminPath(): string
+    {
+        $defaultAdminUrl = rtrim(config('app.url'), '/') . '/admin';
+
+        return trim(parse_url(config('app.admin_url', $defaultAdminUrl), PHP_URL_PATH) ?: 'admin', '/');
     }
 }

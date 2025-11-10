@@ -19,13 +19,14 @@ class CheckFilamentRoutes extends Command
         $this->info('📌 Environment Info:');
         $this->line('   APP_ENV: ' . app()->environment());
         $this->line('   APP_DEBUG: ' . (config('app.debug') ? 'true' : 'false'));
-        $this->line('   OWNER_DOMAIN: ' . (env('OWNER_DOMAIN') ?: 'NOT SET'));
-        $this->line('   ADMIN_DOMAIN: ' . (env('ADMIN_DOMAIN') ?: 'NOT SET'));
+        $this->line('   OWNER_URL: ' . config('app.owner_url'));
+        $this->line('   ADMIN_URL: ' . config('app.admin_url'));
         $this->newLine();
 
         // Check Owner Panel Provider
-        $ownerDomain = env('OWNER_DOMAIN', 'dashboard.xpresspos.id');
-        $this->info("🏪 Owner Panel Domain: {$ownerDomain}");
+        $defaultOwnerUrl = rtrim(config('app.url'), '/') . '/owner';
+        $ownerPath = trim(parse_url(config('app.owner_url', $defaultOwnerUrl), PHP_URL_PATH) ?: 'owner', '/');
+        $this->info("🏪 Owner Panel Path: /{$ownerPath}");
         
         // Check route registration
         $ownerLoginRoute = null;
@@ -37,7 +38,7 @@ class CheckFilamentRoutes extends Command
 
         if ($ownerLoginRoute) {
             $this->info('   ✅ Route found: filament.owner.auth.login');
-            $this->line('   Domain: ' . ($ownerLoginRoute->domain() ?? 'null'));
+        $this->line('   Domain: ' . ($ownerLoginRoute->domain() ?? 'none (path-based)'));
             $this->line('   URI: ' . $ownerLoginRoute->uri());
             $this->line('   Methods: ' . implode(', ', $ownerLoginRoute->methods()));
         } else {
@@ -47,8 +48,9 @@ class CheckFilamentRoutes extends Command
         $this->newLine();
 
         // Check Admin Panel Provider
-        $adminDomain = env('ADMIN_DOMAIN', 'admin.xpresspos.id');
-        $this->info("🔧 Admin Panel Domain: {$adminDomain}");
+        $defaultAdminUrl = rtrim(config('app.url'), '/') . '/admin';
+        $adminPath = trim(parse_url(config('app.admin_url', $defaultAdminUrl), PHP_URL_PATH) ?: 'admin', '/');
+        $this->info("🔧 Admin Panel Path: /{$adminPath}");
         
         $adminLoginRoute = null;
         try {
@@ -59,7 +61,7 @@ class CheckFilamentRoutes extends Command
 
         if ($adminLoginRoute) {
             $this->info('   ✅ Route found: filament.admin.auth.login');
-            $this->line('   Domain: ' . ($adminLoginRoute->domain() ?? 'null'));
+        $this->line('   Domain: ' . ($adminLoginRoute->domain() ?? 'none (path-based)'));
             $this->line('   URI: ' . $adminLoginRoute->uri());
             $this->line('   Methods: ' . implode(', ', $adminLoginRoute->methods()));
         } else {
@@ -125,9 +127,9 @@ class CheckFilamentRoutes extends Command
             $this->line('      php artisan route:clear');
             $this->line('      php artisan config:clear');
             $this->newLine();
-            $this->line('   2. Check .env file has correct domains:');
-            $this->line('      OWNER_DOMAIN=dashboard.xpresspos.id');
-            $this->line('      ADMIN_DOMAIN=admin.xpresspos.id');
+            $this->line('   2. Pastikan konfigurasi URL panel sudah benar:');
+            $this->line('      OWNER_URL=' . config('app.owner_url'));
+            $this->line('      ADMIN_URL=' . config('app.admin_url'));
             $this->newLine();
             $this->line('   3. Run Filament upgrade:');
             $this->line('      php artisan filament:upgrade');

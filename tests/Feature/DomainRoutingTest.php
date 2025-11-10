@@ -18,23 +18,13 @@ class DomainRoutingTest extends TestCase
     /** @test */
     public function owner_domain_returns_dashboard_view(): void
     {
-        // Skip domain-based routing test for now - routes are loaded without domain constraints
-        $this->markTestSkipped('Domain-based routing not implemented yet. Routes are accessible on all domains.');
-
-        $this->get('http://' . config('domains.owner') . '/')
-            ->assertOk()
-            ->assertViewIs('owner.dashboard');
+        $this->markTestSkipped('Path-based routing: owner panel tersedia di /owner.');
     }
 
     /** @test */
     public function admin_domain_redirects_to_filament_login(): void
     {
-        // Skip domain-based routing test for now - routes are loaded without domain constraints
-        $this->markTestSkipped('Domain-based routing not implemented yet. Routes are accessible on all domains.');
-
-        $response = $this->get('http://' . config('domains.admin') . '/');
-
-        $response->assertRedirect(route('filament.admin.auth.login'));
+        $this->markTestSkipped('Path-based routing: admin panel tersedia di /admin.');
     }
 
     /** @test */

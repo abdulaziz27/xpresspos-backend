@@ -26,12 +26,10 @@ class DomainRoutingMiddleware
         }
 
         // Map domains to route prefixes using env config
-        $domainMap = [
+        $domainMap = array_filter([
             env('LANDING_DOMAIN') => 'landing',
-            env('OWNER_DOMAIN') => 'owner', 
-            env('ADMIN_DOMAIN') => 'admin',
             env('API_DOMAIN') => 'api',
-        ];
+        ]);
 
         // Check if the host matches any configured domain
         foreach ($domainMap as $domain => $prefix) {
