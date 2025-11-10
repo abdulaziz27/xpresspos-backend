@@ -33,8 +33,9 @@ class LoyaltyService
                     [
                         'order_id' => $order->id,
                         'order_amount' => $order->total_amount,
-                        'points_rate' => 1, // 1 point per dollar
+                        'points_rate' => 1, // 1 point per Rp 1.000
                         'tier_multiplier' => $member->tier?->benefits['points_multiplier'] ?? 1,
+                        'user_id' => $order->user_id, // Pass order's user_id as fallback for Observer context
                     ]
                 );
             }
@@ -44,12 +45,15 @@ class LoyaltyService
 
             DB::commit();
 
-            Log::info('Loyalty points processed for order', [
-                'order_id' => $order->id,
-                'member_id' => $member->id,
-                'points_earned' => $pointsEarned,
-                'new_balance' => $member->fresh()->loyalty_points,
-            ]);
+            // Log only in debug mode or for significant point amounts
+            if (config('app.debug') || $pointsEarned >= 100) {
+                Log::info('Loyalty points processed for order', [
+                    'order_id' => $order->id,
+                    'member_id' => $member->id,
+                    'points_earned' => $pointsEarned,
+                    'new_balance' => $member->fresh()->loyalty_points,
+                ]);
+            }
 
         } catch (\Exception $e) {
             DB::rollBack();

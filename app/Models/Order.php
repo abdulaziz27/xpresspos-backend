@@ -166,12 +166,8 @@ class Order extends Model
             'completed_at' => now(),
         ]);
 
-        // Update member stats if applicable
-        if ($this->member_id && $this->relationLoaded('member') && $this->member) {
-            if (method_exists($this->member, 'updateStats')) {
-                $this->member->updateStats($this->total_amount);
-            }
-        }
+        // Note: Member stats update is handled by LoyaltyService via OrderObserver
+        // to avoid duplicate updates and maintain single source of truth
 
         // Make table available if applicable
         if ($this->table_id && $this->relationLoaded('table') && $this->table) {
