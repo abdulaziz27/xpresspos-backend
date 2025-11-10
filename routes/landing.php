@@ -5,6 +5,7 @@ use App\Http\Controllers\LandingController;
 
 // Landing page routes - hanya untuk xpresspos.id
 Route::get('/', [LandingController::class, 'index'])->name('landing.home');
+Route::get('/', [LandingController::class, 'index'])->name('landing.main'); // Alias for compatibility
 
 // Auth routes untuk landing (redirect ke owner dashboard setelah login)
 Route::middleware('guest')->group(function () {

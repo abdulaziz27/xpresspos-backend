@@ -108,6 +108,9 @@ class OwnerPanelProvider extends PanelProvider
                 'ip' => request()->ip(),
                 'is_authenticated' => auth()->check(),
                 'user_id' => auth()->id(),
+                'method' => request()->method(),
+                'route' => request()->route()?->getName(),
+                'host' => request()->getHost(),
             ]);
             
             // Filament v4 panel-level access gate

@@ -15,6 +15,8 @@ class EnsureFilamentTeamContext
             'route' => $request->route()?->getName(),
             'is_authenticated' => auth()->check(),
             'user_id' => auth()->id(),
+            'method' => $request->method(),
+            'host' => $request->getHost(),
         ]);
         
         $user = auth()->user();
