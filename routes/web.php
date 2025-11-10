@@ -6,6 +6,7 @@ use App\Http\Controllers\LandingController;
 // Main domain routing (xpresspos.id)
 Route::domain(config('domains.main'))->group(function () {
     Route::get('/', [LandingController::class, 'index'])->name('landing.home');
+    Route::get('/', [LandingController::class, 'index'])->name('landing.main'); // Alias for compatibility
     
     // Auth routes untuk landing (redirect ke owner dashboard setelah login)
     Route::middleware('guest')->group(function () {
