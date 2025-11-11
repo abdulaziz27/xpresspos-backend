@@ -17,8 +17,10 @@ use App\Models\Table;
 use App\Services\OrderCalculationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
 {
@@ -28,6 +30,41 @@ class OrderController extends Controller
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', Order::class);
+
+        $validator = Validator::make($request->all(), [
+            'date' => ['nullable', 'date_format:Y-m-d'],
+            'start_date' => ['nullable', 'date_format:Y-m-d'],
+            'end_date' => ['nullable', 'date_format:Y-m-d'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $validator->after(function ($validator) use ($request): void {
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $start = Carbon::parse($request->input('start_date'));
+                $end = Carbon::parse($request->input('end_date'));
+
+                if ($end->lt($start)) {
+                    $validator->errors()->add('end_date', 'The end_date must be after or equal to the start_date.');
+                }
+            }
+        });
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'INVALID_ORDER_FILTERS',
+                    'message' => 'One or more order filters are invalid.',
+                    'details' => $validator->errors(),
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1',
+                ],
+            ], 422);
+        }
+
+        $filters = $validator->validated();
 
         // Build query with eager loading - ✅ WAJIB: Load items dan product untuk setiap item
         $query = Order::with([
@@ -48,8 +85,38 @@ class OrderController extends Controller
             $query->where('operation_mode', $request->input('operation_mode'));
         }
 
-        if ($request->filled('date')) {
-            $query->whereDate('created_at', $request->input('date'));
+        $dateWindow = [
+            'date' => null,
+            'start' => null,
+            'end' => null,
+        ];
+
+        $exactDate = $filters['date'] ?? null;
+
+        if ($exactDate) {
+            $startOfDay = Carbon::parse($exactDate)->startOfDay();
+            $endOfDay = Carbon::parse($exactDate)->endOfDay();
+            $query->whereBetween('created_at', [$startOfDay, $endOfDay]);
+
+            $dateWindow['date'] = $startOfDay->toDateString();
+            $dateWindow['start'] = $startOfDay->toDateString();
+            $dateWindow['end'] = $endOfDay->toDateString();
+        } else {
+            $startDate = isset($filters['start_date']) ? Carbon::parse($filters['start_date'])->startOfDay() : null;
+            $endDate = isset($filters['end_date']) ? Carbon::parse($filters['end_date'])->endOfDay() : null;
+
+            if ($startDate && $endDate) {
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            } elseif ($startDate) {
+                $query->where('created_at', '>=', $startDate);
+            } elseif ($endDate) {
+                $query->where('created_at', '<=', $endDate);
+            }
+
+            if ($startDate || $endDate) {
+                $dateWindow['start'] = $startDate?->toDateString();
+                $dateWindow['end'] = $endDate?->toDateString();
+            }
         }
 
         if ($request->filled('member_id')) {
@@ -82,7 +149,8 @@ class OrderController extends Controller
         }
 
         // Pagination
-        $perPage = min($request->input('per_page', 15), 100);
+        $perPage = min((int)($filters['per_page'] ?? $request->input('per_page', 10)), 100);
+        $perPage = $perPage > 0 ? $perPage : 10;
         $orders = $query->paginate($perPage);
 
         // Log untuk debugging
@@ -103,6 +171,8 @@ class OrderController extends Controller
                 'last_page' => $orders->lastPage(),
                 'per_page' => $orders->perPage(),
                 'total' => $orders->total(),
+                'has_more' => $orders->hasMorePages(),
+                'date_window' => $dateWindow,
                 'timestamp' => now()->toISOString(),
                 'version' => 'v1'
             ]
