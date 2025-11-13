@@ -16,10 +16,23 @@ class EnsureStoreContext
         $storeContext = StoreContext::instance();
 
         $requestedStoreId = $request->query('store')
-            ?? $request->query('store_id');
+            ?? $request->query('store_id')
+            ?? $request->header('X-Store-Id')
+            ?? $request->header('Store-Id');
+
+        if (is_string($requestedStoreId)) {
+            $requestedStoreId = trim($requestedStoreId);
+        }
 
         if ($requestedStoreId && $user) {
-            $storeContext->setForUser($user, $requestedStoreId);
+            if ($user->hasRole('admin_sistem')) {
+                $storeContext->set($requestedStoreId);
+            } elseif (!$storeContext->setForUser($user, $requestedStoreId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not assigned to the requested store context.'
+                ], Response::HTTP_FORBIDDEN);
+            }
         }
 
         if ($user) {

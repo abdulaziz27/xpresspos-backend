@@ -7,6 +7,7 @@ use App\Models\Expense;
 use App\Models\CashSession;
 use App\Http\Requests\StoreExpenseRequest;
 use App\Http\Requests\UpdateExpenseRequest;
+use App\Http\Requests\IndexExpenseRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,49 +24,52 @@ class ExpenseController extends Controller
     /**
      * Display a listing of expenses.
      */
-    public function index(Request $request): JsonResponse
+    public function index(IndexExpenseRequest $request): JsonResponse
     {
+        $validated = $request->validated();
+        
         $query = Expense::with(['user:id,name,email', 'cashSession:id,opened_at,closed_at,status'])
             ->orderBy('expense_date', 'desc')
             ->orderBy('created_at', 'desc');
 
         // Filter by category
-        if ($request->has('category')) {
-            $query->where('category', $request->category);
+        if (isset($validated['category'])) {
+            $query->where('category', $validated['category']);
         }
 
         // Filter by date range
-        if ($request->has('start_date') && $request->has('end_date')) {
+        if (isset($validated['start_date']) && isset($validated['end_date'])) {
             $query->whereBetween('expense_date', [
-                $request->start_date,
-                $request->end_date
+                $validated['start_date'],
+                $validated['end_date']
             ]);
         }
 
         // Filter by cash session
-        if ($request->has('cash_session_id')) {
-            $query->where('cash_session_id', $request->cash_session_id);
+        if (isset($validated['cash_session_id'])) {
+            $query->where('cash_session_id', $validated['cash_session_id']);
         }
 
         // Filter by user
-        if ($request->has('user_id')) {
-            $query->where('user_id', $request->user_id);
+        if (isset($validated['user_id'])) {
+            $query->where('user_id', $validated['user_id']);
         }
 
-        // Filter by vendor
-        if ($request->has('vendor')) {
-            $query->where('vendor', 'like', '%' . $request->vendor . '%');
+        // Filter by vendor (sanitized input)
+        if (isset($validated['vendor'])) {
+            $query->where('vendor', 'like', '%' . $validated['vendor'] . '%');
         }
 
         // Filter by amount range
-        if ($request->has('min_amount')) {
-            $query->where('amount', '>=', $request->min_amount);
+        if (isset($validated['min_amount'])) {
+            $query->where('amount', '>=', $validated['min_amount']);
         }
-        if ($request->has('max_amount')) {
-            $query->where('amount', '<=', $request->max_amount);
+        if (isset($validated['max_amount'])) {
+            $query->where('amount', '<=', $validated['max_amount']);
         }
 
-        $expenses = $query->paginate($request->get('per_page', 15));
+        $perPage = $validated['per_page'] ?? 15;
+        $expenses = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,
