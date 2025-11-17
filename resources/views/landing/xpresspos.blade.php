@@ -98,11 +98,11 @@
     </section>
 
     <!-- Partners Section -->
-    <section id="client" class="relative w-full partners-gradient py-16 md:py-20">
+    <section id="client" class="relative w-full partners-gradient py-16 md:py-20" style="z-index: 1;">
         <!-- Content Container -->
         <div class="mx-auto max-w-screen-xl px-6 text-center md:px-8">
             <div class="group relative m-auto max-w-5xl px-6">
-            <div class="absolute inset-0 z-10 flex scale-95 items-center justify-center opacity-0 duration-500 group-hover:scale-100 group-hover:opacity-100">
+            <div class="absolute inset-0 flex scale-95 items-center justify-center opacity-0 duration-500 group-hover:scale-100 group-hover:opacity-100">
                 <a class="block text-sm duration-150 hover:opacity-75" href="{{ url('/') }}">
                     <span>Cerita menarik tentang kami</span>
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right ml-1 inline-block size-3" aria-hidden="true">
@@ -371,9 +371,9 @@
             
             <!-- Toggle Buttons -->
             <div class="flex justify-center mt-8">
-                <div class="bg-gray-100 p-1 rounded-lg inline-flex relative">
+                <div class="bg-gray-100 p-1 rounded-lg inline-flex relative" style="z-index: 1;">
                     <button id="monthly-btn" class="relative z-10 px-6 py-3 text-sm font-medium text-gray-700 bg-white rounded-md shadow-sm transition-all duration-300 ease-in-out">Bulanan</button>
-                    <button id="yearly-btn" class="relative z-10 px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-all duration-300 ease-in-out">
+                    <button id="yearly-btn" class="relative z-10 px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 rounded-md shadow-sm transition-all duration-300 ease-in-out">
                         Tahunan 
                         <span class="ml-1 px-2 py-0.5 text-xs bg-red-500 text-white rounded-full animate-pulse">Gratis 2 Bulan</span>
                     </button>
@@ -508,7 +508,7 @@
 
 
     <!-- FAQ Section -->
-    <section id="faq" class="relative w-full faq-gradient pb-8 md:pb-20">
+    <section id="faq" class="relative w-full faq-gradient pb-8 md:pb-20" style="z-index: 1;">
         <!-- Content Container -->
         <div class="mx-auto max-w-screen-xl px-6 text-center md:px-8">
         <div class="mx-auto max-w-5xl space-y-3 text-center">
