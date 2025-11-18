@@ -1,5 +1,5 @@
 <!-- Modern Responsive Navbar -->
-<nav class="fixed top-0 w-full z-50 backdrop-blur-md bg-gray-900/80 dark:bg-gray-900/50 border-b border-gray-700/30 dark:border-gray-700/30 transition-all duration-300 ease-in-out" style="background-color: rgba(17, 24, 39, 0.8) !important; backdrop-filter: blur(12px) !important;">
+<nav class="fixed top-0 w-full z-[100] backdrop-blur-md bg-gray-900/80 dark:bg-gray-900/50 border-b border-gray-700/30 dark:border-gray-700/30 transition-all duration-300 ease-in-out" style="background-color: rgba(17, 24, 39, 0.8) !important; backdrop-filter: blur(12px) !important;">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
             <!-- Logo -->
