@@ -76,11 +76,12 @@ class FnBAnalyticsService
      * 
      * @param array $storeIds Array of store IDs
      * @param string $period Date period preset
+     * @param array<int, \Carbon\CarbonInterface>|null $customRange Optional [start, end] overrides
      * @return array
      */
-    public function getProfitAnalysisForStores(array $storeIds, string $period = 'today'): array
+    public function getProfitAnalysisForStores(array $storeIds, string $period = 'today', ?array $customRange = null): array
     {
-        $dateRange = $this->getDateRange($period);
+        $dateRange = $customRange ?? $this->getDateRange($period);
         
         if (empty($storeIds)) {
             return [];

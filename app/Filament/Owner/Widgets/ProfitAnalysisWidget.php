@@ -2,56 +2,53 @@
 
 namespace App\Filament\Owner\Widgets;
 
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Services\FnBAnalyticsService;
 use App\Services\GlobalFilterService;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Livewire\Attributes\On;
 
 class ProfitAnalysisWidget extends BaseWidget
 {
-    /**
-     * UPDATED: Now using GlobalFilterService for unified multi-store dashboard
-     * 
-     * Widget automatically refreshes when global filter changes
-     * Shows combined profit data for all selected stores
-     */
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
 
     protected static ?int $sort = 3;
 
     protected int | string | array $columnSpan = 'full';
 
-    #[On('filter-updated')]
-    public function refreshWidget(): void
+    protected function getDescription(): ?string
     {
-        // Trigger refresh when global filter changes
-        $this->resetState();
+        return $this->dashboardFilterContextLabel();
+    }
+
+    public function updatedPageFilters(): void
+    {
+        $this->cachedStats = null;
     }
 
     protected function getStats(): array
     {
-        $globalFilter = app(GlobalFilterService::class);
-        
-        // Get current filter values from global filter
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
-        $dateRange = $globalFilter->getCurrentDateRange();
-        $summary = $globalFilter->getFilterSummary();
-        
+        $filters = $this->dashboardFilters();
+        $storeIds = $this->dashboardStoreIds();
+        $summary = $this->dashboardFilterSummary();
+
         if (empty($storeIds)) {
             return [];
         }
 
         try {
             $analyticsService = app(FnBAnalyticsService::class);
-            
-            // Use date preset from global filter
-            $range = $summary['date_preset'] ?? 'this_month';
-            
-            // Get profit analysis for all selected stores
-            $profitAnalysis = $analyticsService->getProfitAnalysisForStores($storeIds, $range);
+
+            $preset = $filters['date_preset'] ?? 'this_month';
+            $customRange = $preset === 'custom'
+                ? [$filters['range']['start'], $filters['range']['end']]
+                : null;
+
+            $profitAnalysis = $analyticsService->getProfitAnalysisForStores($storeIds, $preset, $customRange);
 
             if (empty($profitAnalysis)) {
-                // Don't show widget if no sales
                 return [];
             }
 
@@ -59,21 +56,25 @@ class ProfitAnalysisWidget extends BaseWidget
             $totalProfit = collect($profitAnalysis)->sum('profit');
             $avgMargin = collect($profitAnalysis)->avg('margin_percent') ?? 0;
 
+            $storeLabel = $summary['store'] ?? 'Semua Cabang';
+            $tenantLabel = $summary['tenant'] ?? 'Tenant';
+
             return [
                 Stat::make('Produk Teratas', $topProduct['product_name'] ?? 'N/A')
                     ->description($topProduct ? 'Profit: Rp ' . number_format($topProduct['profit'], 0, ',', '.') : 'Tidak ada data')
                     ->color('success'),
 
                 Stat::make('Total Profit', 'Rp ' . number_format($totalProfit, 0, ',', '.'))
-                    ->description($summary['store'] . ' • ' . $summary['date_preset_label'])
+                    ->description("{$tenantLabel} • {$storeLabel}")
                     ->color($totalProfit > 0 ? 'success' : 'gray'),
 
                 Stat::make('Rata-rata Margin', number_format($avgMargin, 1) . '%')
-                    ->description('Di seluruh produk (' . count($profitAnalysis) . ' produk)')
+                    ->description('Dari ' . count($profitAnalysis) . ' produk')
                     ->color($avgMargin >= 30 ? 'success' : ($avgMargin >= 20 ? 'warning' : 'danger')),
             ];
-
         } catch (\Exception $e) {
+            report($e);
+
             return [
                 Stat::make('Error', 'Tidak dapat memuat data')
                     ->description('Silakan coba lagi nanti')
@@ -91,7 +92,6 @@ class ProfitAnalysisWidget extends BaseWidget
             return false;
         }
 
-        // Show only if there are sales for current filter
         $dateRange = $globalFilter->getCurrentDateRange();
 
         return \App\Models\CogsHistory::whereIn('store_id', $storeIds)

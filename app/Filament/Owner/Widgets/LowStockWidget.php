@@ -2,41 +2,33 @@
 
 namespace App\Filament\Owner\Widgets;
 
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Models\Product;
-use App\Services\GlobalFilterService;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\TableWidget as BaseWidget;
-use Livewire\Attributes\On;
+use Illuminate\Contracts\Support\Htmlable;
 
 class LowStockWidget extends BaseWidget
 {
-    /**
-     * UPDATED: Now using GlobalFilterService for unified multi-store dashboard
-     * 
-     * Widget automatically refreshes when global filter changes
-     * Shows low stock products across all selected stores
-     */
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
 
     protected int | string | array $columnSpan = 'full';
 
-    protected static ?string $heading = 'Peringatan Stok Rendah';
-
-    #[On('filter-updated')]
-    public function refreshWidget(): void
+    protected function getTableHeading(): string | Htmlable | null
     {
-        // Trigger refresh when global filter changes
-        $this->resetTable();
+        return 'Peringatan Stok Rendah • ' . $this->dashboardFilterContextLabel();
     }
 
     public function table(Table $table): Table
     {
-        $globalFilter = app(GlobalFilterService::class);
-        
-        // Get current filter values from global filter
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
-        $summary = $globalFilter->getFilterSummary();
-        
+        $filters = $this->dashboardFilters();
+        $storeIds = $this->dashboardStoreIds();
+        $summary = $this->dashboardFilterSummary();
+        $selectedStore = $filters['store_id'];
+
         if (empty($storeIds)) {
             $query = Product::query()->whereRaw('1 = 0');
         } else {
@@ -83,7 +75,7 @@ class LowStockWidget extends BaseWidget
                     ->label('Cabang')
                     ->badge()
                     ->color('info')
-                    ->visible(fn() => !$globalFilter->getCurrentStoreId()), // Show store name only when "All Stores" is selected
+                    ->visible(fn () => ! $selectedStore),
 
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Kategori')
@@ -92,7 +84,7 @@ class LowStockWidget extends BaseWidget
             ])
             ->paginated(false)
             ->emptyStateHeading('Tidak Ada Produk Stok Rendah')
-            ->emptyStateDescription('Semua produk di ' . $summary['store'] . ' memiliki stok yang cukup.')
+            ->emptyStateDescription('Semua produk di ' . ($summary['store'] ?? 'Semua Cabang') . ' memiliki stok yang cukup.')
             ->emptyStateIcon('heroicon-o-check-circle');
     }
 }

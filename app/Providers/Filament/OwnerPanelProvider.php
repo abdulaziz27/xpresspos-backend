@@ -53,18 +53,14 @@ class OwnerPanelProvider extends PanelProvider
                 \App\Filament\Owner\Pages\OwnerDashboard::class,
             ])
             ->widgets([
-                // Global Filter (Unified Multi-Store Dashboard)
-                \App\Filament\Owner\Widgets\GlobalFilterWidget::class, // Filter: Tenant, Store, Date Range
-                
                 // Dashboard Widgets
                 // \App\Filament\Owner\Widgets\UpgradeBannerWidget::class, // DISABLED - upgrade banner
                 \App\Filament\Owner\Widgets\SubscriptionDashboardWidget::class, // status subscription ringkas (v4 simplified)
                 \App\Filament\Owner\Widgets\OwnerStatsWidget::class, // ringkasan transaksi & pendapatan (dengan filter)
-                \App\Filament\Owner\Widgets\ProfitAnalysisWidget::class, // laba kotor & bersih (dengan filter)
                 \App\Filament\Owner\Widgets\SalesRevenueChartWidget::class, // grafik total pendapatan (bar)
+                \App\Filament\Owner\Widgets\LowStockWidget::class, // stok bahan baku menipis
                 \App\Filament\Owner\Widgets\TopMenuTableWidget::class, // menu terlaris (tabel)
                 \App\Filament\Owner\Widgets\BestBranchesWidget::class, // cabang dengan penjualan terbaik (tabel)
-                \App\Filament\Owner\Widgets\LowStockWidget::class, // stok bahan baku menipis
             ])
             ->middleware([
                 EncryptCookies::class,

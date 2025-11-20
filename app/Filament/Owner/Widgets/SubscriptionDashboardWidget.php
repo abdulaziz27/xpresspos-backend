@@ -2,88 +2,89 @@
 
 namespace App\Filament\Owner\Widgets;
 
-use App\Models\Subscription;
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Models\SubscriptionPayment;
-use App\Services\StoreContext;
+use App\Models\Tenant;
+use App\Services\GlobalFilterService;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Builder;
 
 class SubscriptionDashboardWidget extends Widget
 {
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
+
     protected string $view = 'filament.owner.widgets.subscription-dashboard';
 
     protected int | string | array $columnSpan = 'full';
 
     protected function getViewData(): array
     {
-        $storeContext = app(StoreContext::class);
-        $storeId = $storeContext->current(auth()->user());
-        $store = \App\Models\Store::find($storeId);
-        
-        if (!$store || !$store->tenant_id) {
-            return [
-                'activeSubscription' => null,
-                'recentPayments' => collect(),
-                'upcomingRenewal' => null,
-                'pendingPayments' => collect(),
-            ];
+        $filters = $this->dashboardFilters();
+        $tenantId = $filters['tenant_id'];
+
+        if (! $tenantId) {
+            return $this->emptyViewData();
         }
 
-        $tenant = $store->tenant;
+        $tenant = Tenant::find($tenantId);
+
+        if (! $tenant) {
+            return $this->emptyViewData();
+        }
+
         $activeSubscription = $tenant->activeSubscription();
-        
+
         if ($activeSubscription) {
             $activeSubscription->load('plan');
         }
 
-        $tenantId = $tenant->id;
-        $recentPayments = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        })->with(['subscription.plan', 'landingSubscription'])
-        ->latest()
-        ->limit(5)
-        ->get();
+        $recentPayments = $this->buildTenantPaymentsQuery($tenant->id)
+            ->latest()
+            ->limit(5)
+            ->get();
 
-        $upcomingRenewal = $activeSubscription && (int) $activeSubscription->ends_at->diffInDays() <= 30 
-            ? $activeSubscription 
+        $upcomingRenewal = ($activeSubscription && (int) $activeSubscription->ends_at->diffInDays() <= 30)
+            ? $activeSubscription
             : null;
 
-        $pendingPayments = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        })->where('status', 'pending')
-        ->with(['subscription.plan', 'landingSubscription'])
-        ->get();
+        $pendingPayments = $this->buildTenantPaymentsQuery($tenant->id)
+            ->where('status', 'pending')
+            ->get();
 
         return [
             'activeSubscription' => $activeSubscription,
             'recentPayments' => $recentPayments,
             'upcomingRenewal' => $upcomingRenewal,
             'pendingPayments' => $pendingPayments,
+            'filterContext' => $this->dashboardFilterContextLabel(),
+        ];
+    }
+
+    protected function buildTenantPaymentsQuery(string $tenantId)
+    {
+        return SubscriptionPayment::query()
+            ->where(function (Builder $query) use ($tenantId) {
+                $query->whereHas('subscription', fn (Builder $sub) => $sub->where('tenant_id', $tenantId))
+                    ->orWhereHas('landingSubscription', fn (Builder $sub) => $sub->where('tenant_id', $tenantId));
+            })
+            ->with(['subscription.plan', 'landingSubscription']);
+    }
+
+    protected function emptyViewData(): array
+    {
+        return [
+            'activeSubscription' => null,
+            'recentPayments' => collect(),
+            'upcomingRenewal' => null,
+            'pendingPayments' => collect(),
+            'filterContext' => $this->dashboardFilterContextLabel(),
         ];
     }
 
     public static function canView(): bool
     {
-        $storeContext = app(StoreContext::class);
-        $storeId = $storeContext->current(auth()->user());
-        $store = \App\Models\Store::find($storeId);
-        
-        if (!$store || !$store->tenant_id) {
-            return false;
-        }
-
-        $tenant = $store->tenant;
-        
-        // Show widget only if tenant has subscription-related data
-        return $tenant->activeSubscription() !== null ||
-               SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenant) {
-                   $query->where('tenant_id', $tenant->id);
-               })->orWhereHas('landingSubscription', function (Builder $query) use ($tenant) {
-                   $query->where('tenant_id', $tenant->id);
-               })->exists();
+        return (bool) app(GlobalFilterService::class)->getCurrentTenantId();
     }
 }

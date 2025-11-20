@@ -141,10 +141,24 @@ class GlobalFilterService
     /**
      * Set tenant filter
      */
-    public function setTenant(string $tenantId): void
+    public function setTenant(?string $tenantId, ?User $user = null): void
     {
+        $user = $user ?? auth()->user();
+
+        if (blank($tenantId)) {
+            Session::forget(self::SESSION_KEY_TENANT);
+            Session::forget(self::SESSION_KEY_STORE);
+
+            return;
+        }
+
+        // Validate tenant access for current user
+        if ($user && ! $user->tenants()->where('tenant_id', $tenantId)->exists()) {
+            return;
+        }
+
         Session::put(self::SESSION_KEY_TENANT, $tenantId);
-        
+
         // Reset store when tenant changes
         Session::forget(self::SESSION_KEY_STORE);
     }
@@ -352,6 +366,72 @@ class GlobalFilterService
             'date_preset' => $preset,
             'date_preset_label' => $this->getAvailableDatePresets()[$preset ?? 'today'] ?? 'Custom',
         ];
+    }
+
+    /**
+     * Get current filter state as simple array.
+     */
+    public function getFilterState(): array
+    {
+        $range = $this->getCurrentDateRange();
+
+        return [
+            'tenant_id' => $this->getCurrentTenantId(),
+            'store_id' => $this->getCurrentStoreId(),
+            'date_preset' => $this->getCurrentDatePreset() ?? 'this_month',
+            'date_start' => $range['start']->toDateString(),
+            'date_end' => $range['end']->toDateString(),
+        ];
+    }
+
+    /**
+     * Sync dashboard filter payload into session-backed global filter.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    public function syncFromDashboardFilters(array $filters, ?User $user = null): void
+    {
+        $user = $user ?? auth()->user();
+
+        $tenantId = $filters['tenant_id'] ?? null;
+        $this->setTenant($tenantId, $user);
+
+        if (array_key_exists('store_id', $filters)) {
+            $this->setStore($filters['store_id'] ?: null);
+        }
+
+        $preset = $filters['date_preset'] ?? null;
+        $isCustom = $preset === 'custom';
+
+        if (! $isCustom) {
+            $this->setDatePreset($preset ?? 'this_month');
+
+            return;
+        }
+
+        $start = $filters['date_start'] ?? null;
+        $end = $filters['date_end'] ?? null;
+
+        if (! $start || ! $end) {
+            return;
+        }
+
+        $startDate = Carbon::parse($start)->startOfDay();
+        $endDate = Carbon::parse($end)->endOfDay();
+
+        if ($startDate->greaterThan($endDate)) {
+            [$startDate, $endDate] = [$endDate, $startDate];
+        }
+
+        $this->setDateRange($startDate, $endDate, 'custom');
+    }
+
+    /**
+     * Public helper for retrieving preset date ranges.
+     */
+    public function getDateRangeForPreset(string $preset): array
+    {
+        return $this->getDateRangeFromPreset($preset);
     }
 }
 

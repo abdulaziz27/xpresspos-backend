@@ -2,50 +2,42 @@
 
 namespace App\Filament\Owner\Widgets;
 
-use App\Models\Payment;
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Models\Store;
-use App\Services\GlobalFilterService;
+use App\Support\Currency;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
-use App\Support\Currency;
-use Livewire\Attributes\On;
 
 class BestBranchesWidget extends BaseWidget
 {
-    /**
-     * UPDATED: Now using GlobalFilterService for unified multi-store dashboard
-     * 
-     * Widget automatically refreshes when global filter changes
-     * Shows all branches or specific branch based on global filter
-     */
-
-    protected static ?string $heading = 'Cabang dengan Penjualan Terbaik';
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
 
     protected int | string | array $columnSpan = ['xl' => 6];
 
-    #[On('filter-updated')]
-    public function refreshWidget(): void
+    protected function getTableHeading(): string | Htmlable | null
     {
-        // Trigger refresh when global filter changes
-        $this->resetTable();
+        return 'Cabang dengan Penjualan Terbaik • ' . $this->dashboardFilterContextLabel();
     }
 
     public function table(Table $table): Table
     {
-        $globalFilter = app(GlobalFilterService::class);
-        
-        // Get current filter values from global filter
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
-        $dateRange = $globalFilter->getCurrentDateRange();
-        
+        $filters = $this->dashboardFilters();
+        $storeIds = $this->dashboardStoreIds();
+
         if (empty($storeIds)) {
             return $table
                 ->query(Store::query()->whereRaw('1 = 0'))
                 ->emptyStateHeading('Tidak ada data cabang')
-                ->emptyStateDescription('Tidak ada cabang untuk tenant ini.');
+                ->emptyStateDescription('Tenant atau cabang belum dipilih.');
         }
+
+        $dateRange = $filters['range'];
+        $summary = $this->dashboardFilterSummary();
 
         $query = Store::query()
             ->select([
@@ -57,8 +49,8 @@ class BestBranchesWidget extends BaseWidget
             ])
             ->leftJoin('payments', function ($join) use ($dateRange) {
                 $join->on('payments.store_id', '=', 'stores.id')
-                     ->where('payments.status', '=', 'completed')
-                     ->whereBetween('payments.created_at', [$dateRange['start'], $dateRange['end']]);
+                    ->where('payments.status', '=', 'completed')
+                    ->whereBetween('payments.created_at', [$dateRange['start'], $dateRange['end']]);
             })
             ->whereIn('stores.id', $storeIds)
             ->groupBy('stores.id', 'stores.name')
@@ -73,7 +65,7 @@ class BestBranchesWidget extends BaseWidget
                     ->searchable(),
                 Tables\Columns\TextColumn::make('revenue')
                     ->label('Pendapatan')
-                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->revenue ?? 0)))
+                    ->formatStateUsing(fn ($state, $record) => Currency::rupiah((float) ($state ?? $record->revenue ?? 0)))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('transactions')
                     ->label('Transaksi')
@@ -82,9 +74,7 @@ class BestBranchesWidget extends BaseWidget
             ->defaultSort('revenue', 'desc')
             ->paginated(false)
             ->emptyStateHeading('Tidak ada data cabang')
-            ->emptyStateDescription('Belum ada transaksi dalam periode ini.')
+            ->emptyStateDescription('Belum ada transaksi untuk ' . ($summary['store'] ?? 'Semua Cabang') . '.')
             ->striped();
     }
 }
-
-

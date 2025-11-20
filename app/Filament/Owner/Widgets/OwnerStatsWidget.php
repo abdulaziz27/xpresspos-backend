@@ -2,57 +2,55 @@
 
 namespace App\Filament\Owner\Widgets;
 
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
+use App\Models\Member;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
-use App\Models\Member;
-use App\Services\GlobalFilterService;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Livewire\Attributes\On;
 
 class OwnerStatsWidget extends BaseWidget
 {
-    /**
-     * UPDATED: Now using GlobalFilterService for unified multi-store dashboard
-     * 
-     * Filter is controlled by GlobalFilterWidget (tenant, store, date range)
-     * Widget automatically refreshes when filter changes
-     */
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
 
-    #[On('filter-updated')]
-    public function refreshWidget(): void
+    protected ?string $heading = 'Ringkasan Performa';
+
+    public function updatedPageFilters(): void
     {
-        // Trigger refresh when global filter changes
-        $this->resetState();
+        $this->cachedStats = null;
+    }
+
+    protected function getDescription(): ?string
+    {
+        return $this->dashboardFilterContextLabel();
     }
 
     protected function getStats(): array
     {
-        $globalFilter = app(GlobalFilterService::class);
-        
-        // Get current filter values
-        $tenantId = $globalFilter->getCurrentTenantId();
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant(); // Array of store IDs
-        $dateRange = $globalFilter->getCurrentDateRange();
-        $summary = $globalFilter->getFilterSummary();
-        
-        if (!$tenantId || empty($storeIds)) {
+        $filters = $this->dashboardFilters();
+        $storeIds = $this->dashboardStoreIds();
+        $summary = $this->dashboardFilterSummary();
+        $tenantId = $filters['tenant_id'];
+
+        if (! $tenantId || empty($storeIds)) {
             return [
-                Stat::make('No Data', '0')
-                    ->description('No stores found for current tenant')
+                Stat::make('Data Tidak Tersedia', '0')
+                    ->description('Tenant atau cabang belum dipilih.')
                     ->descriptionIcon('heroicon-o-exclamation-triangle')
                     ->color('warning'),
             ];
         }
 
-        // Build queries using store IDs (legacy support for models without tenant_id)
+        $dateRange = $filters['range'];
+
         $ordersQuery = Order::whereIn('store_id', $storeIds);
         $paymentsQuery = Payment::whereIn('store_id', $storeIds);
         $productsQuery = Product::whereIn('store_id', $storeIds);
         $membersQuery = Member::whereIn('store_id', $storeIds);
 
-        // Apply date range for time-based metrics
         $ordersCount = (clone $ordersQuery)
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->count();
@@ -62,34 +60,36 @@ class OwnerStatsWidget extends BaseWidget
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->sum('amount');
 
-        // Total counts (not date-filtered)
         $totalProducts = $productsQuery->count();
         $totalMembers = $membersQuery->where('is_active', true)->count();
 
-        // Build description with filter info
-        $storeLabel = $summary['store'];
-        $dateLabel = $summary['date_preset_label'];
+        $tenantLabel = $summary['tenant'] ?? 'Tenant';
+        $storeLabel = $summary['store'] ?? 'Semua Cabang';
+        $dateLabel = $summary['date_preset_label'] ?? 'Periode berjalan';
+
+        $context = "{$tenantLabel} • {$storeLabel} • {$dateLabel}";
+        $allTimeContext = "{$tenantLabel} • {$storeLabel} • Seluruh waktu";
 
         return [
             Stat::make('Total Transaksi', number_format($ordersCount, 0, ',', '.'))
-                ->description("$storeLabel • $dateLabel")
+                ->description($context)
                 ->descriptionIcon('heroicon-o-shopping-bag')
                 ->color('success')
                 ->chart([7, 3, 4, 5, 6, 3, 5, 3]),
 
             Stat::make('Total Pendapatan', 'Rp ' . number_format($revenue, 0, ',', '.'))
-                ->description("$storeLabel • $dateLabel")
+                ->description($context)
                 ->descriptionIcon('heroicon-o-banknotes')
                 ->color('success')
                 ->chart([15, 4, 10, 22, 13, 7, 10, 14]),
 
             Stat::make('Total Produk', number_format($totalProducts, 0, ',', '.'))
-                ->description("$storeLabel • Seluruh waktu")
+                ->description($allTimeContext)
                 ->descriptionIcon('heroicon-o-cube')
                 ->color('info'),
 
             Stat::make('Member Aktif', number_format($totalMembers, 0, ',', '.'))
-                ->description("$storeLabel • Seluruh waktu")
+                ->description($allTimeContext)
                 ->descriptionIcon('heroicon-o-user-group')
                 ->color('warning'),
         ];

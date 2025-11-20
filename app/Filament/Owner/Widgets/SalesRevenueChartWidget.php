@@ -2,29 +2,29 @@
 
 namespace App\Filament\Owner\Widgets;
 
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Models\Payment;
-use App\Services\GlobalFilterService;
 use Filament\Widgets\ChartWidget;
-use Livewire\Attributes\On;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class SalesRevenueChartWidget extends ChartWidget
 {
-    /**
-     * UPDATED: Now using GlobalFilterService for unified multi-store dashboard
-     * 
-     * Chart automatically refreshes when global filter changes
-     * Shows combined data for all selected stores
-     */
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
 
     protected ?string $heading = 'Grafik Total Pendapatan';
 
     protected int | string | array $columnSpan = 'full';
 
-    #[On('filter-updated')]
-    public function refreshWidget(): void
+    public function updatedPageFilters(): void
     {
-        // Trigger refresh when global filter changes
+        $this->cachedData = null;
         $this->updateChartData();
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->dashboardFilterContextLabel();
     }
 
     protected function getType(): string
@@ -34,13 +34,10 @@ class SalesRevenueChartWidget extends ChartWidget
 
     protected function getData(): array
     {
-        $globalFilter = app(GlobalFilterService::class);
-        
-        // Get current filter values from global filter
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
-        $dateRange = $globalFilter->getCurrentDateRange();
-        $summary = $globalFilter->getFilterSummary();
-        
+        $filters = $this->dashboardFilters();
+        $storeIds = $this->dashboardStoreIds();
+        $summary = $this->dashboardFilterSummary();
+
         if (empty($storeIds)) {
             return [
                 'datasets' => [[ 'label' => 'Pendapatan', 'data' => [] ]],
@@ -48,17 +45,15 @@ class SalesRevenueChartWidget extends ChartWidget
             ];
         }
 
-        $start = $dateRange['start'];
-        $end = $dateRange['end'];
+        $start = $filters['range']['start'];
+        $end = $filters['range']['end'];
 
         $labels = [];
         $data = [];
 
-        // Determine granularity based on date range
         $diffInDays = $start->diffInDays($end);
 
         if ($diffInDays <= 1) {
-            // Per jam untuk 1 hari
             for ($h = 0; $h < 24; $h++) {
                 $hourStart = $start->copy()->setTime($h, 0, 0);
                 $hourEnd = $start->copy()->setTime($h, 59, 59);
@@ -68,11 +63,10 @@ class SalesRevenueChartWidget extends ChartWidget
                     ->whereBetween('created_at', [$hourStart, $hourEnd])
                     ->sum('amount');
 
-                $labels[] = str_pad((string)$h, 2, '0', STR_PAD_LEFT) . ':00';
+                $labels[] = str_pad((string) $h, 2, '0', STR_PAD_LEFT) . ':00';
                 $data[] = (float) $sum;
             }
         } else {
-            // Per hari untuk multi-day periods
             $period = \Carbon\CarbonPeriod::create($start, '1 day', $end);
             foreach ($period as $date) {
                 $dayStart = $date->copy()->startOfDay();
@@ -88,8 +82,8 @@ class SalesRevenueChartWidget extends ChartWidget
             }
         }
 
-        // Update heading with filter info
-        $this->heading = 'Grafik Total Pendapatan - ' . $summary['store'] . ' (' . $summary['date_preset_label'] . ')';
+        $storeLabel = $summary['store'] ?? 'Semua Cabang';
+        $this->heading = 'Grafik Total Pendapatan - ' . $storeLabel;
 
         return [
             'datasets' => [
@@ -104,5 +98,3 @@ class SalesRevenueChartWidget extends ChartWidget
         ];
     }
 }
-
-
