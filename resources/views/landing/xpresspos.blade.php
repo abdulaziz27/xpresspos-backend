@@ -407,9 +407,15 @@
                                 <p class="text-2xl font-bold text-gray-900">{{ number_format($plan->annual_price, 0, ',', '.') }}</p>
                                 <p class="text-xs text-gray-500">/tahun</p>
                             </div>
+                            @auth
                             <button onclick="selectPlanFromLanding('{{ $plan->slug }}')" class="mt-3 w-full {{ $index === 1 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-900 hover:bg-gray-800' }} text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
                                 Beli
                             </button>
+                            @else
+                            <a href="{{ route('login') }}" class="mt-3 w-full {{ $index === 1 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-900 hover:bg-gray-800' }} text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors text-center inline-flex justify-center">
+                                Beli
+                            </a>
+                            @endauth
                         </div>
                     </div>
                     @endforeach
