@@ -4,50 +4,47 @@ namespace App\Filament\Owner\Widgets;
 
 use App\Models\Payment;
 use App\Models\Store;
+use App\Services\GlobalFilterService;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Support\Facades\DB;
 use App\Support\Currency;
+use Livewire\Attributes\On;
 
 class BestBranchesWidget extends BaseWidget
 {
+    /**
+     * UPDATED: Now using GlobalFilterService for unified multi-store dashboard
+     * 
+     * Widget automatically refreshes when global filter changes
+     * Shows all branches or specific branch based on global filter
+     */
+
     protected static ?string $heading = 'Cabang dengan Penjualan Terbaik';
 
     protected int | string | array $columnSpan = ['xl' => 6];
 
-    public ?string $filter = 'this_month';
-
-    protected function getTableHeading(): ?string
+    #[On('filter-updated')]
+    public function refreshWidget(): void
     {
-        return static::$heading;
-    }
-
-    protected function getFilters(): array
-    {
-        return [
-            'today' => 'Hari ini',
-            'this_week' => 'Minggu ini',
-            'this_month' => 'Bulan ini',
-        ];
+        // Trigger refresh when global filter changes
+        $this->resetTable();
     }
 
     public function table(Table $table): Table
     {
-        $owner = auth()->user();
-
-        $start = now();
-        $end = now();
-
-        if ($this->filter === 'this_week') {
-            $start = now()->startOfWeek();
-            $end = now()->endOfWeek();
-        } elseif ($this->filter === 'this_month') {
-            $start = now()->startOfMonth();
-            $end = now()->endOfMonth();
-        } else {
-            $start = now()->startOfDay();
-            $end = now()->endOfDay();
+        $globalFilter = app(GlobalFilterService::class);
+        
+        // Get current filter values from global filter
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+        $dateRange = $globalFilter->getCurrentDateRange();
+        
+        if (empty($storeIds)) {
+            return $table
+                ->query(Store::query()->whereRaw('1 = 0'))
+                ->emptyStateHeading('Tidak ada data cabang')
+                ->emptyStateDescription('Tidak ada cabang untuk tenant ini.');
         }
 
         $query = Store::query()
@@ -55,27 +52,17 @@ class BestBranchesWidget extends BaseWidget
                 DB::raw('stores.id as id'),
                 DB::raw('stores.id as store_id'),
                 DB::raw('stores.name as store_name'),
-                DB::raw('SUM(payments.amount) as revenue'),
+                DB::raw('COALESCE(SUM(payments.amount), 0) as revenue'),
                 DB::raw('COUNT(payments.id) as transactions'),
             ])
-            ->leftJoin('payments', 'payments.store_id', '=', 'stores.id')
-            ->where('payments.status', 'completed')
-            ->whereBetween('payments.created_at', [$start, $end])
-            ->groupBy('stores.id', 'stores.name');
-
-        // Restrict to stores assigned to this owner (all branches), defaulting to primary store if none
-        $storeIds = collect();
-        if ($owner) {
-            $storeIds = $owner->storeAssignments()->pluck('store_id');
-            if ($storeIds->isEmpty() && $owner->store_id) {
-                $storeIds = collect([$owner->store_id]);
-            }
-        }
-        if ($storeIds->isNotEmpty()) {
-            $query->whereIn('stores.id', $storeIds->all());
-        } else {
-            $query->whereRaw('1 = 0');
-        }
+            ->leftJoin('payments', function ($join) use ($dateRange) {
+                $join->on('payments.store_id', '=', 'stores.id')
+                     ->where('payments.status', '=', 'completed')
+                     ->whereBetween('payments.created_at', [$dateRange['start'], $dateRange['end']]);
+            })
+            ->whereIn('stores.id', $storeIds)
+            ->groupBy('stores.id', 'stores.name')
+            ->orderByDesc('revenue');
 
         return $table
             ->query($query)
@@ -95,6 +82,7 @@ class BestBranchesWidget extends BaseWidget
             ->defaultSort('revenue', 'desc')
             ->paginated(false)
             ->emptyStateHeading('Tidak ada data cabang')
+            ->emptyStateDescription('Belum ada transaksi dalam periode ini.')
             ->striped();
     }
 }

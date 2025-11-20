@@ -3,23 +3,28 @@
 namespace App\Filament\Owner\Widgets;
 
 use App\Models\Payment;
+use App\Services\GlobalFilterService;
 use Filament\Widgets\ChartWidget;
+use Livewire\Attributes\On;
 
 class SalesRevenueChartWidget extends ChartWidget
 {
+    /**
+     * UPDATED: Now using GlobalFilterService for unified multi-store dashboard
+     * 
+     * Chart automatically refreshes when global filter changes
+     * Shows combined data for all selected stores
+     */
+
     protected ?string $heading = 'Grafik Total Pendapatan';
 
     protected int | string | array $columnSpan = 'full';
 
-    public ?string $filter = 'today';
-
-    protected function getFilters(): ?array
+    #[On('filter-updated')]
+    public function refreshWidget(): void
     {
-        return [
-            'today' => 'Hari ini',
-            'this_week' => 'Minggu ini',
-            'this_month' => 'Bulan ini',
-        ];
+        // Trigger refresh when global filter changes
+        $this->updateChartData();
     }
 
     protected function getType(): string
@@ -29,39 +34,36 @@ class SalesRevenueChartWidget extends ChartWidget
 
     protected function getData(): array
     {
-        $storeId = auth()->user()?->store_id;
-
-        if (!$storeId) {
+        $globalFilter = app(GlobalFilterService::class);
+        
+        // Get current filter values from global filter
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+        $dateRange = $globalFilter->getCurrentDateRange();
+        $summary = $globalFilter->getFilterSummary();
+        
+        if (empty($storeIds)) {
             return [
                 'datasets' => [[ 'label' => 'Pendapatan', 'data' => [] ]],
                 'labels' => [],
             ];
         }
 
-        $start = now();
-        $end = now();
-
-        if ($this->filter === 'this_week') {
-            $start = now()->startOfWeek();
-            $end = now()->endOfWeek();
-        } elseif ($this->filter === 'this_month') {
-            $start = now()->startOfMonth();
-            $end = now()->endOfMonth();
-        } else {
-            $start = now()->startOfDay();
-            $end = now()->endOfDay();
-        }
+        $start = $dateRange['start'];
+        $end = $dateRange['end'];
 
         $labels = [];
         $data = [];
 
-        if ($this->filter === 'today') {
-            // Per jam untuk hari ini
+        // Determine granularity based on date range
+        $diffInDays = $start->diffInDays($end);
+
+        if ($diffInDays <= 1) {
+            // Per jam untuk 1 hari
             for ($h = 0; $h < 24; $h++) {
                 $hourStart = $start->copy()->setTime($h, 0, 0);
                 $hourEnd = $start->copy()->setTime($h, 59, 59);
 
-                $sum = Payment::where('store_id', $storeId)
+                $sum = Payment::whereIn('store_id', $storeIds)
                     ->where('status', 'completed')
                     ->whereBetween('created_at', [$hourStart, $hourEnd])
                     ->sum('amount');
@@ -70,13 +72,13 @@ class SalesRevenueChartWidget extends ChartWidget
                 $data[] = (float) $sum;
             }
         } else {
-            // Per hari untuk minggu/bulan ini
+            // Per hari untuk multi-day periods
             $period = \Carbon\CarbonPeriod::create($start, '1 day', $end);
             foreach ($period as $date) {
                 $dayStart = $date->copy()->startOfDay();
                 $dayEnd = $date->copy()->endOfDay();
 
-                $sum = Payment::where('store_id', $storeId)
+                $sum = Payment::whereIn('store_id', $storeIds)
                     ->where('status', 'completed')
                     ->whereBetween('created_at', [$dayStart, $dayEnd])
                     ->sum('amount');
@@ -85,6 +87,9 @@ class SalesRevenueChartWidget extends ChartWidget
                 $data[] = (float) $sum;
             }
         }
+
+        // Update heading with filter info
+        $this->heading = 'Grafik Total Pendapatan - ' . $summary['store'] . ' (' . $summary['date_preset_label'] . ')';
 
         return [
             'datasets' => [

@@ -3,45 +3,55 @@
 namespace App\Filament\Owner\Widgets;
 
 use App\Services\FnBAnalyticsService;
+use App\Services\GlobalFilterService;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Livewire\Attributes\On;
 
 class ProfitAnalysisWidget extends BaseWidget
 {
+    /**
+     * UPDATED: Now using GlobalFilterService for unified multi-store dashboard
+     * 
+     * Widget automatically refreshes when global filter changes
+     * Shows combined profit data for all selected stores
+     */
+
     protected static ?int $sort = 3;
 
     protected int | string | array $columnSpan = 'full';
 
-    public ?string $filter = 'today';
-
-    protected function getFilters(): ?array
+    #[On('filter-updated')]
+    public function refreshWidget(): void
     {
-        return [
-            'today' => 'Hari ini',
-            'this_week' => 'Minggu ini',
-            'this_month' => 'Bulan ini',
-        ];
+        // Trigger refresh when global filter changes
+        $this->resetState();
     }
 
     protected function getStats(): array
     {
-        $storeId = auth()->user()?->store_id;
-
-        if (!$storeId) {
+        $globalFilter = app(GlobalFilterService::class);
+        
+        // Get current filter values from global filter
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+        $dateRange = $globalFilter->getCurrentDateRange();
+        $summary = $globalFilter->getFilterSummary();
+        
+        if (empty($storeIds)) {
             return [];
         }
 
         try {
             $analyticsService = app(FnBAnalyticsService::class);
-            $range = match ($this->filter) {
-                'this_week' => 'this_week',
-                'this_month' => 'this_month',
-                default => 'today',
-            };
-            $profitAnalysis = $analyticsService->getProfitAnalysis($range);
+            
+            // Use date preset from global filter
+            $range = $summary['date_preset'] ?? 'this_month';
+            
+            // Get profit analysis for all selected stores
+            $profitAnalysis = $analyticsService->getProfitAnalysisForStores($storeIds, $range);
 
             if (empty($profitAnalysis)) {
-                // Kosongkan agar widget tidak ditampilkan saat tidak ada penjualan
+                // Don't show widget if no sales
                 return [];
             }
 
@@ -54,12 +64,12 @@ class ProfitAnalysisWidget extends BaseWidget
                     ->description($topProduct ? 'Profit: Rp ' . number_format($topProduct['profit'], 0, ',', '.') : 'Tidak ada data')
                     ->color('success'),
 
-                Stat::make('Total Profit Hari Ini', 'Rp ' . number_format($totalProfit, 0, ',', '.'))
-                    ->description('Dari ' . count($profitAnalysis) . ' produk')
+                Stat::make('Total Profit', 'Rp ' . number_format($totalProfit, 0, ',', '.'))
+                    ->description($summary['store'] . ' • ' . $summary['date_preset_label'])
                     ->color($totalProfit > 0 ? 'success' : 'gray'),
 
                 Stat::make('Rata-rata Margin', number_format($avgMargin, 1) . '%')
-                    ->description('Di seluruh produk')
+                    ->description('Di seluruh produk (' . count($profitAnalysis) . ' produk)')
                     ->color($avgMargin >= 30 ? 'success' : ($avgMargin >= 20 ? 'warning' : 'danger')),
             ];
 
@@ -74,17 +84,18 @@ class ProfitAnalysisWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        $storeId = auth()->user()?->store_id;
-        if (!$storeId) {
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+        
+        if (empty($storeIds)) {
             return false;
         }
 
-        // Tampilkan hanya jika ada penjualan (mengacu hari ini sebagai default)
-        $start = now()->startOfDay();
-        $end = now()->endOfDay();
+        // Show only if there are sales for current filter
+        $dateRange = $globalFilter->getCurrentDateRange();
 
-        return \App\Models\CogsHistory::where('store_id', $storeId)
-            ->whereBetween('created_at', [$start, $end])
+        return \App\Models\CogsHistory::whereIn('store_id', $storeIds)
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->where('quantity_sold', '>', 0)
             ->exists();
     }

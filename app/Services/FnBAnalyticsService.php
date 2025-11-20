@@ -72,6 +72,53 @@ class FnBAnalyticsService
     }
 
     /**
+     * Get profit analysis for multiple stores (unified dashboard)
+     * 
+     * @param array $storeIds Array of store IDs
+     * @param string $period Date period preset
+     * @return array
+     */
+    public function getProfitAnalysisForStores(array $storeIds, string $period = 'today'): array
+    {
+        $dateRange = $this->getDateRange($period);
+        
+        if (empty($storeIds)) {
+            return [];
+        }
+
+        $products = OrderItem::whereBetween('order_items.created_at', $dateRange)
+            ->whereIn('order_items.store_id', $storeIds)
+            ->with('product')
+            ->get()
+            ->groupBy('product_id');
+
+        $analysis = [];
+        foreach ($products as $productId => $items) {
+            $product = $items->first()->product;
+            $totalSold = $items->sum('quantity');
+            $revenue = $items->sum('total_price');
+            $cost = $totalSold * $product->cost_price;
+            $profit = $revenue - $cost;
+            $margin = $revenue > 0 ? ($profit / $revenue) * 100 : 0;
+
+            $analysis[] = [
+                'product_name' => $product->name,
+                'quantity_sold' => $totalSold,
+                'revenue' => $revenue,
+                'cost' => $cost,
+                'profit' => $profit,
+                'margin_percent' => round($margin, 2),
+                'profit_per_item' => $totalSold > 0 ? $profit / $totalSold : 0,
+            ];
+        }
+
+        // Sort by profit descending
+        usort($analysis, fn($a, $b) => $b['profit'] <=> $a['profit']);
+
+        return $analysis;
+    }
+
+    /**
      * Get F&B specific recommendations
      */
     public function getRecommendations(): array
