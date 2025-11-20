@@ -13,17 +13,26 @@ class SubscriptionOverviewWidget extends BaseWidget
     {
         $storeContext = app(StoreContext::class);
         $storeId = $storeContext->current(auth()->user());
+        $store = \App\Models\Store::find($storeId);
+        
+        if (!$store || !$store->tenant_id) {
+            return [
+                Stat::make('Current Plan', 'No Active Plan')
+                    ->description('No active subscription')
+                    ->descriptionIcon('heroicon-m-x-circle')
+                    ->color('danger'),
+            ];
+        }
 
-        $activeSubscription = Subscription::where('store_id', $storeId)
-            ->where('status', 'active')
-            ->first();
+        $tenant = $store->tenant;
+        $activeSubscription = $tenant->activeSubscription();
 
         $totalPayments = $activeSubscription 
-            ? $activeSubscription->subscriptionPayments()->where('status', 'paid')->sum('amount')
+            ? (int) $activeSubscription->subscriptionPayments()->where('status', 'paid')->sum('amount')
             : 0;
 
         $nextPaymentDate = $activeSubscription?->ends_at;
-        $daysUntilRenewal = $nextPaymentDate ? $nextPaymentDate->diffInDays() : null;
+        $daysUntilRenewal = $nextPaymentDate ? (int) $nextPaymentDate->diffInDays() : null;
 
         return [
             Stat::make('Current Plan', $activeSubscription?->plan?->name ?? 'No Active Plan')

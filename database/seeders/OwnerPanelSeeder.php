@@ -24,6 +24,13 @@ class OwnerPanelSeeder extends Seeder
             $legacy->update(['name' => 'Arasta Coffee - Central']);
         }
 
+        // Get primary tenant (from StoreSeeder)
+        $primaryTenant = \App\Models\Tenant::first();
+        if (!$primaryTenant) {
+            $this->command->error('No tenant found! Please run StoreSeeder first.');
+            return;
+        }
+
         // Get primary store first to set as default store_id
         $primaryStore = Store::where('name', 'Arasta Coffee - Pusat')
             ->orWhere('name', 'Arasta Coffee - Central')
@@ -100,13 +107,23 @@ class OwnerPanelSeeder extends Seeder
             $store = Store::firstOrCreate(
                 ['name' => $branchName],
                 [
+                    'tenant_id' => $primaryTenant->id, // CRITICAL: Set tenant_id
                     'email' => 'branch' . ($idx + 1) . '@arasta.coffee',
                     'phone' => '+62812' . rand(10000000, 99999999),
                     'address' => 'Arasta Branch ' . ($idx + 1),
-                    'settings' => ['currency' => 'IDR', 'tax_rate' => 10, 'service_charge_rate' => 5],
+                    'code' => 'ARASTA-' . str_pad((string)($idx + 1), 3, '0', STR_PAD_LEFT),
+                    'timezone' => 'Asia/Jakarta',
+                    'currency' => 'IDR',
+                    'settings' => ['tax_rate' => 10, 'service_charge_rate' => 5],
                     'status' => 'active',
                 ]
             );
+
+            // CRITICAL: Ensure tenant_id is set even for existing stores
+            if (!$store->tenant_id) {
+                $store->tenant_id = $primaryTenant->id;
+                $store->save();
+            }
 
             $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
                 ->where('store_id', $store->id)

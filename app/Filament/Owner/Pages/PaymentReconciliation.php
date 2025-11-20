@@ -2,7 +2,9 @@
 
 namespace App\Filament\Owner\Pages;
 
+use App\Models\Store;
 use App\Models\SubscriptionPayment;
+use App\Models\Tenant;
 use App\Services\StoreContext;
 use App\Services\XenditService;
 use Filament\Pages\Page;
@@ -150,15 +152,21 @@ class PaymentReconciliation extends Page implements HasTable
 
     protected function getTableQuery(): Builder
     {
-        $storeContext = app(StoreContext::class);
-        
-        return SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($storeContext) {
-            $query->where('store_id', $storeContext->current(auth()->user()));
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($storeContext) {
-            $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeContext) {
-                $subQuery->where('id', $storeContext->current(auth()->user()));
-            });
-        })->with(['subscription.plan', 'landingSubscription']);
+        $tenant = $this->resolveTenant();
+
+        if (!$tenant) {
+            return SubscriptionPayment::query()->whereRaw('1 = 0');
+        }
+
+        return SubscriptionPayment::query()
+            ->where(function (Builder $query) use ($tenant) {
+                $query->whereHas('subscription', function (Builder $subQuery) use ($tenant) {
+                    $subQuery->where('tenant_id', $tenant->id);
+                })->orWhereHas('landingSubscription', function (Builder $subQuery) use ($tenant) {
+                    $subQuery->where('tenant_id', $tenant->id);
+                });
+            })
+            ->with(['subscription.plan', 'landingSubscription']);
     }
 
     protected function getHeaderActions(): array
@@ -321,15 +329,35 @@ class PaymentReconciliation extends Page implements HasTable
 
     public static function canAccess(): bool
     {
-        $storeContext = app(StoreContext::class);
-        
-        // Only show if store has subscription payments
-        return SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($storeContext) {
-            $query->where('store_id', $storeContext->current(auth()->user()));
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($storeContext) {
-            $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeContext) {
-                $subQuery->where('id', $storeContext->current(auth()->user()));
-            });
+        $tenant = static::resolveTenantFromContext();
+
+        if (!$tenant) {
+            return false;
+        }
+
+        return SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenant) {
+            $query->where('tenant_id', $tenant->id);
+        })->orWhereHas('landingSubscription', function (Builder $query) use ($tenant) {
+            $query->where('tenant_id', $tenant->id);
         })->exists();
+    }
+
+    protected function resolveTenant(): ?Tenant
+    {
+        return static::resolveTenantFromContext();
+    }
+
+    protected static function resolveTenantFromContext(): ?Tenant
+    {
+        $storeContext = app(StoreContext::class);
+        $storeId = $storeContext->current(auth()->user());
+
+        if (!$storeId) {
+            return null;
+        }
+
+        $store = Store::find($storeId);
+
+        return $store?->tenant;
     }
 }

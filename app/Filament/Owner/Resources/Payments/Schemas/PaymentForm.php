@@ -94,7 +94,7 @@ class PaymentForm
                                 TextInput::make('gateway')
                                     ->label('Gateway')
                                     ->maxLength(255)
-                                    ->placeholder('Contoh: Midtrans, Xendit'),
+                                    ->placeholder('Contoh: Xendit'),
 
                                 TextInput::make('gateway_transaction_id')
                                     ->label('ID Transaksi Gateway')

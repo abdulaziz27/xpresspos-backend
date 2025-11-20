@@ -9,10 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 use App\Services\StoreContext;
 use App\Traits\HasSubscriptionFeatures;
+use App\Models\Tenant;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 
@@ -30,7 +32,6 @@ class User extends Authenticatable implements FilamentUser
         'email',
         'password',
         'store_id',
-        'midtrans_customer_id',
     ];
 
     /**
@@ -86,6 +87,35 @@ class User extends Authenticatable implements FilamentUser
     public function currentStoreId(): ?string
     {
         return StoreContext::instance()->current($this);
+    }
+
+    /**
+     * Get tenants that the user has access to.
+     */
+    public function tenants(): BelongsToMany
+    {
+        return $this->belongsToMany(Tenant::class, 'user_tenant_access')
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the primary tenant for the user (first tenant with owner role).
+     */
+    public function currentTenant(): ?Tenant
+    {
+        $tenantAccess = DB::table('user_tenant_access')
+            ->where('user_id', $this->id)
+            ->where('role', 'owner')
+            ->first();
+
+        if ($tenantAccess) {
+            return Tenant::find($tenantAccess->tenant_id);
+        }
+
+        // Fallback: get first tenant if no owner role found
+        $firstTenant = $this->tenants()->first();
+        return $firstTenant;
     }
     
     /**

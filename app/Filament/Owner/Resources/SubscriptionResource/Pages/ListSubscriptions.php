@@ -21,7 +21,7 @@ class ListSubscriptions extends ListRecords
                 ->label('Upgrade Plan')
                 ->icon('heroicon-o-arrow-up-circle')
                 ->color('success')
-                ->url(fn (): string => route('landing.home'))
+                ->url(fn (): string => route('pricing')) // Use fallback route 'pricing' instead of 'landing.home'
                 ->openUrlInNewTab()
                 ->visible(fn (): bool => $this->hasActiveSubscription()),
             
@@ -42,14 +42,22 @@ class ListSubscriptions extends ListRecords
     {
         $storeContext = app(StoreContext::class);
         $storeId = $storeContext->current(auth()->user());
+        $store = \App\Models\Store::find($storeId);
+        
+        if (!$store || !$store->tenant_id) {
+            return [];
+        }
+
+        $tenant = $store->tenant;
+        $tenantId = $tenant->id;
 
         return [
             'all' => Tab::make('All Subscriptions')
-                ->badge(Subscription::where('store_id', $storeId)->count()),
+                ->badge(Subscription::where('tenant_id', $tenantId)->count()),
             
             'active' => Tab::make('Active')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'active'))
-                ->badge(Subscription::where('store_id', $storeId)->where('status', 'active')->count())
+                ->badge(Subscription::where('tenant_id', $tenantId)->where('status', 'active')->count())
                 ->badgeColor('success'),
             
             'expiring_soon' => Tab::make('Expiring Soon')
@@ -58,7 +66,7 @@ class ListSubscriptions extends ListRecords
                           ->where('ends_at', '<=', now()->addDays(30))
                           ->where('ends_at', '>', now())
                 )
-                ->badge(Subscription::where('store_id', $storeId)
+                ->badge(Subscription::where('tenant_id', $tenantId)
                     ->where('status', 'active')
                     ->where('ends_at', '<=', now()->addDays(30))
                     ->where('ends_at', '>', now())
@@ -67,7 +75,7 @@ class ListSubscriptions extends ListRecords
             
             'suspended' => Tab::make('Suspended')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'suspended'))
-                ->badge(Subscription::where('store_id', $storeId)->where('status', 'suspended')->count())
+                ->badge(Subscription::where('tenant_id', $tenantId)->where('status', 'suspended')->count())
                 ->badgeColor('danger'),
         ];
     }
@@ -82,9 +90,14 @@ class ListSubscriptions extends ListRecords
     private function hasActiveSubscription(): bool
     {
         $storeContext = app(StoreContext::class);
+        $storeId = $storeContext->current(auth()->user());
+        $store = \App\Models\Store::find($storeId);
         
-        return Subscription::where('store_id', $storeContext->current(auth()->user()))
-            ->where('status', 'active')
-            ->exists();
+        if (!$store || !$store->tenant_id) {
+            return false;
+        }
+
+        $tenant = $store->tenant;
+        return $tenant->activeSubscription() !== null;
     }
 }

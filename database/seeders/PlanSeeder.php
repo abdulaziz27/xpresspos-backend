@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use App\Models\Plan;
+use App\Models\PlanFeature;
 
 class PlanSeeder extends Seeder
 {
@@ -33,6 +35,18 @@ class PlanSeeder extends Seeder
                 ],
                 'is_active' => true,
                 'sort_order' => 1,
+                // Plan features untuk PlanLimitService
+                'plan_features' => [
+                    // Hard Limits (MAX_*)
+                    ['feature_code' => 'MAX_STORES', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_PRODUCTS', 'limit_value' => '20', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_STAFF', 'limit_value' => '2', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_TRANSACTIONS_PER_YEAR', 'limit_value' => '12000', 'is_enabled' => true],
+                    // Feature Flags (ALLOW_*)
+                    ['feature_code' => 'ALLOW_LOYALTY', 'limit_value' => '1', 'is_enabled' => false],
+                    ['feature_code' => 'ALLOW_MULTI_STORE', 'limit_value' => '0', 'is_enabled' => false],
+                    ['feature_code' => 'ALLOW_API_ACCESS', 'limit_value' => '0', 'is_enabled' => false],
+                ],
             ],
             [
                 'name' => 'Pro',
@@ -59,6 +73,18 @@ class PlanSeeder extends Seeder
                 ],
                 'is_active' => true,
                 'sort_order' => 2,
+                // Plan features untuk PlanLimitService
+                'plan_features' => [
+                    // Hard Limits (MAX_*)
+                    ['feature_code' => 'MAX_STORES', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_PRODUCTS', 'limit_value' => '300', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_STAFF', 'limit_value' => '10', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_TRANSACTIONS_PER_YEAR', 'limit_value' => '120000', 'is_enabled' => true],
+                    // Feature Flags (ALLOW_*)
+                    ['feature_code' => 'ALLOW_LOYALTY', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_MULTI_STORE', 'limit_value' => '0', 'is_enabled' => false],
+                    ['feature_code' => 'ALLOW_API_ACCESS', 'limit_value' => '0', 'is_enabled' => false],
+                ],
             ],
             [
                 'name' => 'Enterprise',
@@ -89,11 +115,40 @@ class PlanSeeder extends Seeder
                 ],
                 'is_active' => true,
                 'sort_order' => 3,
+                // Plan features untuk PlanLimitService
+                'plan_features' => [
+                    // Hard Limits (MAX_*) - Unlimited = -1
+                    ['feature_code' => 'MAX_STORES', 'limit_value' => '-1', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_PRODUCTS', 'limit_value' => '-1', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_STAFF', 'limit_value' => '-1', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_TRANSACTIONS_PER_YEAR', 'limit_value' => '-1', 'is_enabled' => true],
+                    // Feature Flags (ALLOW_*)
+                    ['feature_code' => 'ALLOW_LOYALTY', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_MULTI_STORE', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_API_ACCESS', 'limit_value' => '1', 'is_enabled' => true],
+                ],
             ],
         ];
 
-        foreach ($plans as $plan) {
-            \App\Models\Plan::create($plan);
+        foreach ($plans as $planData) {
+            // Extract plan_features before creating plan
+            $planFeatures = $planData['plan_features'] ?? [];
+            unset($planData['plan_features']);
+
+            // Create plan
+            $plan = Plan::create($planData);
+
+            // Create plan features
+            foreach ($planFeatures as $featureData) {
+                PlanFeature::create([
+                    'plan_id' => $plan->id,
+                    'feature_code' => $featureData['feature_code'],
+                    'limit_value' => $featureData['limit_value'],
+                    'is_enabled' => $featureData['is_enabled'],
+                ]);
+            }
+
+            $this->command->info("✅ Created plan: {$plan->name} with " . count($planFeatures) . " features");
         }
     }
 }

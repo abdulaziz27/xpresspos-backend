@@ -5,20 +5,28 @@
             @php
                 $storeContext = app(\App\Services\StoreContext::class);
                 $storeId = $storeContext->getCurrentStoreId();
+                $store = \App\Models\Store::find($storeId);
+                $tenantId = $store?->tenant_id;
                 
-                $baseQuery = \App\Models\SubscriptionPayment::whereHas('subscription', function ($query) use ($storeId) {
-                    $query->where('store_id', $storeId);
-                })->orWhereHas('landingSubscription', function ($query) use ($storeId) {
-                    $query->whereHas('provisionedStore', function ($subQuery) use ($storeId) {
-                        $subQuery->where('id', $storeId);
+                $baseQuery = \App\Models\SubscriptionPayment::query();
+                
+                if ($tenantId) {
+                    $baseQuery->where(function ($query) use ($tenantId) {
+                        $query->whereHas('subscription', function ($subQuery) use ($tenantId) {
+                            $subQuery->where('tenant_id', $tenantId);
+                        })->orWhereHas('landingSubscription', function ($subQuery) use ($tenantId) {
+                            $subQuery->where('tenant_id', $tenantId);
+                        });
                     });
-                });
+                } else {
+                    $baseQuery->whereRaw('1 = 0');
+                }
                 
                 $thisMonth = now()->startOfMonth();
-                $totalPaid = $baseQuery->clone()->paid()->where('paid_at', '>=', $thisMonth)->sum('amount');
-                $totalFees = $baseQuery->clone()->paid()->where('paid_at', '>=', $thisMonth)->sum('gateway_fee');
-                $pendingCount = $baseQuery->clone()->pending()->count();
-                $unreconciledCount = $baseQuery->clone()->paid()->whereNull('gateway_response')->count();
+                $totalPaid = (clone $baseQuery)->paid()->where('paid_at', '>=', $thisMonth)->sum('amount');
+                $totalFees = (clone $baseQuery)->paid()->where('paid_at', '>=', $thisMonth)->sum('gateway_fee');
+                $pendingCount = (clone $baseQuery)->pending()->count();
+                $unreconciledCount = (clone $baseQuery)->paid()->whereNull('gateway_response')->count();
             @endphp
             
             <x-filament::section class="p-4">

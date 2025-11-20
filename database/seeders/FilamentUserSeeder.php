@@ -44,10 +44,17 @@ class FilamentUserSeeder extends Seeder
             $this->command->error("❌ Admin_sistem role not found. Please ensure PermissionsAndRolesSeeder ran successfully.");
         }
 
-        // Get primary store ID
+        // Get primary store ID and tenant ID
         $primaryStoreId = Store::value('id');
+        $primaryTenantId = \App\Models\Tenant::value('id');
+        
         if (!$primaryStoreId) {
             $this->command->error('No store found! Please run StoreSeeder first.');
+            return;
+        }
+
+        if (!$primaryTenantId) {
+            $this->command->error('No tenant found! Please run StoreSeeder first.');
             return;
         }
 
@@ -79,6 +86,33 @@ class FilamentUserSeeder extends Seeder
         if ($needsUpdate) {
             $owner->update($updates);
             $this->command->info("Updated {$owner->email}: store_id and password set to 'password123'");
+        }
+
+        // CRITICAL: Create user_tenant_access for owner
+        $exists = \DB::table('user_tenant_access')
+            ->where('user_id', $owner->id)
+            ->where('tenant_id', $primaryTenantId)
+            ->exists();
+
+        if (!$exists) {
+            \DB::table('user_tenant_access')->insert([
+                'id' => \Illuminate\Support\Str::uuid()->toString(),
+                'user_id' => $owner->id,
+                'tenant_id' => $primaryTenantId,
+                'role' => 'owner',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $this->command->info("✅ Created user_tenant_access for owner@xpresspos.id → tenant {$primaryTenantId}");
+        } else {
+            \DB::table('user_tenant_access')
+                ->where('user_id', $owner->id)
+                ->where('tenant_id', $primaryTenantId)
+                ->update([
+                    'role' => 'owner',
+                    'updated_at' => now(),
+                ]);
+            $this->command->info("✅ Updated user_tenant_access for owner@xpresspos.id → tenant {$primaryTenantId}");
         }
 
         // Assign owner role for the specific store

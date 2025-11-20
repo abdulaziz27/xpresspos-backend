@@ -3,7 +3,11 @@
 namespace App\Filament\Admin\Resources\Stores\Pages;
 
 use App\Filament\Admin\Resources\Stores\StoreResource;
+use App\Models\Store;
+use App\Services\PlanLimitService;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Support\Facades\Auth;
 
 class CreateStore extends CreateRecord
 {
@@ -11,6 +15,30 @@ class CreateStore extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        $user = Auth::user();
+        $tenant = $user->currentTenant();
+
+        if ($tenant) {
+            $planLimitService = app(PlanLimitService::class);
+
+            // Check MAX_STORES limit before creating
+            $currentStoreCount = Store::where('tenant_id', $tenant->id)->count();
+            $canPerform = $planLimitService->canPerformAction($tenant, 'create_store', $currentStoreCount);
+
+            if (!$canPerform['allowed']) {
+                Notification::make()
+                    ->title('Limit tercapai')
+                    ->body($canPerform['message'] ?? 'Anda telah mencapai batas maksimum store untuk plan Anda.')
+                    ->danger()
+                    ->send();
+
+                $this->halt();
+            }
+
+            // Ensure tenant_id is set
+            $data['tenant_id'] = $tenant->id;
+        }
+
         // Merge form fields back into settings array
         $settings = [];
         

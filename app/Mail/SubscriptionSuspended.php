@@ -40,7 +40,7 @@ class SubscriptionSuspended extends Mailable implements ShouldQueue
             tags: ['subscription-payment', 'service-suspended'],
             metadata: [
                 'subscription_id' => $this->subscription->id,
-                'store_id' => $this->subscription->store_id,
+                'tenant_id' => $this->subscription->tenant_id,
                 'suspension_reason' => $this->suspensionReason,
             ],
         );

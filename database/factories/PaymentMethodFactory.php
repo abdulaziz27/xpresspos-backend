@@ -19,7 +19,7 @@ class PaymentMethodFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'gateway' => $this->faker->randomElement(['midtrans', 'xendit', 'doku']),
+            'gateway' => $this->faker->randomElement(['xendit', 'doku']), // NOTE: Midtrans removed
             'gateway_id' => $this->faker->unique()->regexify('[A-Za-z0-9]{20}'),
             'type' => $this->faker->randomElement(['card', 'bank_transfer', 'digital_wallet', 'va', 'qris']),
             'last_four' => $this->faker->numerify('####'),

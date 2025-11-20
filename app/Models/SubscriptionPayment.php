@@ -13,6 +13,11 @@ class SubscriptionPayment extends Model
     use HasFactory, HasUuids;
 
     /**
+     * Static array untuk menyimpan original data per model instance (untuk audit logging).
+     */
+    protected static array $originalDataCache = [];
+
+    /**
      * Boot the model and register audit logging events.
      */
     protected static function boot()
@@ -24,22 +29,30 @@ class SubscriptionPayment extends Model
         });
 
         static::updating(function ($model) {
-            // Store original data for audit logging
-            $model->_originalData = $model->getOriginal();
+            // Store original data untuk audit logging (non-persistent, tidak disimpan ke DB)
+            // Gunakan static array untuk menyimpan per model instance
+            static::$originalDataCache[spl_object_hash($model)] = $model->getOriginal();
         });
 
         static::updated(function ($model) {
             $auditService = app(PaymentAuditService::class);
             
+            // Ambil original data dari cache
+            $objectHash = spl_object_hash($model);
+            $originalData = static::$originalDataCache[$objectHash] ?? null;
+            
             // Check if status changed
-            if (isset($model->_originalData['status']) && 
-                $model->_originalData['status'] !== $model->status) {
+            if ($originalData && isset($originalData['status']) && 
+                $originalData['status'] !== $model->status) {
                 $auditService->logSubscriptionPaymentStatusChange(
                     $model,
-                    $model->_originalData['status'],
+                    $originalData['status'],
                     $model->gateway_response ?? []
                 );
             }
+            
+            // Clear cache untuk model instance ini
+            unset(static::$originalDataCache[$objectHash]);
         });
     }
 

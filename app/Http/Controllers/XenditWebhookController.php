@@ -105,6 +105,12 @@ class XenditWebhookController extends Controller
             // Handle payment completion
             if ($subscriptionPayment->isPaid()) {
                 $this->handlePaymentCompletion($subscriptionPayment);
+                
+                // Trigger provisioning jika payment paid dan belum di-provision
+                if ($subscriptionPayment->landingSubscription && 
+                    !$subscriptionPayment->landingSubscription->subscription_id) {
+                    $this->triggerAccountProvisioning($subscriptionPayment->landingSubscription, $subscriptionPayment);
+                }
             } elseif ($subscriptionPayment->hasFailed()) {
                 $this->handlePaymentFailure($subscriptionPayment);
             }
@@ -230,10 +236,8 @@ class XenditWebhookController extends Controller
 
         $landingSubscription->update($updateData);
 
-        // Trigger automatic account provisioning for successful payments
-        if ($subscriptionPayment->isPaid() && !$landingSubscription->provisioned_user_id) {
-            $this->triggerAccountProvisioning($landingSubscription);
-        }
+        // Trigger automatic account provisioning untuk successful payments
+        // (Moved to handlePaymentCompletion untuk memastikan payment fully processed dulu)
 
         Log::info('Landing subscription status updated', [
             'landing_subscription_id' => $landingSubscription->id,
@@ -445,28 +449,36 @@ class XenditWebhookController extends Controller
     /**
      * Trigger automatic account provisioning for successful payments.
      */
-    private function triggerAccountProvisioning(LandingSubscription $landingSubscription): void
-    {
+    private function triggerAccountProvisioning(
+        LandingSubscription $landingSubscription,
+        SubscriptionPayment $payment
+    ): void {
         try {
-            $provisioningService = app(\App\Services\SubscriptionProvisioningService::class);
-            $result = $provisioningService->provisionSubscription($landingSubscription);
+            $provisioningService = app(SubscriptionProvisioningService::class);
+            $result = $provisioningService->provisionFromPaidLandingSubscription($landingSubscription, $payment);
             
             if ($result['success']) {
                 Log::info('Account provisioning successful', [
                     'landing_subscription_id' => $landingSubscription->id,
-                    'user_id' => $result['user']->id,
-                    'store_id' => $result['store']->id,
+                    'payment_id' => $payment->id,
+                    'tenant_id' => $result['tenant']->id ?? null,
+                    'user_id' => $result['user']->id ?? null,
+                    'store_id' => $result['store']->id ?? null,
+                    'subscription_id' => $result['subscription']->id ?? null,
                 ]);
             } else {
                 Log::error('Account provisioning failed', [
                     'landing_subscription_id' => $landingSubscription->id,
-                    'error' => $result['error']
+                    'payment_id' => $payment->id,
+                    'error' => $result['error'] ?? 'Unknown error'
                 ]);
             }
         } catch (\Exception $e) {
             Log::error('Account provisioning exception', [
                 'landing_subscription_id' => $landingSubscription->id,
-                'error' => $e->getMessage()
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }

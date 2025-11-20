@@ -21,13 +21,22 @@ class PaymentAnalyticsWidget extends ChartWidget
     {
         $storeContext = app(StoreContext::class);
         $storeId = $storeContext->current(auth()->user());
+        $store = \App\Models\Store::find($storeId);
+        
+        if (!$store || !$store->tenant_id) {
+            return [
+                'datasets' => [],
+                'labels' => [],
+            ];
+        }
 
-        $baseQuery = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($storeId) {
-            $query->where('store_id', $storeId);
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($storeId) {
-            $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeId) {
-                $subQuery->where('id', $storeId);
-            });
+        $tenant = $store->tenant;
+        $tenantId = $tenant->id;
+
+        $baseQuery = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
+            $query->where('tenant_id', $tenantId);
         });
 
         $period = match ($this->filter) {
@@ -167,14 +176,20 @@ class PaymentAnalyticsWidget extends ChartWidget
     {
         $storeContext = app(StoreContext::class);
         $storeId = $storeContext->current(auth()->user());
+        $store = \App\Models\Store::find($storeId);
+        
+        if (!$store || !$store->tenant_id) {
+            return false;
+        }
 
-        // Show widget only if store has payment data
-        return SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($storeId) {
-            $query->where('store_id', $storeId);
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($storeId) {
-            $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeId) {
-                $subQuery->where('id', $storeId);
-            });
+        $tenant = $store->tenant;
+        $tenantId = $tenant->id;
+
+        // Show widget only if tenant has payment data
+        return SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
+            $query->where('tenant_id', $tenantId);
         })->exists();
     }
 }

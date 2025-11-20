@@ -4,23 +4,28 @@ namespace App\Models;
 
 use App\Models\Discount;
 use App\Models\StoreUserAssignment;
+use App\Models\Subscription;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Store extends Model
 {
     use HasFactory, HasUuids;
 
     protected $fillable = [
+        'tenant_id',
         'name',
+        'code',
         'email',
         'phone',
         'address',
         'logo',
+        'timezone',
+        'currency',
         'settings',
         'status',
     ];
@@ -50,27 +55,30 @@ class Store extends Model
     }
 
     /**
-     * Get the subscription for the store (alias for activeSubscription).
+     * Get the tenant that owns the store.
      */
-    public function subscription(): HasOne
+    public function tenant(): BelongsTo
     {
-        return $this->hasOne(Subscription::class)->where('status', 'active');
+        return $this->belongsTo(Tenant::class);
     }
 
     /**
-     * Get the active subscription for the store.
+     * Convenience helper: Get active subscription via tenant.
+     * 
+     * Model Bisnis: Subscription per Tenant (bukan per Store)
+     * Satu tenant bisa punya banyak store, semua dilindungi oleh satu subscription yang sama.
      */
-    public function activeSubscription(): HasOne
+    public function activeSubscription(): ?Subscription
     {
-        return $this->hasOne(Subscription::class)->where('status', 'active');
+        return $this->tenant?->activeSubscription();
     }
 
     /**
-     * Get all subscriptions for the store.
+     * Convenience helper: Get all subscriptions via tenant.
      */
-    public function subscriptions(): HasMany
+    public function subscriptions()
     {
-        return $this->hasMany(Subscription::class);
+        return $this->tenant?->subscriptions() ?? Subscription::whereRaw('1 = 0'); // Return empty query if no tenant
     }
 
     /**

@@ -4,16 +4,14 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\PaymentMethod;
-use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class PaymentMethodController extends Controller
 {
-    public function __construct(
-        protected PaymentService $paymentService
-    ) {}
+    // NOTE: PaymentService (Midtrans) telah dihapus karena tidak digunakan.
+    // Fitur payment method setup perlu di-refactor untuk Xendit jika diperlukan.
 
     /**
      * Get all payment methods for authenticated user
@@ -57,119 +55,46 @@ class PaymentMethodController extends Controller
 
     /**
      * Create payment token for adding new payment method
+     * 
+     * NOTE: Fitur ini menggunakan Midtrans yang telah dihapus.
+     * Perlu di-refactor untuk Xendit jika diperlukan.
      */
     public function createToken(Request $request): JsonResponse
     {
-        $request->validate([
-            'enabled_payments' => 'sometimes|array',
-            'enabled_payments.*' => 'string|in:credit_card,bca_va,bni_va,bri_va,mandiri_va,permata_va,other_va,gopay,shopeepay,qris',
-        ]);
-
-        try {
-            $user = Auth::user();
-            $paymentData = $request->only(['enabled_payments']);
-
-            $tokenData = $this->paymentService->createPaymentToken($user, $paymentData);
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'snap_token' => $tokenData['snap_token'],
-                    'redirect_url' => $tokenData['redirect_url'],
-                ],
-                'message' => 'Payment token created successfully',
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'version' => 'v1',
-                    'request_id' => $request->header('X-Request-ID', uniqid()),
-                ]
-            ]);
-        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'error' => [
-                    'code' => 'TOKEN_CREATION_FAILED',
-                    'message' => $e->getMessage(),
+                'code' => 'FEATURE_NOT_AVAILABLE',
+                'message' => 'Payment method setup feature is not available. This feature used Midtrans which has been removed.',
                 ],
                 'meta' => [
                     'timestamp' => now()->toISOString(),
                     'version' => 'v1',
                     'request_id' => $request->header('X-Request-ID', uniqid()),
                 ]
-            ], 422);
-        }
+        ], 501);
     }
 
     /**
      * Save payment method from callback
+     * 
+     * NOTE: Fitur ini menggunakan Midtrans yang telah dihapus.
+     * Perlu di-refactor untuk Xendit jika diperlukan.
      */
     public function store(Request $request): JsonResponse
     {
-        $this->authorize('create', PaymentMethod::class);
-        
-        $request->validate([
-            'payment_data' => 'required|array',
-            'set_as_default' => 'sometimes|boolean',
-        ]);
-
-        try {
-            $user = Auth::user() ?? request()->user();
-
-            if (!$user) {
                 return response()->json([
                     'success' => false,
                     'error' => [
-                        'code' => 'UNAUTHENTICATED',
-                        'message' => 'User not authenticated',
+                'code' => 'FEATURE_NOT_AVAILABLE',
+                'message' => 'Payment method setup feature is not available. This feature used Midtrans which has been removed.',
                     ],
                     'meta' => [
                         'timestamp' => now()->toISOString(),
                         'version' => 'v1',
                         'request_id' => $request->header('X-Request-ID', uniqid()),
                     ]
-                ], 401);
-            }
-
-            $paymentData = $request->input('payment_data');
-            $setAsDefault = $request->boolean('set_as_default', false);
-
-            $paymentMethod = $this->paymentService->savePaymentMethod($user, $paymentData, $setAsDefault);
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'payment_method' => [
-                        'id' => $paymentMethod->id,
-                        'gateway' => $paymentMethod->gateway,
-                        'type' => $paymentMethod->type,
-                        'display_name' => $paymentMethod->display_name,
-                        'masked_number' => $paymentMethod->masked_number,
-                        'is_default' => $paymentMethod->is_default,
-                        'is_usable' => $paymentMethod->isUsable(),
-                        'expires_at' => $paymentMethod->expires_at?->toISOString(),
-                    ],
-                ],
-                'message' => 'Payment method saved successfully',
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'version' => 'v1',
-                    'request_id' => $request->header('X-Request-ID', uniqid()),
-                ]
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => [
-                    'code' => 'PAYMENT_METHOD_SAVE_FAILED',
-                    'message' => $e->getMessage(),
-                ],
-                'meta' => [
-                    'timestamp' => now()->toISOString(),
-                    'version' => 'v1',
-                    'request_id' => $request->header('X-Request-ID', uniqid()),
-                ]
-            ], 422);
-        }
+        ], 501);
     }
 
     /**
@@ -237,10 +162,11 @@ class PaymentMethodController extends Controller
             ], 404);
         }
 
+        // NOTE: PaymentService (Midtrans) telah dihapus.
+        // Hapus payment method langsung dari database.
         try {
-            $success = $this->paymentService->deletePaymentMethod($paymentMethod);
+            $paymentMethod->delete();
 
-            if ($success) {
                 return response()->json([
                     'success' => true,
                     'data' => null,
@@ -251,20 +177,6 @@ class PaymentMethodController extends Controller
                         'request_id' => $request->header('X-Request-ID', uniqid()),
                     ]
                 ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'error' => [
-                        'code' => 'PAYMENT_METHOD_DELETE_FAILED',
-                        'message' => 'Failed to delete payment method',
-                    ],
-                    'meta' => [
-                        'timestamp' => now()->toISOString(),
-                        'version' => 'v1',
-                        'request_id' => $request->header('X-Request-ID', uniqid()),
-                    ]
-                ], 422);
-            }
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

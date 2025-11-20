@@ -18,33 +18,42 @@ class SubscriptionDashboardWidget extends Widget
     {
         $storeContext = app(StoreContext::class);
         $storeId = $storeContext->current(auth()->user());
+        $store = \App\Models\Store::find($storeId);
+        
+        if (!$store || !$store->tenant_id) {
+            return [
+                'activeSubscription' => null,
+                'recentPayments' => collect(),
+                'upcomingRenewal' => null,
+                'pendingPayments' => collect(),
+            ];
+        }
 
-        $activeSubscription = Subscription::where('store_id', $storeId)
-            ->where('status', 'active')
-            ->with('plan')
-            ->first();
+        $tenant = $store->tenant;
+        $activeSubscription = $tenant->activeSubscription();
+        
+        if ($activeSubscription) {
+            $activeSubscription->load('plan');
+        }
 
-        $recentPayments = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($storeId) {
-            $query->where('store_id', $storeId);
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($storeId) {
-            $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeId) {
-                $subQuery->where('id', $storeId);
-            });
+        $tenantId = $tenant->id;
+        $recentPayments = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
+            $query->where('tenant_id', $tenantId);
         })->with(['subscription.plan', 'landingSubscription'])
         ->latest()
         ->limit(5)
         ->get();
 
-        $upcomingRenewal = $activeSubscription && $activeSubscription->ends_at->diffInDays() <= 30 
+        $upcomingRenewal = $activeSubscription && (int) $activeSubscription->ends_at->diffInDays() <= 30 
             ? $activeSubscription 
             : null;
 
-        $pendingPayments = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($storeId) {
-            $query->where('store_id', $storeId);
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($storeId) {
-            $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeId) {
-                $subQuery->where('id', $storeId);
-            });
+        $pendingPayments = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
+            $query->where('tenant_id', $tenantId);
         })->where('status', 'pending')
         ->with(['subscription.plan', 'landingSubscription'])
         ->get();
@@ -61,11 +70,20 @@ class SubscriptionDashboardWidget extends Widget
     {
         $storeContext = app(StoreContext::class);
         $storeId = $storeContext->current(auth()->user());
+        $store = \App\Models\Store::find($storeId);
+        
+        if (!$store || !$store->tenant_id) {
+            return false;
+        }
 
-        // Show widget only if store has subscription-related data
-        return Subscription::where('store_id', $storeId)->exists() ||
-               SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($storeId) {
-                   $query->where('store_id', $storeId);
+        $tenant = $store->tenant;
+        
+        // Show widget only if tenant has subscription-related data
+        return $tenant->activeSubscription() !== null ||
+               SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenant) {
+                   $query->where('tenant_id', $tenant->id);
+               })->orWhereHas('landingSubscription', function (Builder $query) use ($tenant) {
+                   $query->where('tenant_id', $tenant->id);
                })->exists();
     }
 }

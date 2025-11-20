@@ -2,7 +2,9 @@
 
 namespace App\Filament\Owner\Widgets;
 
+use App\Models\Store;
 use App\Models\SubscriptionPayment;
+use App\Models\Tenant;
 use App\Services\StoreContext;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,14 +21,20 @@ class PaymentMethodBreakdownWidget extends ChartWidget
 
     protected function getData(): array
     {
-        $storeContext = app(StoreContext::class);
-        $storeId = $storeContext->current(auth()->user());
+        $tenant = $this->resolveTenant();
 
-        $baseQuery = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($storeId) {
-            $query->where('store_id', $storeId);
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($storeId) {
-            $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeId) {
-                $subQuery->where('id', $storeId);
+        if (!$tenant) {
+            return [
+                'datasets' => [],
+                'labels' => [],
+            ];
+        }
+
+        $baseQuery = SubscriptionPayment::where(function (Builder $query) use ($tenant) {
+            $query->whereHas('subscription', function (Builder $subQuery) use ($tenant) {
+                $subQuery->where('tenant_id', $tenant->id);
+            })->orWhereHas('landingSubscription', function (Builder $subQuery) use ($tenant) {
+                $subQuery->where('tenant_id', $tenant->id);
             });
         })->where('status', 'paid');
 
@@ -135,16 +143,36 @@ class PaymentMethodBreakdownWidget extends ChartWidget
 
     public static function canView(): bool
     {
+        $tenant = static::resolveTenantFromContext();
+
+        if (!$tenant) {
+            return false;
+        }
+
+        // Show widget only if tenant has payment data
+        return SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenant) {
+            $query->where('tenant_id', $tenant->id);
+        })->orWhereHas('landingSubscription', function (Builder $query) use ($tenant) {
+            $query->where('tenant_id', $tenant->id);
+        })->where('status', 'paid')->exists();
+    }
+
+    protected function resolveTenant(): ?Tenant
+    {
+        return static::resolveTenantFromContext();
+    }
+
+    protected static function resolveTenantFromContext(): ?Tenant
+    {
         $storeContext = app(StoreContext::class);
         $storeId = $storeContext->current(auth()->user());
 
-        // Show widget only if store has payment data
-        return SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($storeId) {
-            $query->where('store_id', $storeId);
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($storeId) {
-            $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeId) {
-                $subQuery->where('id', $storeId);
-            });
-        })->where('status', 'paid')->exists();
+        if (!$storeId) {
+            return null;
+        }
+
+        $store = Store::find($storeId);
+
+        return $store?->tenant;
     }
 }

@@ -36,9 +36,11 @@ class UserSeeder extends Seeder
         );
         $adminSistem->assignRole('admin_sistem');
 
-        // Get first store for owner assignment
+        // Get first store and tenant for owner assignment
         $firstStore = \App\Models\Store::first();
         $storeId = $firstStore?->id;
+        $firstTenant = \App\Models\Tenant::first();
+        $tenantId = $firstTenant?->id;
 
         // Create Owner
         $owner = User::firstOrCreate(
@@ -55,6 +57,35 @@ class UserSeeder extends Seeder
         if (!$owner->store_id && $storeId) {
             $owner->store_id = $storeId;
             $owner->save();
+        }
+
+        // CRITICAL: Create user_tenant_access for owner
+        if ($tenantId) {
+            $exists = \DB::table('user_tenant_access')
+                ->where('user_id', $owner->id)
+                ->where('tenant_id', $tenantId)
+                ->exists();
+
+            if (!$exists) {
+                \DB::table('user_tenant_access')->insert([
+                    'id' => \Illuminate\Support\Str::uuid()->toString(),
+                    'user_id' => $owner->id,
+                    'tenant_id' => $tenantId,
+                    'role' => 'owner',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $this->command->info("✅ Created user_tenant_access for owner@xpresspos.id → tenant {$tenantId}");
+            } else {
+                \DB::table('user_tenant_access')
+                    ->where('user_id', $owner->id)
+                    ->where('tenant_id', $tenantId)
+                    ->update([
+                        'role' => 'owner',
+                        'updated_at' => now(),
+                    ]);
+                $this->command->info("✅ Updated user_tenant_access for owner@xpresspos.id → tenant {$tenantId}");
+            }
         }
 
         // CRITICAL: Set team context BEFORE assigning role
@@ -106,6 +137,35 @@ class UserSeeder extends Seeder
         if (!$cashier->store_id && $storeId) {
             $cashier->store_id = $storeId;
             $cashier->save();
+        }
+
+        // CRITICAL: Create user_tenant_access for cashier (staff role)
+        if ($tenantId) {
+            $exists = \DB::table('user_tenant_access')
+                ->where('user_id', $cashier->id)
+                ->where('tenant_id', $tenantId)
+                ->exists();
+
+            if (!$exists) {
+                \DB::table('user_tenant_access')->insert([
+                    'id' => \Illuminate\Support\Str::uuid()->toString(),
+                    'user_id' => $cashier->id,
+                    'tenant_id' => $tenantId,
+                    'role' => 'staff',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $this->command->info("✅ Created user_tenant_access for cashier@xpresspos.id → tenant {$tenantId}");
+            } else {
+                \DB::table('user_tenant_access')
+                    ->where('user_id', $cashier->id)
+                    ->where('tenant_id', $tenantId)
+                    ->update([
+                        'role' => 'staff',
+                        'updated_at' => now(),
+                    ]);
+                $this->command->info("✅ Updated user_tenant_access for cashier@xpresspos.id → tenant {$tenantId}");
+            }
         }
 
         // CRITICAL: Set team context BEFORE assigning role

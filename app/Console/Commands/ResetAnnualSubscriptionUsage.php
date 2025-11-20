@@ -47,8 +47,13 @@ class ResetAnnualSubscriptionUsage extends Command
                 });
             
             if ($storeId) {
-                $subscriptionsQuery->where('store_id', $storeId);
-                $this->info("Filtering for store ID: {$storeId}");
+                $store = \App\Models\Store::find($storeId);
+                if ($store && $store->tenant_id) {
+                    $subscriptionsQuery->where('tenant_id', $store->tenant_id);
+                    $this->info("Filtering for tenant ID: {$store->tenant_id} (via store ID: {$storeId})");
+                } else {
+                    $this->warn("Store ID {$storeId} not found or has no tenant_id");
+                }
             }
             
             $subscriptions = $subscriptionsQuery->with(['store', 'plan', 'usage'])->get();

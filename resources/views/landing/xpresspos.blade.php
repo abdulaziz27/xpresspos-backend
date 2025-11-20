@@ -407,8 +407,33 @@
                                 <p class="text-2xl font-bold text-gray-900">{{ number_format($plan->annual_price, 0, ',', '.') }}</p>
                                 <p class="text-xs text-gray-500">/tahun</p>
                             </div>
-                            <button onclick="selectPlanFromLanding('{{ $plan->slug }}')" class="mt-3 w-full {{ $index === 1 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-900 hover:bg-gray-800' }} text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-                                Beli
+                            @php
+                                // Dynamic button text based on auth & current plan
+                                $btnLabel = 'Beli';
+                                $btnDisabled = false;
+                                $btnOnclick = "selectPlanFromLanding('{$plan->slug}')";
+                                
+                                // Check if user has active plan
+                                if (isset($currentPlan) && $currentPlan) {
+                                    if ($plan->id === $currentPlan->id) {
+                                        // Current plan
+                                        $btnLabel = 'Paket Saat Ini ✓';
+                                        $btnDisabled = true;
+                                        $btnOnclick = '';
+                                    } elseif ($plan->sort_order > $currentPlan->sort_order) {
+                                        // Upgrade
+                                        $btnLabel = 'Upgrade';
+                                    } elseif ($plan->sort_order < $currentPlan->sort_order) {
+                                        // Downgrade
+                                        $btnLabel = 'Downgrade';
+                                    }
+                                }
+                            @endphp
+                            <button 
+                                @if($btnOnclick) onclick="{{ $btnOnclick }}" @endif
+                                @if($btnDisabled) disabled @endif
+                                class="mt-3 w-full {{ $index === 1 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-900 hover:bg-gray-800' }} text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors {{ $btnDisabled ? 'opacity-60 cursor-not-allowed' : '' }}">
+                                {{ $btnLabel }}
                             </button>
                         </div>
                     </div>

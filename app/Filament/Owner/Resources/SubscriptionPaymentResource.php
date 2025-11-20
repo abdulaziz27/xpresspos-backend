@@ -284,15 +284,22 @@ class SubscriptionPaymentResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $storeContext = app(StoreContext::class);
+        $storeId = $storeContext->current(auth()->user());
+        $store = \App\Models\Store::find($storeId);
         
+        if (!$store || !$store->tenant_id) {
+            return parent::getEloquentQuery()->whereRaw('1 = 0'); // Return empty query
+        }
+
+        $tenant = $store->tenant;
+        $tenantId = $tenant->id;
+
         return parent::getEloquentQuery()
-            ->whereHas('subscription', function (Builder $query) use ($storeContext) {
-                $query->where('store_id', $storeContext->current(auth()->user()));
+            ->whereHas('subscription', function (Builder $query) use ($tenantId) {
+                $query->where('tenant_id', $tenantId);
             })
-            ->orWhereHas('landingSubscription', function (Builder $query) use ($storeContext) {
-                $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeContext) {
-                    $subQuery->where('id', $storeContext->current(auth()->user()));
-                });
+            ->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
+                $query->where('tenant_id', $tenantId);
             })
             ->with(['subscription.plan', 'landingSubscription']);
     }

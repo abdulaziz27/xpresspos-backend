@@ -241,9 +241,17 @@ class SubscriptionResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $storeContext = app(StoreContext::class);
+        $storeId = $storeContext->current(auth()->user());
+        $store = \App\Models\Store::find($storeId);
+        
+        if (!$store || !$store->tenant_id) {
+            return parent::getEloquentQuery()->whereRaw('1 = 0'); // Return empty query
+        }
+
+        $tenant = $store->tenant;
         
         return parent::getEloquentQuery()
-            ->where('store_id', $storeContext->current(auth()->user()))
+            ->where('tenant_id', $tenant->id)
             ->with(['plan', 'subscriptionPayments']);
     }
 

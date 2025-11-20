@@ -10,7 +10,6 @@ use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\InventoryReportController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MemberController;
-use App\Http\Controllers\Api\V1\MidtransWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionPaymentController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentController;
@@ -487,10 +486,6 @@ Route::middleware(['auth:sanctum'])->prefix('v1/subscription-payments')->group(f
 
 // Public webhooks (outside protected middleware)
 Route::prefix('v1/webhooks')->group(function (): void {
-    Route::post('midtrans', [MidtransWebhookController::class, 'handle'])
-        ->middleware('throttle:60,1')
-        ->name('api.v1.webhooks.midtrans');
-    
     // Xendit webhooks with enhanced security
     Route::middleware(['xendit.webhook.security', 'throttle:xendit-webhook'])->group(function () {
         Route::post('xendit/invoice', [\App\Http\Controllers\XenditWebhookController::class, 'handleInvoiceCallback'])->name('api.v1.webhooks.xendit.invoice');

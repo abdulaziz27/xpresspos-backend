@@ -14,17 +14,28 @@ class PaymentStatsWidget extends BaseWidget
     {
         $storeContext = app(StoreContext::class);
         $storeId = $storeContext->current(auth()->user());
+        $store = \App\Models\Store::find($storeId);
+        
+        if (!$store || !$store->tenant_id) {
+            return [
+                \Filament\Widgets\StatsOverviewWidget\Stat::make('Total Paid', 'Rp 0')
+                    ->description('No payment data')
+                    ->descriptionIcon('heroicon-m-banknotes')
+                    ->color('gray'),
+            ];
+        }
 
-        $baseQuery = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($storeId) {
-            $query->where('store_id', $storeId);
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($storeId) {
-            $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeId) {
-                $subQuery->where('id', $storeId);
-            });
+        $tenant = $store->tenant;
+        $tenantId = $tenant->id;
+
+        $baseQuery = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
+            $query->where('tenant_id', $tenantId);
         });
 
-        $totalPaid = $baseQuery->clone()->where('status', 'paid')->sum('amount');
-        $thisMonthPaid = $baseQuery->clone()
+        $totalPaid = (int) $baseQuery->clone()->where('status', 'paid')->sum('amount');
+        $thisMonthPaid = (int) $baseQuery->clone()
             ->where('status', 'paid')
             ->where('paid_at', '>=', now()->startOfMonth())
             ->sum('amount');
@@ -32,7 +43,7 @@ class PaymentStatsWidget extends BaseWidget
         $pendingCount = $baseQuery->clone()->where('status', 'pending')->count();
         $failedCount = $baseQuery->clone()->where('status', 'failed')->count();
 
-        $lastMonthPaid = $baseQuery->clone()
+        $lastMonthPaid = (int) $baseQuery->clone()
             ->where('status', 'paid')
             ->where('paid_at', '>=', now()->subMonth()->startOfMonth())
             ->where('paid_at', '<=', now()->subMonth()->endOfMonth())

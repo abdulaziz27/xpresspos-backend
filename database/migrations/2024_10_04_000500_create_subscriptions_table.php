@@ -10,7 +10,8 @@ return new class extends Migration
     {
         Schema::create('subscriptions', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
+            $table->string('tenant_id', 36)->comment('Subscription per tenant, bukan per store');
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignId('plan_id')->constrained('plans')->restrictOnDelete();
             $table->enum('status', ['active', 'inactive', 'cancelled', 'expired'])->default('active');
             $table->enum('billing_cycle', ['monthly', 'annual'])->default('monthly');
@@ -21,7 +22,7 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->timestamps();
 
-            $table->index(['store_id', 'status']);
+            $table->index(['tenant_id', 'status']);
             $table->index('status');
             $table->index('ends_at');
         });

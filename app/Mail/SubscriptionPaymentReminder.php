@@ -39,7 +39,7 @@ class SubscriptionPaymentReminder extends Mailable implements ShouldQueue
             tags: ['subscription-payment', 'payment-reminder'],
             metadata: [
                 'subscription_id' => $this->subscription->id,
-                'store_id' => $this->subscription->store_id,
+                'tenant_id' => $this->subscription->tenant_id,
                 'days_until_expiration' => $this->daysUntilExpiration,
             ],
         );

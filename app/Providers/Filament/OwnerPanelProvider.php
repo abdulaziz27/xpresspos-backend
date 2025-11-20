@@ -53,6 +53,10 @@ class OwnerPanelProvider extends PanelProvider
                 \App\Filament\Owner\Pages\OwnerDashboard::class,
             ])
             ->widgets([
+                // Global Filter (Unified Multi-Store Dashboard)
+                \App\Filament\Owner\Widgets\GlobalFilterWidget::class, // Filter: Tenant, Store, Date Range
+                
+                // Dashboard Widgets
                 // \App\Filament\Owner\Widgets\UpgradeBannerWidget::class, // DISABLED - upgrade banner
                 \App\Filament\Owner\Widgets\SubscriptionDashboardWidget::class, // status subscription ringkas (v4 simplified)
                 \App\Filament\Owner\Widgets\OwnerStatsWidget::class, // ringkasan transaksi & pendapatan (dengan filter)

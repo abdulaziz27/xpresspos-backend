@@ -7,10 +7,12 @@ use App\Filament\Owner\Resources\Orders\Pages\ViewOrder;
 use App\Filament\Owner\Resources\Orders\Schemas\OrderForm;
 use App\Filament\Owner\Resources\Orders\Tables\OrdersTable;
 use App\Models\Order;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Support\Icons\Heroicon;
 
@@ -90,5 +92,25 @@ class OrderResource extends Resource
     public static function canViewAny(): bool
     {
         return true;
+    }
+
+    /**
+     * Apply Global Filter to Orders query
+     * 
+     * Unified Multi-Store Dashboard: Filter by tenant + store + date
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+
+        $query = parent::getEloquentQuery();
+
+        // Apply store filter (multi-store support)
+        if (!empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
+
+        return $query;
     }
 }

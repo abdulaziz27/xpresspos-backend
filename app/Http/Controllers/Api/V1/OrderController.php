@@ -238,6 +238,26 @@ class OrderController extends Controller
                 }
             }
 
+            // Track subscription usage (soft cap, no blocking)
+            if ($store && $store->tenant_id) {
+                try {
+                    $planLimitService = app(\App\Services\PlanLimitService::class);
+                    $planLimitService->trackUsage($store, 'transactions', 1);
+                    
+                    Log::info('Subscription usage tracked for order', [
+                        'order_id' => $order->id,
+                        'tenant_id' => $store->tenant_id,
+                        'feature_type' => 'transactions',
+                    ]);
+                } catch (\Exception $e) {
+                    // Don't fail order creation if usage tracking fails
+                    Log::warning('Failed to track subscription usage', [
+                        'order_id' => $order->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             DB::commit();
 
             $order->load(['items.product', 'member', 'table', 'user:id,name']);

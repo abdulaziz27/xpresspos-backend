@@ -24,7 +24,7 @@ class ReconcilePayments extends Command
      *
      * @var string
      */
-    protected $description = 'Reconcile payment statuses with Midtrans and process failed payments';
+    protected $description = 'Reconcile payment statuses with payment gateways and process failed payments';
 
     /**
      * Execute the console command.
