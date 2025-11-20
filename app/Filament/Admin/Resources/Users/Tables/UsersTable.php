@@ -30,12 +30,11 @@ class UsersTable
                     ->sortable()
                     ->copyable(),
 
-                TextColumn::make('store.name')
-                    ->label('Store')
-                    ->searchable()
-                    ->sortable()
+                TextColumn::make('stores.name')
+                    ->label('Stores')
                     ->badge()
-                    ->color('info'),
+                    ->color('info')
+                    ->separator(','),
 
                 TextColumn::make('roles.name')
                     ->label('Roles')
@@ -70,15 +69,6 @@ class UsersTable
                     ->since(),
             ])
             ->filters([
-                SelectFilter::make('store_id')
-                    ->label('Store')
-                    ->options(function () {
-                        return Store::where('status', true)
-                            ->pluck('name', 'id');
-                    })
-                    ->searchable()
-                    ->preload(),
-
                 SelectFilter::make('roles')
                     ->label('Role')
                     ->options(function () {

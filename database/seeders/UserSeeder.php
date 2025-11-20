@@ -49,14 +49,21 @@ class UserSeeder extends Seeder
                 'name' => 'Store Owner',
                 'password' => Hash::make('owner123'),
                 'email_verified_at' => now(),
-                'store_id' => $storeId, // Set store_id if store exists
             ]
         );
 
-        // CRITICAL: Always ensure store_id is set, even for existing users
-        if (!$owner->store_id && $storeId) {
-            $owner->store_id = $storeId;
-            $owner->save();
+        // CRITICAL: Create store_user_assignment for owner
+        if ($storeId) {
+            \App\Models\StoreUserAssignment::updateOrCreate(
+                [
+                    'store_id' => $storeId,
+                    'user_id' => $owner->id,
+                ],
+                [
+                    'assignment_role' => 'owner',
+                    'is_primary' => true,
+                ]
+            );
         }
 
         // CRITICAL: Create user_tenant_access for owner
@@ -129,14 +136,21 @@ class UserSeeder extends Seeder
                 'name' => 'Cashier',
                 'password' => Hash::make('cashier123'),
                 'email_verified_at' => now(),
-                'store_id' => $storeId, // Set store_id if store exists
             ]
         );
 
-        // CRITICAL: Always ensure store_id is set, even for existing users
-        if (!$cashier->store_id && $storeId) {
-            $cashier->store_id = $storeId;
-            $cashier->save();
+        // CRITICAL: Create store_user_assignment for cashier
+        if ($storeId) {
+            \App\Models\StoreUserAssignment::updateOrCreate(
+                [
+                    'store_id' => $storeId,
+                    'user_id' => $cashier->id,
+                ],
+                [
+                    'assignment_role' => 'staff',
+                    'is_primary' => false,
+                ]
+            );
         }
 
         // CRITICAL: Create user_tenant_access for cashier (staff role)

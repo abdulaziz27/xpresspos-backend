@@ -62,18 +62,23 @@ class OwnerDemoSeeder extends Seeder
                 [
                     'name' => 'Store Owner',
                     'password' => bcrypt('password123'),
-                    'store_id' => $store->id,
                     'email_verified_at' => now(),
                 ]
             );
         }
 
-        // CRITICAL: Always ensure store_id is set, even for existing users
-        if ($owner->store_id !== $store->id) {
-            $owner->store_id = $store->id;
-            $owner->save();
-            $this->command->info("Updated store_id for {$owner->email} to {$store->id}");
-        }
+        // CRITICAL: Create store_user_assignment for owner
+        \App\Models\StoreUserAssignment::updateOrCreate(
+            [
+                'store_id' => $store->id,
+                'user_id' => $owner->id,
+            ],
+            [
+                'assignment_role' => 'owner',
+                'is_primary' => true,
+            ]
+        );
+        $this->command->info("Created store_user_assignment for {$owner->email} to {$store->id}");
         
         // Assign role with team context
         $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
@@ -120,7 +125,6 @@ class OwnerDemoSeeder extends Seeder
                 [
                     'name' => 'Store Manager',
                     'password' => bcrypt('password123'),
-                    'store_id' => $store->id,
                     'email_verified_at' => now(),
                 ]
             );
@@ -161,7 +165,6 @@ class OwnerDemoSeeder extends Seeder
                 [
                     'name' => 'Store Cashier',
                     'password' => bcrypt('password123'),
-                    'store_id' => $store->id,
                     'email_verified_at' => now(),
                 ]
             );

@@ -48,16 +48,22 @@ class OwnerPanelSeeder extends Seeder
                 'name' => 'Arasta Owner',
                 'password' => bcrypt('password123'),
                 'email_verified_at' => now(),
-                'store_id' => $primaryStore?->id, // Set store_id if primary store exists
             ]
         );
 
-        // CRITICAL: Always ensure store_id is set, even for existing users
-        // This prevents issues where user was created by another seeder without store_id
-        if (!$owner->store_id && $primaryStore) {
-            $owner->store_id = $primaryStore->id;
-            $owner->save();
-            $this->command->info("Updated store_id for {$owner->email} to {$primaryStore->id}");
+        // CRITICAL: Create store_user_assignment for owner
+        if ($primaryStore) {
+            \App\Models\StoreUserAssignment::updateOrCreate(
+                [
+                    'store_id' => $primaryStore->id,
+                    'user_id' => $owner->id,
+                ],
+                [
+                    'assignment_role' => 'owner',
+                    'is_primary' => true,
+                ]
+            );
+            $this->command->info("Created store_user_assignment for {$owner->email} to {$primaryStore->id}");
         }
 
         // Rename any legacy English branch names to Indonesian to avoid duplicates
@@ -156,14 +162,20 @@ class OwnerPanelSeeder extends Seeder
                 ['assignment_role' => 'owner', 'is_primary' => $idx === 0]
             );
 
-            // CRITICAL: Ensure the owner's primary store_id points to Central branch (first store)
+            // CRITICAL: Ensure the owner's primary store assignment points to Central branch (first store)
             // This is essential for auth gate to work correctly
             if ($idx === 0) {
-                if ($owner->store_id !== $store->id) {
-                    $owner->store_id = $store->id;
-                    $owner->save();
-                    $this->command->info("✅ Set primary store_id for {$owner->email} to {$store->name} (ID: {$store->id})");
-                }
+                \App\Models\StoreUserAssignment::updateOrCreate(
+                    [
+                        'store_id' => $store->id,
+                        'user_id' => $owner->id,
+                    ],
+                    [
+                        'assignment_role' => 'owner',
+                        'is_primary' => true,
+                    ]
+                );
+                $this->command->info("✅ Set primary store assignment for {$owner->email} to {$store->name} (ID: {$store->id})");
             }
 
             $categoryMap = [];

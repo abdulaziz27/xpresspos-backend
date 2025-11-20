@@ -65,28 +65,13 @@ class FilamentUserSeeder extends Seeder
                 'name' => 'Store Owner',
                 'password' => Hash::make('password123'),
                 'email_verified_at' => now(),
-                'store_id' => $primaryStoreId,
             ]
         );
 
-        // CRITICAL: Always update password and store_id even for existing users
+        // CRITICAL: Always update password even for existing users
         // This ensures password is correct regardless of which seeder ran first
-        $needsUpdate = false;
-        $updates = [];
-        
-        if ($owner->store_id !== $primaryStoreId) {
-            $updates['store_id'] = $primaryStoreId;
-            $needsUpdate = true;
-        }
-        
-        // Always update password to ensure consistency
-        $updates['password'] = Hash::make('password123');
-        $needsUpdate = true;
-        
-        if ($needsUpdate) {
-            $owner->update($updates);
-            $this->command->info("Updated {$owner->email}: store_id and password set to 'password123'");
-        }
+        $owner->update(['password' => Hash::make('password123')]);
+        $this->command->info("Updated {$owner->email}: password set to 'password123'");
 
         // CRITICAL: Create user_tenant_access for owner
         $exists = \DB::table('user_tenant_access')

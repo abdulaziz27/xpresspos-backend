@@ -34,14 +34,6 @@ class Store extends Model
         'settings' => 'array',
     ];
 
-    /**
-     * Get the users for the store.
-     */
-    public function users(): HasMany
-    {
-        return $this->hasMany(User::class);
-    }
-
     public function userAssignments(): HasMany
     {
         return $this->hasMany(StoreUserAssignment::class);
@@ -190,13 +182,6 @@ class Store extends Model
      */
     private function getCurrentUserUsage(): int
     {
-        $user = auth()->user();
-
-        if (!$user) {
-            // In testing or no auth context, use direct query (User doesn't have store scope)
-            return \App\Models\User::where('store_id', $this->id)->count();
-        }
-
         return $this->userAssignments()->count();
     }
 

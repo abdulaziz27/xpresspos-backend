@@ -31,7 +31,6 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
-        'store_id',
     ];
 
     /**
@@ -53,14 +52,6 @@ class User extends Authenticatable implements FilamentUser
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
-
-    /**
-     * Get the store that owns the user.
-     */
-    public function store(): BelongsTo
-    {
-        return $this->belongsTo(Store::class);
-    }
 
     public function storeAssignments(): HasMany
     {
@@ -123,8 +114,9 @@ class User extends Authenticatable implements FilamentUser
      */
     public function getRolesWithContext()
     {
-        if ($this->store_id) {
-            setPermissionsTeamId($this->store_id);
+        $storeId = StoreContext::instance()->current($this);
+        if ($storeId) {
+            setPermissionsTeamId($storeId);
         }
         return $this->roles;
     }
@@ -134,8 +126,9 @@ class User extends Authenticatable implements FilamentUser
      */
     public function getPermissionsWithContext()
     {
-        if ($this->store_id) {
-            setPermissionsTeamId($this->store_id);
+        $storeId = StoreContext::instance()->current($this);
+        if ($storeId) {
+            setPermissionsTeamId($storeId);
         }
         return $this->getAllPermissions();
     }
@@ -171,7 +164,7 @@ class User extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         // Set team context first to avoid SQL ambiguity
-        $storeId = $this->store_id ?? $this->primaryStore()?->id;
+        $storeId = $this->primaryStore()?->id ?? StoreContext::instance()->current($this);
         if ($storeId) {
             setPermissionsTeamId($storeId);
         }

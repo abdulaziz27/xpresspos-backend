@@ -13,8 +13,9 @@ return new class extends Migration
             $table->string('tenant_id', 36);
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->string('name');
-            $table->string('code', 50)->unique();
+            $table->string('code', 50);
             $table->string('email')->unique();
+            $table->unique(['tenant_id', 'code'], 'uk_stores_tenant_code');
             $table->string('phone')->nullable();
             $table->text('address')->nullable();
             $table->string('logo')->nullable();
