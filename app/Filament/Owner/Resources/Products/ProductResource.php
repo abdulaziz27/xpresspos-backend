@@ -27,9 +27,9 @@ class ProductResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Produk';
 
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = 10;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
+    protected static string|\UnitEnum|null $navigationGroup = 'Produk';
 
     // Check if user can create more products based on subscription limit
     public static function canCreate(): bool

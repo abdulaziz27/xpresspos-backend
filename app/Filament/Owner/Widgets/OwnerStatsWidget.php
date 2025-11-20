@@ -34,7 +34,7 @@ class OwnerStatsWidget extends BaseWidget
         $storeIds = $this->dashboardStoreIds();
         $summary = $this->dashboardFilterSummary();
         $tenantId = $filters['tenant_id'];
-
+        
         if (! $tenantId || empty($storeIds)) {
             return [
                 Stat::make('Data Tidak Tersedia', '0')

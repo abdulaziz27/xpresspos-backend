@@ -27,7 +27,7 @@ class StoreSettings extends Page implements HasForms
 
     protected static ?string $navigationLabel = 'Pengaturan Toko';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Toko & Tim';
+    protected static string|UnitEnum|null $navigationGroup = 'Pengaturan';
 
     protected static ?int $navigationSort = 0;
 

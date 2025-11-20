@@ -28,7 +28,7 @@ class TopMenuTableWidget extends BaseWidget
         $filters = $this->dashboardFilters();
         $storeIds = $this->dashboardStoreIds();
         $summary = $this->dashboardFilterSummary();
-
+        
         if (empty($storeIds)) {
             return $table
                 ->query(Product::query()->whereRaw('1 = 0'))

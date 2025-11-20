@@ -22,9 +22,9 @@ class ProductPriceHistoryResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Product Price Histories';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 40;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
+    protected static string|\UnitEnum|null $navigationGroup = 'Produk';
 
     public static function table(Table $table): Table
     {

@@ -38,14 +38,15 @@ class OwnerPanelProvider extends PanelProvider
                 'primary' => Color::Green,
             ])
             ->navigationGroups([
-                // Order from most important (top) to least (bottom)
                 'Operasional Harian',
-                'Produk & Inventori',
+                'Produk',
+                'Inventori',
+                'Promo & Kampanye',
                 'Pelanggan & Loyalti',
-                'Promo & Retur',
                 'Keuangan & Laporan',
                 'Toko & Tim',
                 'Langganan & Billing',
+                'Pengaturan',
             ])
             ->discoverResources(in: app_path('Filament/Owner/Resources'), for: 'App\\Filament\\Owner\\Resources')
             ->discoverPages(in: app_path('Filament/Owner/Pages'), for: 'App\\Filament\\Owner\\Pages')

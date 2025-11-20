@@ -29,29 +29,29 @@ class SubscriptionDashboardWidget extends Widget
         }
 
         $tenant = Tenant::find($tenantId);
-
+        
         if (! $tenant) {
             return $this->emptyViewData();
         }
 
         $activeSubscription = $tenant->activeSubscription();
-
+        
         if ($activeSubscription) {
             $activeSubscription->load('plan');
         }
 
         $recentPayments = $this->buildTenantPaymentsQuery($tenant->id)
-            ->latest()
-            ->limit(5)
-            ->get();
+        ->latest()
+        ->limit(5)
+        ->get();
 
         $upcomingRenewal = ($activeSubscription && (int) $activeSubscription->ends_at->diffInDays() <= 30)
-            ? $activeSubscription
+            ? $activeSubscription 
             : null;
 
         $pendingPayments = $this->buildTenantPaymentsQuery($tenant->id)
             ->where('status', 'pending')
-            ->get();
+        ->get();
 
         return [
             'activeSubscription' => $activeSubscription,

@@ -33,14 +33,14 @@ class ProfitAnalysisWidget extends BaseWidget
         $filters = $this->dashboardFilters();
         $storeIds = $this->dashboardStoreIds();
         $summary = $this->dashboardFilterSummary();
-
+        
         if (empty($storeIds)) {
             return [];
         }
 
         try {
             $analyticsService = app(FnBAnalyticsService::class);
-
+            
             $preset = $filters['date_preset'] ?? 'this_month';
             $customRange = $preset === 'custom'
                 ? [$filters['range']['start'], $filters['range']['end']]

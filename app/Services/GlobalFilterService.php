@@ -158,7 +158,7 @@ class GlobalFilterService
         }
 
         Session::put(self::SESSION_KEY_TENANT, $tenantId);
-
+        
         // Reset store when tenant changes
         Session::forget(self::SESSION_KEY_STORE);
     }

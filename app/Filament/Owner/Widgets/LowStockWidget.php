@@ -28,7 +28,7 @@ class LowStockWidget extends BaseWidget
         $storeIds = $this->dashboardStoreIds();
         $summary = $this->dashboardFilterSummary();
         $selectedStore = $filters['store_id'];
-
+        
         if (empty($storeIds)) {
             $query = Product::query()->whereRaw('1 = 0');
         } else {

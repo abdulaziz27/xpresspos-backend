@@ -28,7 +28,7 @@ class RefundResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Promo & Retur';
+    protected static string|\UnitEnum|null $navigationGroup = 'Promo & Kampanye';
 
     public static function form(Schema $schema): Schema
     {

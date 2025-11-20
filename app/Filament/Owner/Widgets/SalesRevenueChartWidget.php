@@ -37,7 +37,7 @@ class SalesRevenueChartWidget extends ChartWidget
         $filters = $this->dashboardFilters();
         $storeIds = $this->dashboardStoreIds();
         $summary = $this->dashboardFilterSummary();
-
+        
         if (empty($storeIds)) {
             return [
                 'datasets' => [[ 'label' => 'Pendapatan', 'data' => [] ]],

@@ -28,7 +28,7 @@ class BestBranchesWidget extends BaseWidget
     {
         $filters = $this->dashboardFilters();
         $storeIds = $this->dashboardStoreIds();
-
+        
         if (empty($storeIds)) {
             return $table
                 ->query(Store::query()->whereRaw('1 = 0'))
@@ -49,8 +49,8 @@ class BestBranchesWidget extends BaseWidget
             ])
             ->leftJoin('payments', function ($join) use ($dateRange) {
                 $join->on('payments.store_id', '=', 'stores.id')
-                    ->where('payments.status', '=', 'completed')
-                    ->whereBetween('payments.created_at', [$dateRange['start'], $dateRange['end']]);
+                     ->where('payments.status', '=', 'completed')
+                     ->whereBetween('payments.created_at', [$dateRange['start'], $dateRange['end']]);
             })
             ->whereIn('stores.id', $storeIds)
             ->groupBy('stores.id', 'stores.name')

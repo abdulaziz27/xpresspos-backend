@@ -26,7 +26,7 @@ class CashSessionResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Sesi Kas';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 12;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Operasional Harian';
 

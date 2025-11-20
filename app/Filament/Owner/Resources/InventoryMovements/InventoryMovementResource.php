@@ -26,9 +26,9 @@ class InventoryMovementResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Pergerakan Stok';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 10;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
+    protected static string|\UnitEnum|null $navigationGroup = 'Inventori';
 
 
     public static function form(Schema $schema): Schema

@@ -28,7 +28,7 @@ class OrderResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Pesanan';
 
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = 10;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Operasional Harian';
 

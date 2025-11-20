@@ -26,9 +26,9 @@ class CogsHistoryResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Riwayat COGS';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 30;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
+    protected static string|\UnitEnum|null $navigationGroup = 'Produk';
 
     public static function form(Schema $schema): Schema
     {

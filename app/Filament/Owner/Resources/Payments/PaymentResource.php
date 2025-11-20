@@ -26,7 +26,7 @@ class PaymentResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Pembayaran';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 11;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Operasional Harian';
 

@@ -27,7 +27,7 @@ class TableResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Meja';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 20;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Operasional Harian';
 
