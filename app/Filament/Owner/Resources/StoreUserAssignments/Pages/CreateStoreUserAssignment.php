@@ -5,9 +5,10 @@ namespace App\Filament\Owner\Resources\StoreUserAssignments\Pages;
 use App\Filament\Owner\Resources\StoreUserAssignments\StoreUserAssignmentResource;
 use Filament\Resources\Pages\CreateRecord;
 use App\Models\User;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use App\Services\StorePermissionService;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class CreateStoreUserAssignment extends CreateRecord
 {
@@ -15,13 +16,19 @@ class CreateStoreUserAssignment extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Get current store ID
-        $storeContext = app(StoreContext::class);
-        $currentStoreId = $storeContext->current(auth()->user());
-        
-        // Set store_id for the assignment
-        $data['store_id'] = $currentStoreId;
-        
+        if (empty($data['store_id'])) {
+            /** @var GlobalFilterService $globalFilter */
+            $globalFilter = app(GlobalFilterService::class);
+            $data['store_id'] = $globalFilter->getCurrentStoreId()
+                ?? ($globalFilter->getStoreIdsForCurrentTenant()[0] ?? null);
+        }
+
+        if (! $data['store_id']) {
+            throw ValidationException::withMessages([
+                'store_id' => 'Silakan pilih cabang terlebih dahulu.',
+            ]);
+        }
+
         return $data;
     }
 

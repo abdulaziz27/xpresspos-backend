@@ -230,10 +230,14 @@ class OwnerPanelSeeder extends Seeder
                 $memberEmail = 'member' . $m . '.b' . ($idx + 1) . '@arasta.coffee';
 
                 // Prefer updating legacy record if it exists for this tenant to stay idempotent
-                $member = Member::where('tenant_id', $tenant->id)->where('email', $legacyEmail)->first();
+                $member = Member::withoutGlobalScopes()
+                    ->where('tenant_id', $tenant->id)
+                    ->where('email', $legacyEmail)
+                    ->first();
                 if (!$member) {
                     // Check if member with this member_number already exists for this tenant
-                    $existingMember = Member::where('tenant_id', $tenant->id)
+                    $existingMember = Member::withoutGlobalScopes()
+                        ->where('tenant_id', $tenant->id)
                         ->where('member_number', $memberNumber)
                         ->first();
                     
@@ -242,7 +246,7 @@ class OwnerPanelSeeder extends Seeder
                         continue;
                     }
                     
-                    $member = Member::firstOrCreate(
+                    $member = Member::withoutGlobalScopes()->firstOrCreate(
                         ['tenant_id' => $tenant->id, 'email' => $memberEmail],
                         [
                             'store_id' => $store->id,

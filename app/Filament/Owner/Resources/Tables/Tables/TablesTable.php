@@ -9,7 +9,6 @@ use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table as FilamentTable;
 
 class TablesTable
@@ -27,6 +26,13 @@ class TablesTable
                     ->label('Nama Meja')
                     ->sortable()
                     ->searchable(),
+
+                TextColumn::make('store.name')
+                    ->label('Cabang')
+                    ->badge()
+                    ->color('info')
+                    ->sortable()
+                    ->toggleable(),
 
                 TextColumn::make('capacity')
                     ->label('Kapasitas')
@@ -60,11 +66,31 @@ class TablesTable
                     ->dateTime()
                     ->sortable(),
             ])
+            ->filters([
+                SelectFilter::make('store_id')
+                    ->label('Cabang')
+                    ->options(fn () => static::storeOptions()),
+            ])
             ->actions([
                 EditAction::make()->label('Ubah'),
                 \Filament\Actions\DeleteAction::make()->label('Hapus'),
             ])
             ->defaultSort('table_number')
             ->paginated([10, 25, 50, 100]);
+    }
+
+    protected static function storeOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return $user->stores()
+            ->select(['stores.id', 'stores.name'])
+            ->orderBy('stores.name')
+            ->pluck('stores.name', 'stores.id')
+            ->toArray();
     }
 }

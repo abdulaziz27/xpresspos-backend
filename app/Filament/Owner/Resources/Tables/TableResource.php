@@ -9,10 +9,12 @@ use App\Filament\Owner\Resources\Tables\Schemas\TableForm;
 use App\Filament\Owner\Resources\Tables\Tables\TablesTable;
 use App\Models\Table;
 use BackedEnum;
+use App\Services\GlobalFilterService;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table as FilamentTable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 
 class TableResource extends Resource
@@ -71,43 +73,19 @@ class TableResource extends Resource
         return (bool) $user && Gate::forUser($user)->allows('create', static::$model);
     }
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
-        $user = auth()->user();
+        $query = parent::getEloquentQuery()
+            ->with('store');
 
-        if ($user) {
-            $storeContext = \App\Services\StoreContext::instance();
-            $storeId = $storeContext->current($user);
-            
-            if ($storeId) {
-                // Set store context secara eksplisit agar konsisten dengan resource lain
-                $storeContext->set($storeId);
-                // Set tenant context for permissions
-                $tenantId = $user->currentTenantId();
-                if ($tenantId) {
-                    setPermissionsTeamId($tenantId);
-                }
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
 
-                $query = parent::getEloquentQuery()
-                    ->withoutGlobalScopes()
-                    ->where('store_id', $storeId);
-
-                try {
-                    \Log::info('[Filament][Tables] TableResource::getEloquentQuery', [
-                        'user_id' => $user->id,
-                        'user_email' => $user->email,
-                        'store_id' => $storeId,
-                        'sql' => $query->toSql(),
-                        'bindings' => $query->getBindings(),
-                    ]);
-                } catch (\Throwable $e) {
-                    // ignore logging error
-                }
-
-                return $query;
-            }
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
         }
 
-        return parent::getEloquentQuery();
+        return $query;
     }
 }
