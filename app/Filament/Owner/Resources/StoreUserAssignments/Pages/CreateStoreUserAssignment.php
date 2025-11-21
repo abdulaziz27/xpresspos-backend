@@ -28,7 +28,7 @@ class CreateStoreUserAssignment extends CreateRecord
                 'store_id' => 'Silakan pilih cabang terlebih dahulu.',
             ]);
         }
-
+        
         return $data;
     }
 

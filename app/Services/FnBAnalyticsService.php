@@ -24,7 +24,7 @@ class FnBAnalyticsService
     {
         $dateRange = $customRange ?? $this->getDateRange($period);
         $storeIds = $this->resolveStoreIds($storeIds);
-
+        
         return [
             'summary' => $this->getSalesSummary($dateRange, $storeIds),
             'top_products' => $this->getTopProducts($dateRange, $storeIds),
@@ -43,7 +43,7 @@ class FnBAnalyticsService
     {
         $dateRange = $customRange ?? $this->getDateRange($period);
         $storeIds = $this->resolveStoreIds($storeIds);
-
+        
         if (empty($storeIds)) {
             return [];
         }

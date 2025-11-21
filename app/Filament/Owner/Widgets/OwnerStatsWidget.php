@@ -52,12 +52,12 @@ class OwnerStatsWidget extends BaseWidget
         $membersQuery = Member::query()
             ->where('tenant_id', $tenantId)
             ->where(function ($query) use ($filters, $storeIds) {
-                if (! empty($filters['store_id'])) {
+        if (! empty($filters['store_id'])) {
                     $query->where('store_id', $filters['store_id']);
                 } else {
                     $query->whereIn('store_id', $storeIds)
                         ->orWhereNull('store_id');
-                }
+        }
             });
 
         $ordersCount = (clone $ordersQuery)

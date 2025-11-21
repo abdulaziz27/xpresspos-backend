@@ -65,6 +65,18 @@ class CashSessionResource extends Resource
         return true;
     }
 
+    public static function canDelete($record): bool
+    {
+        // Protect cash session history - prevent deletion to maintain audit trail
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        // Protect cash session history - prevent bulk deletion
+        return false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()

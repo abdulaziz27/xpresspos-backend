@@ -4,6 +4,7 @@ namespace App\Filament\Owner\Resources\CashSessions\RelationManagers;
 
 use App\Support\Currency;
 use App\Support\Money;
+use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -33,7 +34,7 @@ class ExpensesRelationManager extends RelationManager
                     ->label('Jumlah')
                     ->prefix('Rp')
                     ->required()
-                    ->rule('numeric|min:0.01')
+                    ->rules(['numeric', 'min:0.01'])
                     ->dehydrateStateUsing(fn ($state) => Money::parseToDecimal($state)),
                 Forms\Components\DatePicker::make('expense_date')
                     ->label('Tanggal Pengeluaran')
@@ -62,37 +63,46 @@ class ExpensesRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('description')
                     ->label('Deskripsi')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('medium'),
                 Tables\Columns\TextColumn::make('category')
                     ->label('Kategori')
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => self::getCategoryOptions()[$state] ?? ucfirst(str_replace('_', ' ', $state))),
+                    ->formatStateUsing(fn (string $state) => self::getCategoryOptions()[$state] ?? ucfirst(str_replace('_', ' ', $state)))
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->label('Jumlah')
                     ->alignEnd()
                     ->formatStateUsing(fn ($state, $record) => Currency::rupiah((float) ($state ?? $record->amount ?? 0)))
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('medium'),
+                Tables\Columns\TextColumn::make('vendor')
+                    ->label('Vendor')
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('-'),
                 Tables\Columns\TextColumn::make('expense_date')
-                    ->label('Tanggal')
+                    ->label('Tanggal Pengeluaran')
                     ->date()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Dicatat Oleh')
                     ->badge()
-                    ->color('info'),
+                    ->color('info')
+                    ->toggleable(),
             ])
             ->defaultSort('expense_date', 'desc')
             ->headerActions([
-                Tables\Actions\CreateAction::make()
+                Actions\CreateAction::make()
                     ->label('Tambah Pengeluaran'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Actions\EditAction::make(),
+                Actions\DeleteAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                Actions\BulkActionGroup::make([
+                    Actions\DeleteBulkAction::make(),
                 ]),
             ]);
     }

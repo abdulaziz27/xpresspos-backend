@@ -113,6 +113,14 @@ class Order extends Model
     }
 
     /**
+     * Get the order-level discounts applied to this order.
+     */
+    public function discounts(): HasMany
+    {
+        return $this->hasMany(OrderDiscount::class);
+    }
+
+    /**
      * Get the refunds for the order.
      */
     public function refunds(): HasMany

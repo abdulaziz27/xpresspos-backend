@@ -167,11 +167,7 @@ class CashSessionsTable
                 ViewAction::make()->label('Lihat'),
                 EditAction::make()->label('Ubah'),
             ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ])
+            ->bulkActions([])
             ->defaultSort('opened_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50, 100]);

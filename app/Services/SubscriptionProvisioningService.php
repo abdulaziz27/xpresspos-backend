@@ -435,7 +435,7 @@ class SubscriptionProvisioningService
     ): Subscription {
         // Cek apakah tenant sudah punya subscription aktif
         $existingSubscription = $tenant->activeSubscription();
-
+            
         if (! $existingSubscription) {
             $existingSubscription = $tenant->subscriptions()
                 ->latest()
