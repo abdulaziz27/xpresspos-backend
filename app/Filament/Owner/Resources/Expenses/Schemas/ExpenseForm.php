@@ -3,6 +3,7 @@
 namespace App\Filament\Owner\Resources\Expenses\Schemas;
 
 use App\Filament\Owner\Resources\Concerns\ResolvesGlobalFilters;
+use App\Filament\Owner\Resources\Concerns\HasCurrencyInput;
 use App\Models\CashSession;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -15,7 +16,7 @@ use App\Support\Money;
 
 class ExpenseForm
 {
-    use ResolvesGlobalFilters;
+    use ResolvesGlobalFilters, HasCurrencyInput;
 
     public static function configure(Schema $schema): Schema
     {
@@ -51,14 +52,7 @@ class ExpenseForm
 
                         Grid::make(2)
                             ->schema([
-                                TextInput::make('amount')
-                                    ->label('Jumlah')
-                                    ->prefix('Rp')
-                                    ->placeholder('50.000')
-                                    ->helperText('Bisa input: 50000 atau 50.000')
-                                    ->rule('required|numeric|min:0.01')
-                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
-                                    ->required(),
+                                static::currencyInput('amount', 'Jumlah', '50.000', true, 0.01),
 
                                 DatePicker::make('expense_date')
                                     ->label('Tanggal Pengeluaran')

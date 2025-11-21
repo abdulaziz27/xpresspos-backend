@@ -4,6 +4,7 @@ namespace App\Filament\Owner\Resources\CashSessions\RelationManagers;
 
 use App\Support\Currency;
 use App\Support\Money;
+use App\Filament\Owner\Resources\Concerns\HasCurrencyInput;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -13,6 +14,7 @@ use Filament\Tables\Table;
 
 class ExpensesRelationManager extends RelationManager
 {
+    use HasCurrencyInput;
     protected static string $relationship = 'expenses';
 
     protected static ?string $title = 'Pengeluaran Tunai';
@@ -30,12 +32,7 @@ class ExpensesRelationManager extends RelationManager
                     ->options(self::getCategoryOptions())
                     ->searchable()
                     ->required(),
-                Forms\Components\TextInput::make('amount')
-                    ->label('Jumlah')
-                    ->prefix('Rp')
-                    ->required()
-                    ->rules(['numeric', 'min:0.01'])
-                    ->dehydrateStateUsing(fn ($state) => Money::parseToDecimal($state)),
+                static::currencyInput('amount', 'Jumlah', '50.000', true, 0.01),
                 Forms\Components\DatePicker::make('expense_date')
                     ->label('Tanggal Pengeluaran')
                     ->default(now())

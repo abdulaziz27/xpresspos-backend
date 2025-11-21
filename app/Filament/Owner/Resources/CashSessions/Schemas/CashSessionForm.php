@@ -13,9 +13,12 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use App\Support\Money;
+use App\Support\Currency;
+use App\Filament\Owner\Resources\Concerns\HasCurrencyInput;
 
 class CashSessionForm
 {
+    use HasCurrencyInput;
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -56,14 +59,7 @@ class CashSessionForm
 
                         Grid::make(1)
                             ->schema([
-                                TextInput::make('opening_balance')
-                                    ->label('Saldo Awal')
-                                    ->prefix('Rp')
-                                    ->placeholder('100.000')
-                                    ->helperText('Bisa input: 100000 atau 100.000')
-                                    ->rules(['required', 'numeric', 'min:0'])
-                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
-                                    ->required()
+                                static::currencyInput('opening_balance', 'Saldo Awal', '100.000', true, 0)
                                     ->disabled(fn($record) => $record && $record->status === 'closed')
                                     ->visible(fn($record) => !$record || $record->status === 'open'),
                             ]),
@@ -75,81 +71,60 @@ class CashSessionForm
                     ->schema([
                         Grid::make(3)
                             ->schema([
-                                TextInput::make('closing_balance')
-                                    ->label('Saldo Akhir')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->minValue(0)
+                                // Closing balance - editable when open, display formatted when closed
+                                static::currencyInput('closing_balance', 'Saldo Akhir', '500.000', false, 0)
                                     ->helperText(fn($record) => $record && $record->status === 'open' 
-                                        ? 'Saldo tunai yang tersedia saat tutup kas' 
+                                        ? 'Bisa input: 500000 atau 500.000' 
                                         : 'Saldo tunai saat sesi ditutup')
                                     ->required(fn($record) => $record && $record->status === 'open')
                                     ->disabled(fn($record) => $record && $record->status === 'closed')
                                     ->dehydrated(fn($record) => !$record || ($record && $record->status === 'open'))
-                                    ->visible(fn($record) => $record && ($record->status === 'open' || $record->status === 'closed')),
+                                    ->visible(fn($record) => $record && $record->status === 'open'),
 
-                                TextInput::make('expected_balance')
-                                    ->label('Saldo Ekspektasi')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->disabled()
-                                    ->dehydrated(false)
+                                // Closing balance display - formatted for closed sessions
+                                static::currencyDisplay('closing_balance_display', 'Saldo Akhir', 'Saldo tunai saat sesi ditutup')
+                                    ->afterStateHydrated(function ($component, $state, $record) {
+                                        $value = $record && $record->closing_balance 
+                                            ? (float) $record->closing_balance 
+                                            : 0;
+                                        $component->state(\App\Support\Currency::rupiah($value));
+                                    })
+                                    ->visible(fn($record) => $record && $record->status === 'closed'),
+
+                                static::currencyDisplay('expected_balance_display', 'Saldo Ekspektasi')
                                     ->helperText('Dihitung otomatis dari saldo awal + penjualan - pengeluaran')
                                     ->visible(fn($record) => $record && $record->status === 'closed'),
 
-                                TextInput::make('variance')
-                                    ->label('Selisih')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->disabled()
-                                    ->dehydrated(false)
-                                    ->helperText(fn($record) => $record && abs($record->variance ?? 0) > 0.01 
-                                        ? 'Selisih antara saldo akhir dan ekspektasi (Ada selisih!)' 
-                                        : 'Selisih antara saldo akhir dan ekspektasi')
+                                static::currencyDisplay('variance_display', 'Selisih')
+                                    ->helperText(function($record) {
+                                        if ($record && abs($record->variance ?? 0) > 0.01) {
+                                            return 'Selisih antara saldo akhir dan ekspektasi (Ada selisih!)';
+                                        }
+                                        return 'Selisih antara saldo akhir dan ekspektasi';
+                                    })
                                     ->visible(fn($record) => $record && $record->status === 'closed'),
                             ]),
                     ])
                     ->columns(1)
                     ->visible(fn($record) => $record && ($record->status === 'open' || $record->status === 'closed')),
 
-                Section::make('Ringkasan Sesi')
-                    ->description('Total dan statistik sesi yang dihitung')
+                Section::make('Ringkasan Sesi (Otomatis)')
+                    ->description('Total dan statistik sesi yang dihitung otomatis dari data transaksi')
                     ->schema([
                         Grid::make(3)
                             ->schema([
-                                TextInput::make('cash_sales')
-                                    ->label('Penjualan Tunai')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->disabled()
-                                    ->dehydrated(false)
-                                    ->helperText('Total penjualan tunai selama sesi'),
+                                static::currencyDisplay('cash_sales', 'Penjualan Tunai')
+                                    ->helperText('Dihitung otomatis dari pembayaran tunai selama sesi'),
 
-                                TextInput::make('cash_expenses')
-                                    ->label('Pengeluaran Tunai')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->disabled()
-                                    ->dehydrated(false)
-                                    ->helperText('Total pengeluaran tunai selama sesi'),
+                                static::currencyDisplay('cash_expenses', 'Pengeluaran Tunai')
+                                    ->helperText('Dihitung otomatis dari pengeluaran (expenses) terkait sesi'),
 
-                                TextInput::make('expected_balance')
-                                    ->label('Saldo Perkiraan')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->step(0.01)
-                                    ->disabled()
-                                    ->dehydrated(false)
-                                    ->helperText('Saldo awal + Penjualan - Pengeluaran'),
+                                static::currencyDisplay('expected_balance', 'Saldo Perkiraan')
+                                    ->helperText('Dihitung otomatis: Saldo Awal + Penjualan - Pengeluaran'),
                             ]),
                     ])
                     ->columns(1)
-                    ->visible(fn($record) => $record?->status === 'closed'),
+                    ->visible(fn($record) => $record && ($record->status === 'open' || $record->status === 'closed')),
 
                 Section::make('Waktu Sesi')
                     ->description('Waktu pembukaan dan penutupan sesi')
