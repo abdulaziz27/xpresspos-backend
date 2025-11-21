@@ -3,8 +3,10 @@
 namespace App\Filament\Owner\Resources\InventoryTransfers;
 
 use App\Filament\Owner\Resources\InventoryTransfers\Pages;
+use App\Filament\Owner\Resources\InventoryTransfers\RelationManagers\ItemsRelationManager;
 use App\Models\InventoryTransfer;
 use App\Models\Store;
+use App\Services\StoreContext;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -41,12 +43,12 @@ class InventoryTransferResource extends Resource
                             ->schema([
                                 Select::make('from_store_id')
                                     ->label('Dari Toko')
-                                    ->options(fn () => Store::query()->pluck('name', 'id'))
+                                    ->options(self::storeOptions())
                                     ->searchable()
                                     ->required(),
                                 Select::make('to_store_id')
                                     ->label('Ke Toko')
-                                    ->options(fn () => Store::query()->pluck('name', 'id'))
+                                    ->options(self::storeOptions())
                                     ->searchable()
                                     ->required(),
                             ]),
@@ -123,6 +125,27 @@ class InventoryTransferResource extends Resource
             'create' => Pages\CreateInventoryTransfer::route('/create'),
             'edit' => Pages\EditInventoryTransfer::route('/{record}/edit'),
         ];
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            ItemsRelationManager::class,
+        ];
+    }
+
+    protected static function storeOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return StoreContext::instance()
+            ->accessibleStores($user)
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }
 

@@ -3,6 +3,7 @@
 namespace App\Filament\Owner\Resources\Suppliers;
 
 use App\Filament\Owner\Resources\Suppliers\Pages;
+use App\Filament\Owner\Resources\Suppliers\RelationManagers\PurchaseOrdersRelationManager;
 use App\Models\Supplier;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
@@ -123,6 +124,13 @@ class SupplierResource extends Resource
             'index' => Pages\ListSuppliers::route('/'),
             'create' => Pages\CreateSupplier::route('/create'),
             'edit' => Pages\EditSupplier::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            PurchaseOrdersRelationManager::class,
         ];
     }
 }

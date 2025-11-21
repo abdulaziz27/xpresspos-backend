@@ -5,6 +5,7 @@ namespace App\Filament\Owner\Resources\InventoryLots;
 use App\Filament\Owner\Resources\InventoryLots\Pages;
 use App\Models\InventoryItem;
 use App\Models\InventoryLot;
+use App\Services\StoreContext;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -37,6 +38,13 @@ class InventoryLotResource extends Resource
             ->components([
                 Section::make('Informasi Lot')
                     ->schema([
+                        Select::make('store_id')
+                            ->label('Toko')
+                            ->options(self::storeOptions())
+                            ->default(fn () => StoreContext::instance()->current(auth()->user()))
+                            ->required()
+                            ->searchable()
+                            ->disabled(fn () => ! auth()->user()?->hasRole('admin_sistem')),
                         Select::make('inventory_item_id')
                             ->label('Item')
                             ->options(fn () => InventoryItem::query()->pluck('name', 'id'))
@@ -132,6 +140,20 @@ class InventoryLotResource extends Resource
             'create' => Pages\CreateInventoryLot::route('/create'),
             'edit' => Pages\EditInventoryLot::route('/{record}/edit'),
         ];
+    }
+
+    protected static function storeOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return StoreContext::instance()
+            ->accessibleStores($user)
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }
 

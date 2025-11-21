@@ -5,6 +5,7 @@ namespace App\Filament\Owner\Resources\MemberTiers;
 use App\Filament\Owner\Resources\MemberTiers\Pages\CreateMemberTier;
 use App\Filament\Owner\Resources\MemberTiers\Pages\EditMemberTier;
 use App\Filament\Owner\Resources\MemberTiers\Pages\ListMemberTiers;
+use App\Filament\Owner\Resources\MemberTiers\RelationManagers\MembersRelationManager;
 use App\Filament\Owner\Resources\MemberTiers\Schemas\MemberTierForm;
 use App\Filament\Owner\Resources\MemberTiers\Tables\MemberTierTable;
 use App\Models\MemberTier;
@@ -28,7 +29,7 @@ class MemberTierResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Pelanggan & Loyalti';
+    protected static string|UnitEnum|null $navigationGroup = 'Member & Loyalti';
 
     public static function form(Schema $schema): Schema
     {
@@ -38,6 +39,13 @@ class MemberTierResource extends Resource
     public static function table(Table $table): Table
     {
         return MemberTierTable::configure($table);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            MembersRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

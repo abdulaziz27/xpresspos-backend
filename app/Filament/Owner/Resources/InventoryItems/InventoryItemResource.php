@@ -11,6 +11,7 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use App\Filament\Owner\Resources\InventoryItems\RelationManagers\LotsRelationManager;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -139,6 +140,13 @@ class InventoryItemResource extends Resource
             'index' => Pages\ListInventoryItems::route('/'),
             'create' => Pages\CreateInventoryItem::route('/create'),
             'edit' => Pages\EditInventoryItem::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            LotsRelationManager::class,
         ];
     }
 }

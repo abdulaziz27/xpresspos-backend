@@ -26,55 +26,66 @@ class BestBranchesWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
-        $filters = $this->dashboardFilters();
-        $storeIds = $this->dashboardStoreIds();
-        
-        if (empty($storeIds)) {
+        try {
+            $filters = $this->dashboardFilters();
+            $storeIds = $this->dashboardStoreIds();
+            
+            if (empty($storeIds)) {
+                return $table
+                    ->query(Store::query()->whereRaw('1 = 0'))
+                    ->emptyStateHeading('Tidak ada data cabang')
+                    ->emptyStateDescription('Tenant atau cabang belum dipilih.');
+            }
+
+            $dateRange = $filters['range'];
+            $summary = $this->dashboardFilterSummary();
+
+            $query = Store::query()
+                ->select([
+                    DB::raw('stores.id as id'),
+                    DB::raw('stores.id as store_id'),
+                    DB::raw('stores.name as store_name'),
+                    DB::raw('COALESCE(SUM(payments.amount), 0) as revenue'),
+                    DB::raw('COUNT(payments.id) as transactions'),
+                ])
+                ->leftJoin('payments', function ($join) use ($dateRange) {
+                    $join->on('payments.store_id', '=', 'stores.id')
+                         ->where('payments.status', '=', 'completed')
+                         ->whereBetween('payments.created_at', [$dateRange['start'], $dateRange['end']]);
+                })
+                ->whereIn('stores.id', $storeIds)
+                ->groupBy('stores.id', 'stores.name')
+                ->orderByDesc('revenue');
+
+            return $table
+                ->query($query)
+                ->columns([
+                    Tables\Columns\TextColumn::make('store_name')
+                        ->label('Cabang')
+                        ->sortable()
+                        ->searchable(),
+                    Tables\Columns\TextColumn::make('revenue')
+                        ->label('Pendapatan')
+                        ->formatStateUsing(fn ($state, $record) => Currency::rupiah((float) ($state ?? $record->revenue ?? 0)))
+                        ->sortable(),
+                    Tables\Columns\TextColumn::make('transactions')
+                        ->label('Transaksi')
+                        ->sortable(),
+                ])
+                ->defaultSort('revenue', 'desc')
+                ->paginated(false)
+                ->emptyStateHeading('Tidak ada data cabang')
+                ->emptyStateDescription('Belum ada transaksi untuk ' . ($summary['store'] ?? 'Semua Cabang') . '.')
+                ->striped();
+        } catch (\Throwable $e) {
+            report($e);
+
             return $table
                 ->query(Store::query()->whereRaw('1 = 0'))
-                ->emptyStateHeading('Tidak ada data cabang')
-                ->emptyStateDescription('Tenant atau cabang belum dipilih.');
+                ->emptyStateHeading('Tidak dapat memuat data cabang')
+                ->emptyStateDescription('Terjadi kesalahan saat memuat performa cabang.')
+                ->paginated(false)
+                ->striped();
         }
-
-        $dateRange = $filters['range'];
-        $summary = $this->dashboardFilterSummary();
-
-        $query = Store::query()
-            ->select([
-                DB::raw('stores.id as id'),
-                DB::raw('stores.id as store_id'),
-                DB::raw('stores.name as store_name'),
-                DB::raw('COALESCE(SUM(payments.amount), 0) as revenue'),
-                DB::raw('COUNT(payments.id) as transactions'),
-            ])
-            ->leftJoin('payments', function ($join) use ($dateRange) {
-                $join->on('payments.store_id', '=', 'stores.id')
-                     ->where('payments.status', '=', 'completed')
-                     ->whereBetween('payments.created_at', [$dateRange['start'], $dateRange['end']]);
-            })
-            ->whereIn('stores.id', $storeIds)
-            ->groupBy('stores.id', 'stores.name')
-            ->orderByDesc('revenue');
-
-        return $table
-            ->query($query)
-            ->columns([
-                Tables\Columns\TextColumn::make('store_name')
-                    ->label('Cabang')
-                    ->sortable()
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('revenue')
-                    ->label('Pendapatan')
-                    ->formatStateUsing(fn ($state, $record) => Currency::rupiah((float) ($state ?? $record->revenue ?? 0)))
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('transactions')
-                    ->label('Transaksi')
-                    ->sortable(),
-            ])
-            ->defaultSort('revenue', 'desc')
-            ->paginated(false)
-            ->emptyStateHeading('Tidak ada data cabang')
-            ->emptyStateDescription('Belum ada transaksi untuk ' . ($summary['store'] ?? 'Semua Cabang') . '.')
-            ->striped();
     }
 }

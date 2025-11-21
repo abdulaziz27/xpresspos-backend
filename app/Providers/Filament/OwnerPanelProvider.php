@@ -38,12 +38,14 @@ class OwnerPanelProvider extends PanelProvider
                 'primary' => Color::Green,
             ])
             ->navigationGroups([
+                'Dashboard',
                 'Operasional Harian',
                 'Produk',
                 'Inventori',
                 'Promo & Kampanye',
-                'Pelanggan & Loyalti',
+                'Member & Loyalty',
                 'Keuangan & Laporan',
+                'Logs & Audit',
                 'Toko & Tim',
                 'Langganan & Billing',
                 'Pengaturan',

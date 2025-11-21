@@ -8,11 +8,13 @@ use App\Filament\Owner\Resources\Refunds\Pages\ListRefunds;
 use App\Filament\Owner\Resources\Refunds\Schemas\RefundForm;
 use App\Filament\Owner\Resources\Refunds\Tables\RefundsTable;
 use App\Models\Refund;
+use App\Services\StoreContext;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class RefundResource extends Resource
 {
@@ -26,9 +28,9 @@ class RefundResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Refund';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 12;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Promo & Kampanye';
+    protected static string|\UnitEnum|null $navigationGroup = 'Keuangan & Laporan';
 
     public static function form(Schema $schema): Schema
     {
@@ -49,21 +51,32 @@ class RefundResource extends Resource
         ];
     }
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        
-        if ($user && $user->store_id) {
-            return parent::getEloquentQuery()
-                ->withoutGlobalScopes()
-                ->where('store_id', $user->store_id);
+        $storeContext = StoreContext::instance();
+        $storeId = $storeContext->current($user);
+
+        $query = parent::getEloquentQuery()->withoutGlobalScopes();
+
+        if ($storeId) {
+            return $query->where('store_id', $storeId);
         }
 
-        return parent::getEloquentQuery();
-    }
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
 
-    public static function canViewAny(): bool
-    {
-        return true;
+        if ($user->hasRole('admin_sistem')) {
+            return $query;
+        }
+
+        $storeIds = $storeContext->accessibleStores($user)->pluck('id');
+
+        if ($storeIds->isEmpty()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereIn('store_id', $storeIds);
     }
 }

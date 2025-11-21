@@ -2,66 +2,78 @@
 
 namespace App\Filament\Owner\Widgets;
 
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Models\CogsHistory;
 use App\Models\Product;
 use Carbon\Carbon;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Illuminate\Support\Facades\DB;
 
 class CogsSummaryWidget extends BaseWidget
 {
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
+
     protected static ?int $sort = 3;
 
     protected function getStats(): array
     {
-        $storeId = auth()->user()?->store_id;
-        if (!$storeId) {
+        $filters = $this->dashboardFilters();
+        $storeIds = $this->dashboardStoreIds();
+        $tenantId = $filters['tenant_id'] ?? null;
+
+        if (! $tenantId || empty($storeIds)) {
             return [
                 Stat::make('COGS Hari Ini', 'Rp 0')
-                    ->description('Biaya pokok penjualan hari ini')
-                    ->color('gray'),
+                    ->description('Tenant atau cabang belum dipilih')
+                    ->color('warning'),
                 Stat::make('COGS Bulan Ini', 'Rp 0')
-                    ->description('0.0% dibanding bulan lalu')
-                    ->color('gray'),
-                Stat::make('Cakupan Resep', '0.0%')
-                    ->description('0 dari 0 produk memiliki resep')
-                    ->color('gray'),
+                    ->description('Tenant atau cabang belum dipilih')
+                    ->color('warning'),
+                Stat::make('Cakupan Resep', '0%')
+                    ->description('Tenant atau cabang belum dipilih')
+                    ->color('warning'),
             ];
         }
-        $today = Carbon::today();
-        $thisMonth = Carbon::now()->startOfMonth();
-        $lastMonth = Carbon::now()->subMonth()->startOfMonth();
 
-        // Today's COGS
-        $todayCogs = CogsHistory::where('store_id', $storeId)
-            ->whereDate('created_at', $today)
+        $todayRange = [Carbon::now()->startOfDay(), Carbon::now()->endOfDay()];
+        $thisMonthStart = Carbon::now()->startOfMonth();
+        $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
+        $lastMonthEnd = $thisMonthStart->copy()->subDay()->endOfDay();
+
+        $todayCogs = CogsHistory::query()
+            ->where('tenant_id', $tenantId)
+            ->whereIn('store_id', $storeIds)
+            ->whereBetween('created_at', $todayRange)
             ->sum('total_cogs');
 
-        // This month's COGS
-        $monthCogs = CogsHistory::where('store_id', $storeId)
-            ->where('created_at', '>=', $thisMonth)
+        $monthCogs = CogsHistory::query()
+            ->where('tenant_id', $tenantId)
+            ->whereIn('store_id', $storeIds)
+            ->where('created_at', '>=', $thisMonthStart)
             ->sum('total_cogs');
 
-        // Last month's COGS for comparison
-        $lastMonthCogs = CogsHistory::where('store_id', $storeId)
-            ->whereBetween('created_at', [$lastMonth, $thisMonth->copy()->subDay()])
+        $lastMonthCogs = CogsHistory::query()
+            ->where('tenant_id', $tenantId)
+            ->whereIn('store_id', $storeIds)
+            ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
             ->sum('total_cogs');
 
-        // Calculate growth percentage
         $growthPercentage = $lastMonthCogs > 0
             ? (($monthCogs - $lastMonthCogs) / $lastMonthCogs) * 100
             : 0;
 
-        // Products with recipes count
-        $productsWithRecipes = Product::where('store_id', $storeId)
+        $productsQuery = Product::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', true);
+
+        $productsWithRecipes = (clone $productsQuery)
             ->whereHas('recipes')
             ->count();
 
-        // Total products count
-        $totalProducts = Product::where('store_id', $storeId)->count();
+        $totalProducts = (clone $productsQuery)->count();
 
-        // Recipe coverage percentage
         $recipeCoverage = $totalProducts > 0
             ? ($productsWithRecipes / $totalProducts) * 100
             : 0;
@@ -73,9 +85,9 @@ class CogsSummaryWidget extends BaseWidget
 
             Stat::make('COGS Bulan Ini', 'Rp ' . number_format($monthCogs, 0, ',', '.'))
                 ->description(
-                    $growthPercentage > 0 ?
-                        '+' . number_format($growthPercentage, 1) . '% dibanding bulan lalu' :
-                        number_format($growthPercentage, 1) . '% dibanding bulan lalu'
+                    $growthPercentage > 0
+                        ? '+' . number_format($growthPercentage, 1) . '% dibanding bulan lalu'
+                        : number_format($growthPercentage, 1) . '% dibanding bulan lalu'
                 )
                 ->color($growthPercentage > 0 ? 'success' : ($growthPercentage < 0 ? 'danger' : 'gray')),
 

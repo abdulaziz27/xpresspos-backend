@@ -48,8 +48,17 @@ class OwnerStatsWidget extends BaseWidget
 
         $ordersQuery = Order::whereIn('store_id', $storeIds);
         $paymentsQuery = Payment::whereIn('store_id', $storeIds);
-        $productsQuery = Product::whereIn('store_id', $storeIds);
-        $membersQuery = Member::whereIn('store_id', $storeIds);
+        $productsQuery = Product::where('tenant_id', $tenantId)->where('status', true);
+        $membersQuery = Member::query()
+            ->where('tenant_id', $tenantId)
+            ->where(function ($query) use ($filters, $storeIds) {
+                if (! empty($filters['store_id'])) {
+                    $query->where('store_id', $filters['store_id']);
+                } else {
+                    $query->whereIn('store_id', $storeIds)
+                        ->orWhereNull('store_id');
+                }
+            });
 
         $ordersCount = (clone $ordersQuery)
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])

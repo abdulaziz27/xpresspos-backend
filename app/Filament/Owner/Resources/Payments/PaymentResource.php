@@ -7,10 +7,12 @@ use App\Filament\Owner\Resources\Payments\Pages\ViewPayment;
 use App\Filament\Owner\Resources\Payments\Schemas\PaymentForm;
 use App\Filament\Owner\Resources\Payments\Tables\PaymentsTable;
 use App\Models\Payment;
+use App\Services\StoreContext;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Support\Icons\Heroicon;
 
@@ -28,7 +30,7 @@ class PaymentResource extends Resource
 
     protected static ?int $navigationSort = 11;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Operasional Harian';
+    protected static string|\UnitEnum|null $navigationGroup = 'Keuangan & Laporan';
 
 
 
@@ -87,8 +89,32 @@ class PaymentResource extends Resource
         return false;
     }
 
-    public static function canViewAny(): bool
+    public static function getEloquentQuery(): Builder
     {
-        return true;
+        $user = auth()->user();
+        $storeContext = StoreContext::instance();
+        $storeId = $storeContext->current($user);
+
+        $query = parent::getEloquentQuery()->withoutGlobalScopes();
+
+        if ($storeId) {
+            return $query->where('store_id', $storeId);
+        }
+
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->hasRole('admin_sistem')) {
+            return $query;
+        }
+
+        $storeIds = $storeContext->accessibleStores($user)->pluck('id');
+
+        if ($storeIds->isEmpty()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereIn('store_id', $storeIds);
     }
 }

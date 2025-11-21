@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\TenantScope;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -41,14 +42,13 @@ class MemberTier extends Model
      */
     protected static function booted(): void
     {
+        static::addGlobalScope(new TenantScope);
+
         static::creating(function ($model) {
-            if (!$model->tenant_id) {
-                $user = auth()->user();
-                if ($user) {
-                    $tenant = $user->currentTenant();
-                    if ($tenant) {
-                        $model->tenant_id = $tenant->id;
-                    }
+            if (! $model->tenant_id && auth()->check()) {
+                $tenant = auth()->user()->currentTenant();
+                if ($tenant) {
+                    $model->tenant_id = $tenant->id;
                 }
             }
         });

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\Scopes\TenantScope;
 
 class Product extends Model
@@ -139,6 +140,17 @@ class Product extends Model
     public function recipes(): HasMany
     {
         return $this->hasMany(Recipe::class);
+    }
+
+    /**
+     * Get modifier groups attached to the product.
+     */
+    public function modifierGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(ModifierGroup::class, 'product_modifier_groups')
+            ->withPivot(['is_required', 'sort_order'])
+            ->withTimestamps()
+            ->orderByPivot('sort_order');
     }
 
     /**

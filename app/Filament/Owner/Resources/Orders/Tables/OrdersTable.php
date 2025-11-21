@@ -2,6 +2,7 @@
 
 namespace App\Filament\Owner\Resources\Orders\Tables;
 
+use App\Services\GlobalFilterService;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -86,6 +87,12 @@ class OrdersTable
                     ->placeholder('Belum Selesai'),
             ])
             ->filters([
+                SelectFilter::make('store_id')
+                    ->label('Cabang Toko')
+                    ->placeholder('Semua Cabang')
+                    ->options(fn () => self::getStoreFilterOptions())
+                    ->searchable(),
+
                 SelectFilter::make('status')
                     ->options([
                         'draft' => 'Draft',
@@ -146,5 +153,15 @@ class OrdersTable
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50, 100]);
+    }
+
+    protected static function getStoreFilterOptions(): array
+    {
+        /** @var GlobalFilterService $service */
+        $service = app(GlobalFilterService::class);
+
+        return $service->getAvailableStores()
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

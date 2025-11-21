@@ -3,6 +3,7 @@
 namespace App\Filament\Owner\Resources\Members\Schemas;
 
 use App\Models\MemberTier;
+use App\Services\StoreContext;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\DatePicker;
 use Filament\Schemas\Components\Grid;
@@ -35,13 +36,27 @@ class MemberForm
                                     ->maxLength(255),
                             ]),
 
+                        Select::make('store_id')
+                            ->label('Cabang Registrasi')
+                            ->options(self::storeOptions())
+                            ->searchable()
+                            ->placeholder('Tidak ditentukan')
+                            ->helperText('Opsional: catat cabang tempat member pertama kali dibuat.'),
+
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('email')
                                     ->label('Email')
                                     ->email()
                                     ->maxLength(255)
-                                    ->unique(ignoreRecord: true),
+                                    ->unique(ignoreRecord: true, modifyRuleUsing: function ($rule) {
+                                        $tenantId = auth()->user()?->currentTenant()?->id;
+                                        if ($tenantId) {
+                                            $rule->where('tenant_id', $tenantId);
+                                        }
+
+                                        return $rule;
+                                    }),
 
                                 TextInput::make('phone')
                                     ->label('Telepon')
@@ -57,15 +72,7 @@ class MemberForm
 
                                 Select::make('tier_id')
                                     ->label('Tier Member')
-                                    ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
-                                        return MemberTier::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                            ->active()
-                                            ->ordered()
-                                            ->pluck('name', 'id');
-                                    })
+                                    ->options(fn () => MemberTier::query()->ordered()->pluck('name', 'id'))
                                     ->searchable()
                                     ->preload()
                                     ->createOptionForm([
@@ -80,6 +87,12 @@ class MemberForm
                                             ->label('Slug')
                                             ->required()
                                             ->maxLength(255),
+
+                                        Select::make('store_id')
+                                            ->label('Cabang Khusus')
+                                            ->options(self::storeOptions())
+                                            ->searchable()
+                                            ->placeholder('Semua cabang'),
 
                                         TextInput::make('min_points')
                                             ->label('Poin Minimal')
@@ -118,11 +131,7 @@ class MemberForm
                                             ->default(true),
                                     ])
                                     ->createOptionUsing(function (array $data) {
-                                        $storeId = auth()->user()?->currentStoreId();
-                                        $data['store_id'] = $storeId;
-                                        $nextSort = MemberTier::withoutStoreScope()
-                                            ->where('store_id', $storeId)
-                                            ->max('sort_order');
+                                        $nextSort = MemberTier::query()->max('sort_order');
                                         $data['sort_order'] = ($nextSort ?? 0) + 1;
 
                                         return MemberTier::create($data)->getKey();
@@ -187,5 +196,19 @@ class MemberForm
                     ])
                     ->columns(1),
             ]);
+    }
+
+    protected static function storeOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return StoreContext::instance()
+            ->accessibleStores($user)
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

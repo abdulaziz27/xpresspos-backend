@@ -6,83 +6,47 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
+use App\Services\StoreContext;
 
 class FnBAnalyticsService
 {
     private ?string $storeId;
 
-    public function __construct()
+    public function __construct(private ?StoreContext $storeContext = null)
     {
-        $this->storeId = auth()->user()?->store_id;
+        $this->storeContext = $this->storeContext ?? StoreContext::instance();
+        $this->storeId = $this->storeContext->current(auth()->user());
     }
 
-    /**
-     * Get F&B specific sales analytics
-     */
     public function getSalesAnalytics(string $period = 'today'): array
     {
-        $dateRange = $this->getDateRange($period);
-        
+        return $this->getSalesAnalyticsForStores($this->resolveStoreIds(), $period);
+    }
+
+    public function getSalesAnalyticsForStores(array $storeIds, string $period = 'today', ?array $customRange = null): array
+    {
+        $dateRange = $customRange ?? $this->getDateRange($period);
+        $storeIds = $this->resolveStoreIds($storeIds);
+
         return [
-            'summary' => $this->getSalesSummary($dateRange),
-            'top_products' => $this->getTopProducts($dateRange),
+            'summary' => $this->getSalesSummary($dateRange, $storeIds),
+            'top_products' => $this->getTopProducts($dateRange, $storeIds),
             'popular_variants' => $this->getPopularVariants($dateRange),
-            'hourly_sales' => $this->getHourlySales($dateRange),
-            'category_performance' => $this->getCategoryPerformance($dateRange),
+            'hourly_sales' => $this->getHourlySales($dateRange, $storeIds),
+            'category_performance' => $this->getCategoryPerformance($dateRange, $storeIds),
         ];
     }
 
-    /**
-     * Get profit analysis for F&B
-     */
     public function getProfitAnalysis(string $period = 'today'): array
     {
-        $dateRange = $this->getDateRange($period);
-        
-        $products = OrderItem::whereBetween('order_items.created_at', $dateRange)
-            ->when($this->storeId, fn($query) => $query->where('order_items.store_id', $this->storeId))
-            ->with('product')
-            ->get()
-            ->groupBy('product_id');
-
-        $analysis = [];
-        foreach ($products as $productId => $items) {
-            $product = $items->first()->product;
-            $totalSold = $items->sum('quantity');
-            $revenue = $items->sum('total_price');
-            $cost = $totalSold * $product->cost_price;
-            $profit = $revenue - $cost;
-            $margin = $revenue > 0 ? ($profit / $revenue) * 100 : 0;
-
-            $analysis[] = [
-                'product_name' => $product->name,
-                'quantity_sold' => $totalSold,
-                'revenue' => $revenue,
-                'cost' => $cost,
-                'profit' => $profit,
-                'margin_percent' => round($margin, 2),
-                'profit_per_item' => $totalSold > 0 ? $profit / $totalSold : 0,
-            ];
-        }
-
-        // Sort by profit descending
-        usort($analysis, fn($a, $b) => $b['profit'] <=> $a['profit']);
-
-        return $analysis;
+        return $this->getProfitAnalysisForStores($this->resolveStoreIds(), $period);
     }
 
-    /**
-     * Get profit analysis for multiple stores (unified dashboard)
-     * 
-     * @param array $storeIds Array of store IDs
-     * @param string $period Date period preset
-     * @param array<int, \Carbon\CarbonInterface>|null $customRange Optional [start, end] overrides
-     * @return array
-     */
     public function getProfitAnalysisForStores(array $storeIds, string $period = 'today', ?array $customRange = null): array
     {
         $dateRange = $customRange ?? $this->getDateRange($period);
-        
+        $storeIds = $this->resolveStoreIds($storeIds);
+
         if (empty($storeIds)) {
             return [];
         }
@@ -94,7 +58,7 @@ class FnBAnalyticsService
             ->groupBy('product_id');
 
         $analysis = [];
-        foreach ($products as $productId => $items) {
+        foreach ($products as $items) {
             $product = $items->first()->product;
             $totalSold = $items->sum('quantity');
             $revenue = $items->sum('total_price');
@@ -113,79 +77,81 @@ class FnBAnalyticsService
             ];
         }
 
-        // Sort by profit descending
         usort($analysis, fn($a, $b) => $b['profit'] <=> $a['profit']);
 
         return $analysis;
     }
 
-    /**
-     * Get F&B specific recommendations
-     */
     public function getRecommendations(): array
     {
+        return $this->getRecommendationsForStores($this->resolveStoreIds());
+    }
+
+    public function getRecommendationsForStores(array $storeIds): array
+    {
+        $storeIds = $this->resolveStoreIds($storeIds);
         $recommendations = [];
         
-        // Low margin products
-        $lowMarginProducts = $this->getLowMarginProducts();
-        if (!empty($lowMarginProducts)) {
+        $lowMarginProducts = $this->getLowMarginProducts($storeIds);
+        if (! empty($lowMarginProducts)) {
             $recommendations[] = [
                 'type' => 'low_margin',
                 'title' => 'Low Profit Margin Alert',
                 'message' => 'These products have profit margin below 30%',
                 'data' => $lowMarginProducts,
-                'action' => 'Consider increasing price or reducing cost'
+                'action' => 'Consider increasing price or reducing cost',
             ];
         }
 
-        // Slow moving inventory
-        $slowMoving = $this->getSlowMovingProducts();
-        if (!empty($slowMoving)) {
+        $slowMoving = $this->getSlowMovingProducts($storeIds);
+        if (! empty($slowMoving)) {
             $recommendations[] = [
                 'type' => 'slow_moving',
                 'title' => 'Slow Moving Products',
                 'message' => 'These products haven\'t sold in the last 7 days',
                 'data' => $slowMoving,
-                'action' => 'Consider promotion or menu update'
+                'action' => 'Consider promotion or menu update',
             ];
         }
 
-        // Popular variants to promote
         $popularVariants = $this->getPopularVariants(['today']);
-        if (!empty($popularVariants)) {
+        if (! empty($popularVariants)) {
             $recommendations[] = [
                 'type' => 'popular_variants',
                 'title' => 'Trending Variants',
                 'message' => 'These variants are selling well today',
                 'data' => array_slice($popularVariants, 0, 3),
-                'action' => 'Consider featuring these variants'
+                'action' => 'Consider featuring these variants',
             ];
         }
 
         return $recommendations;
     }
 
-    private function getSalesSummary(array $dateRange): array
+    private function getSalesSummary(array $dateRange, array $storeIds = []): array
     {
-        $orders = Order::whereBetween('created_at', $dateRange)
+        $orders = Order::query()
+            ->whereBetween('created_at', $dateRange)
             ->where('status', 'completed')
-            ->when($this->storeId, fn($query) => $query->where('store_id', $this->storeId))
+            ->when(! empty($storeIds), fn($query) => $query->whereIn('store_id', $storeIds))
             ->get();
 
         return [
             'total_orders' => $orders->count(),
             'total_revenue' => $orders->sum('total_amount'),
             'average_order_value' => $orders->count() > 0 ? $orders->sum('total_amount') / $orders->count() : 0,
-            'total_items_sold' => OrderItem::whereBetween('order_items.created_at', $dateRange)
-                ->when($this->storeId, fn($query) => $query->where('order_items.store_id', $this->storeId))
+            'total_items_sold' => OrderItem::query()
+                ->whereBetween('order_items.created_at', $dateRange)
+                ->when(! empty($storeIds), fn($query) => $query->whereIn('order_items.store_id', $storeIds))
                 ->sum('quantity'),
         ];
     }
 
-    private function getTopProducts(array $dateRange, int $limit = 10): array
+    private function getTopProducts(array $dateRange, array $storeIds = [], int $limit = 10): array
     {
-        return OrderItem::whereBetween('order_items.created_at', $dateRange)
-            ->when($this->storeId, fn($query) => $query->where('order_items.store_id', $this->storeId))
+        return OrderItem::query()
+            ->whereBetween('order_items.created_at', $dateRange)
+            ->when(! empty($storeIds), fn($query) => $query->whereIn('order_items.store_id', $storeIds))
             ->select('product_id', DB::raw('SUM(quantity) as total_sold'), DB::raw('SUM(total_price) as revenue'))
             ->with('product:id,name,price')
             ->groupBy('product_id')
@@ -209,11 +175,12 @@ class FnBAnalyticsService
         return [];
     }
 
-    private function getHourlySales(array $dateRange): array
+    private function getHourlySales(array $dateRange, array $storeIds = []): array
     {
-        $sales = Order::whereBetween('created_at', $dateRange)
+        $sales = Order::query()
+            ->whereBetween('created_at', $dateRange)
             ->where('status', 'completed')
-            ->when($this->storeId, fn($query) => $query->where('store_id', $this->storeId))
+            ->when(! empty($storeIds), fn($query) => $query->whereIn('store_id', $storeIds))
             ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('COUNT(*) as orders'), DB::raw('SUM(total_amount) as revenue'))
             ->groupBy('hour')
             ->orderBy('hour')
@@ -233,10 +200,11 @@ class FnBAnalyticsService
         return $hourlySales;
     }
 
-    private function getCategoryPerformance(array $dateRange): array
+    private function getCategoryPerformance(array $dateRange, array $storeIds = []): array
     {
-        return OrderItem::whereBetween('order_items.created_at', $dateRange)
-            ->when($this->storeId, fn($query) => $query->where('order_items.store_id', $this->storeId))
+        return OrderItem::query()
+            ->whereBetween('order_items.created_at', $dateRange)
+            ->when(! empty($storeIds), fn($query) => $query->whereIn('order_items.store_id', $storeIds))
             ->join('products', 'order_items.product_id', '=', 'products.id')
             ->join('categories', 'products.category_id', '=', 'categories.id')
             ->select('categories.name as category_name', DB::raw('SUM(order_items.quantity) as total_sold'), DB::raw('SUM(order_items.total_price) as revenue'))
@@ -246,28 +214,45 @@ class FnBAnalyticsService
             ->toArray();
     }
 
-    private function getLowMarginProducts(): array
+    private function getLowMarginProducts(array $storeIds = []): array
     {
-        return Product::whereRaw('(price - cost_price) / price < 0.3')
+        $query = Product::query()
+            ->whereRaw('(price - cost_price) / price < 0.3')
             ->where('cost_price', '>', 0)
-            ->when($this->storeId, fn($query) => $query->where('store_id', $this->storeId))
-            ->select('name', 'price', 'cost_price', DB::raw('((price - cost_price) / price * 100) as margin'))
-            ->get()
-            ->toArray();
+            ->select('name', 'price', 'cost_price', DB::raw('((price - cost_price) / price * 100) as margin'));
+
+        if (! empty($storeIds)) {
+            $query->whereHas('orderItems', fn($orderItems) => $orderItems->whereIn('store_id', $storeIds));
+        }
+
+        return $query->limit(10)->get()->toArray();
     }
 
-    private function getSlowMovingProducts(): array
+    private function getSlowMovingProducts(array $storeIds = []): array
     {
         $sevenDaysAgo = now()->subDays(7);
         
-        return Product::whereDoesntHave('orderItems', function ($query) use ($sevenDaysAgo) {
-            $query->where('order_items.created_at', '>=', $sevenDaysAgo);
-        })
-        ->where('status', true)
-        ->when($this->storeId, fn($query) => $query->where('store_id', $this->storeId))
-        ->select('id', 'name', 'price', 'stock')
-        ->get()
-        ->toArray();
+        $query = Product::query()
+            ->where('status', true)
+            ->whereDoesntHave('orderItems', function ($orderItems) use ($sevenDaysAgo, $storeIds) {
+                $orderItems->where('order_items.created_at', '>=', $sevenDaysAgo);
+
+                if (! empty($storeIds)) {
+                    $orderItems->whereIn('order_items.store_id', $storeIds);
+                }
+            })
+            ->select('id', 'name', 'price');
+
+        return $query->limit(10)->get()->toArray();
+    }
+
+    private function resolveStoreIds(?array $storeIds = null): array
+    {
+        if (is_array($storeIds) && ! empty($storeIds)) {
+            return array_values(array_filter($storeIds));
+        }
+
+        return $this->storeId ? [$this->storeId] : [];
     }
 
     private function getDateRange(string $period): array

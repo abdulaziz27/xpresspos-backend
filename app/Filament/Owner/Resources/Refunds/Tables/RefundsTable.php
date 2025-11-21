@@ -2,6 +2,7 @@
 
 namespace App\Filament\Owner\Resources\Refunds\Tables;
 
+use App\Services\StoreContext;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -25,6 +26,11 @@ class RefundsTable
                     ->sortable()
                     ->url(fn($record) => $record->order ? route('filament.owner.resources.orders.edit', $record->order) : null)
                     ->color('primary'),
+
+                TextColumn::make('store.name')
+                    ->label('Cabang')
+                    ->placeholder('-')
+                    ->toggleable(),
 
                 TextColumn::make('order.member.name')
                     ->label('Customer')
@@ -92,6 +98,11 @@ class RefundsTable
                         'completed' => 'Completed',
                         'rejected' => 'Rejected',
                     ]),
+
+                SelectFilter::make('store_id')
+                    ->label('Cabang')
+                    ->options(self::storeOptions())
+                    ->placeholder('Semua cabang'),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -126,5 +137,19 @@ class RefundsTable
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50]);
+    }
+
+    protected static function storeOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return StoreContext::instance()
+            ->accessibleStores($user)
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

@@ -3,8 +3,10 @@
 namespace App\Filament\Owner\Resources\PurchaseOrders;
 
 use App\Filament\Owner\Resources\PurchaseOrders\Pages;
+use App\Filament\Owner\Resources\PurchaseOrders\RelationManagers\ItemsRelationManager;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
+use App\Services\StoreContext;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -34,15 +36,22 @@ class PurchaseOrderResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
+        $storeOptions = self::storeOptions();
+
         return $schema
             ->components([
                 Section::make('Informasi PO')
                     ->schema([
                         Grid::make(2)
                             ->schema([
-                                TextInput::make('po_number')
-                                    ->label('Nomor PO')
-                                    ->required(),
+                                Select::make('store_id')
+                                    ->label('Toko')
+                                    ->options($storeOptions)
+                                    ->default(fn () => StoreContext::instance()->current(auth()->user()))
+                                    ->required()
+                                    ->searchable()
+                                    ->helperText('Gunakan filter cabang di header untuk mengatur toko aktif.')
+                                    ->disabled(fn () => ! auth()->user()?->hasRole('admin_sistem')),
                                 Select::make('supplier_id')
                                     ->label('Pemasok')
                                     ->options(fn () => Supplier::query()->pluck('name', 'id'))
@@ -51,13 +60,9 @@ class PurchaseOrderResource extends Resource
                             ]),
                         Grid::make(2)
                             ->schema([
-                                DatePicker::make('ordered_at')
-                                    ->label('Tanggal Order'),
-                                DatePicker::make('received_at')
-                                    ->label('Tanggal Terima'),
-                            ]),
-                        Grid::make(2)
-                            ->schema([
+                                TextInput::make('po_number')
+                                    ->label('Nomor PO')
+                                    ->required(),
                                 Select::make('status')
                                     ->options([
                                         'draft' => 'Draft',
@@ -67,12 +72,20 @@ class PurchaseOrderResource extends Resource
                                         'cancelled' => 'Batal',
                                     ])
                                     ->default('draft'),
-                                TextInput::make('total_amount')
-                                    ->label('Total')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->default(0),
                             ]),
+                        Grid::make(2)
+                            ->schema([
+                                DatePicker::make('ordered_at')
+                                    ->label('Tanggal Order'),
+                                DatePicker::make('received_at')
+                                    ->label('Tanggal Terima'),
+                            ]),
+                        TextInput::make('total_amount')
+                            ->label('Total')
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->default(0)
+                            ->helperText('Nilai total dihitung dari detail item.'),
                         Textarea::make('notes')
                             ->label('Catatan')
                             ->maxLength(500),
@@ -88,6 +101,9 @@ class PurchaseOrderResource extends Resource
                     ->label('Nomor')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('store.name')
+                    ->label('Toko')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('supplier.name')
                     ->label('Pemasok')
                     ->searchable(),
@@ -110,6 +126,10 @@ class PurchaseOrderResource extends Resource
                     ->sortable(),
             ])
             ->filters([
+                Tables\Filters\SelectFilter::make('store_id')
+                    ->label('Toko')
+                    ->options(self::storeOptions())
+                    ->searchable(),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
                         'draft' => 'Draft',
@@ -134,6 +154,27 @@ class PurchaseOrderResource extends Resource
             'create' => Pages\CreatePurchaseOrder::route('/create'),
             'edit' => Pages\EditPurchaseOrder::route('/{record}/edit'),
         ];
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            ItemsRelationManager::class,
+        ];
+    }
+
+    protected static function storeOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return StoreContext::instance()
+            ->accessibleStores($user)
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }
 

@@ -5,10 +5,12 @@ namespace App\Filament\Owner\Resources\LoyaltyPointTransactions;
 use App\Filament\Owner\Resources\LoyaltyPointTransactions\Pages\ListLoyaltyPointTransactions;
 use App\Filament\Owner\Resources\LoyaltyPointTransactions\Tables\LoyaltyPointTransactionsTable;
 use App\Models\LoyaltyPointTransaction;
+use App\Services\StoreContext;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class LoyaltyPointTransactionResource extends Resource
 {
@@ -24,7 +26,7 @@ class LoyaltyPointTransactionResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Pelanggan & Loyalti';
+    protected static string|\UnitEnum|null $navigationGroup = 'Member & Loyalti';
 
     public static function table(Table $table): Table
     {
@@ -53,17 +55,33 @@ class LoyaltyPointTransactionResource extends Resource
         return false; // Transactions should not be deletable
     }
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        
-        if ($user && $user->store_id) {
-            return parent::getEloquentQuery()
-                ->withoutGlobalScopes()
-                ->where('store_id', $user->store_id);
+        $storeContext = StoreContext::instance();
+        $storeId = $storeContext->current($user);
+
+        $query = parent::getEloquentQuery();
+
+        if ($storeId) {
+            return $query->where('store_id', $storeId);
         }
 
-        return parent::getEloquentQuery();
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->hasRole('admin_sistem')) {
+            return $query;
+        }
+
+        $accessibleStores = $storeContext->accessibleStores($user)->pluck('id');
+
+        if ($accessibleStores->isEmpty()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereIn('store_id', $accessibleStores);
     }
 
     public static function shouldRegisterNavigation(): bool

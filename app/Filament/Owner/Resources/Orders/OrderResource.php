@@ -6,6 +6,7 @@ use App\Filament\Owner\Resources\Orders\Pages\ListOrders;
 use App\Filament\Owner\Resources\Orders\Pages\ViewOrder;
 use App\Filament\Owner\Resources\Orders\Schemas\OrderForm;
 use App\Filament\Owner\Resources\Orders\Tables\OrdersTable;
+use App\Filament\Owner\Resources\Orders\RelationManagers\OrderItemsRelationManager;
 use App\Models\Order;
 use App\Services\GlobalFilterService;
 use BackedEnum;
@@ -47,7 +48,7 @@ class OrderResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            OrderItemsRelationManager::class,
         ];
     }
 

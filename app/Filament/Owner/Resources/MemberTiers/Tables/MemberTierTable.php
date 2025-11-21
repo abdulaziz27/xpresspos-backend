@@ -2,6 +2,7 @@
 
 namespace App\Filament\Owner\Resources\MemberTiers\Tables;
 
+use App\Services\StoreContext;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -48,6 +49,11 @@ class MemberTierTable
                     ->formatStateUsing(fn($state) => number_format($state, 2) . '%')
                     ->sortable(),
 
+                TextColumn::make('store.name')
+                    ->label('Cabang')
+                    ->placeholder('Semua cabang')
+                    ->toggleable(),
+
                 TextColumn::make('members_count')
                     ->label('Member')
                     ->counts('members')
@@ -76,6 +82,11 @@ class MemberTierTable
                     ])
                     ->label('Status'),
 
+                SelectFilter::make('store_id')
+                    ->label('Cabang')
+                    ->options(self::storeOptions())
+                    ->placeholder('Semua cabang'),
+
                 TernaryFilter::make('has_discount')
                     ->label('Ada Diskon')
                     ->query(fn($query, $state) => $query->when($state === 'true', fn($q) => $q->where('discount_percentage', '>', 0))
@@ -93,5 +104,19 @@ class MemberTierTable
             ->defaultSort('sort_order')
             ->striped()
             ->paginated([10, 25, 50]);
+    }
+
+    protected static function storeOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return StoreContext::instance()
+            ->accessibleStores($user)
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

@@ -6,6 +6,7 @@ use App\Filament\Owner\Resources\CashSessions\Pages\CreateCashSession;
 use App\Filament\Owner\Resources\CashSessions\Pages\EditCashSession;
 use App\Filament\Owner\Resources\CashSessions\Pages\ListCashSessions;
 use App\Filament\Owner\Resources\CashSessions\Schemas\CashSessionForm;
+use App\Filament\Owner\Resources\CashSessions\RelationManagers\ExpensesRelationManager;
 use App\Filament\Owner\Resources\CashSessions\Tables\CashSessionsTable;
 use App\Models\CashSession;
 use BackedEnum;
@@ -44,7 +45,7 @@ class CashSessionResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            ExpensesRelationManager::class,
         ];
     }
 

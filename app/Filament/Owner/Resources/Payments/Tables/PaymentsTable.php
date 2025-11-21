@@ -2,6 +2,7 @@
 
 namespace App\Filament\Owner\Resources\Payments\Tables;
 
+use App\Services\StoreContext;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -29,6 +30,11 @@ class PaymentsTable
                     ->sortable()
                     ->badge()
                     ->color('primary'),
+
+                TextColumn::make('store.name')
+                    ->label('Cabang')
+                    ->placeholder('-')
+                    ->toggleable(),
 
                 TextColumn::make('payment_method')
                     ->label('Metode')
@@ -144,6 +150,11 @@ class PaymentsTable
                     ->searchable()
                     ->preload(),
 
+                SelectFilter::make('store_id')
+                    ->label('Cabang')
+                    ->options(self::storeOptions())
+                    ->placeholder('Semua cabang'),
+
                 Filter::make('has_gateway_fee')
                     ->label('Memiliki Biaya Gateway')
                     ->query(fn(Builder $query): Builder => $query->where('gateway_fee', '>', 0)),
@@ -189,5 +200,19 @@ class PaymentsTable
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50, 100]);
+    }
+
+    protected static function storeOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return StoreContext::instance()
+            ->accessibleStores($user)
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

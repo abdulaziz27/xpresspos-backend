@@ -73,5 +73,20 @@ class InventoryItem extends Model
     {
         return $this->hasMany(InventoryLot::class);
     }
+
+    public function adjustmentItems(): HasMany
+    {
+        return $this->hasMany(InventoryAdjustmentItem::class);
+    }
+
+    public function transferItems(): HasMany
+    {
+        return $this->hasMany(InventoryTransferItem::class);
+    }
+
+    public function purchaseOrderItems(): HasMany
+    {
+        return $this->hasMany(PurchaseOrderItem::class);
+    }
 }
 

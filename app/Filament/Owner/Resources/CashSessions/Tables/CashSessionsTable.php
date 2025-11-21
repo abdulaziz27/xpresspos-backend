@@ -2,6 +2,7 @@
 
 namespace App\Filament\Owner\Resources\CashSessions\Tables;
 
+use App\Services\GlobalFilterService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -97,6 +98,12 @@ class CashSessionsTable
                     ->placeholder('Masih Terbuka'),
             ])
             ->filters([
+                SelectFilter::make('store_id')
+                    ->label('Cabang Toko')
+                    ->placeholder('Semua Cabang')
+                    ->options(fn () => self::getStoreFilterOptions())
+                    ->searchable(),
+
                 SelectFilter::make('status')
                     ->label('Status')
                     ->options([
@@ -161,5 +168,15 @@ class CashSessionsTable
             ->defaultSort('opened_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50, 100]);
+    }
+
+    protected static function getStoreFilterOptions(): array
+    {
+        /** @var GlobalFilterService $service */
+        $service = app(GlobalFilterService::class);
+
+        return $service->getAvailableStores()
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

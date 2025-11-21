@@ -2,12 +2,14 @@
 
 namespace App\Filament\Owner\Resources\Members\Tables;
 
+use App\Services\StoreContext;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use App\Support\Currency;
@@ -49,6 +51,11 @@ class MembersTable
                     ->badge()
                     ->color('info')
                     ->placeholder('Tidak ada Tier'),
+
+                TextColumn::make('store.name')
+                    ->label('Cabang Registrasi')
+                    ->placeholder('Tidak ditentukan')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('loyalty_points')
                     ->label('Poin')
@@ -92,6 +99,15 @@ class MembersTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('tier_id')
+                    ->label('Tier Member')
+                    ->relationship('tier', 'name'),
+
+                SelectFilter::make('store_id')
+                    ->label('Cabang')
+                    ->options(self::storeOptions())
+                    ->placeholder('Semua cabang'),
+
                 TernaryFilter::make('is_active')
                     ->label('Status')
                     ->placeholder('Semua member')
@@ -124,5 +140,19 @@ class MembersTable
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50, 100]);
+    }
+
+    protected static function storeOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return StoreContext::instance()
+            ->accessibleStores($user)
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

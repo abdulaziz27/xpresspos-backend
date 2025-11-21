@@ -3,7 +3,7 @@
 namespace App\Filament\Owner\Widgets;
 
 use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
-use App\Models\Product;
+use App\Models\StockLevel;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
@@ -29,37 +29,40 @@ class LowStockWidget extends BaseWidget
         $summary = $this->dashboardFilterSummary();
         $selectedStore = $filters['store_id'];
         
-        if (empty($storeIds)) {
-            $query = Product::query()->whereRaw('1 = 0');
-        } else {
-            $query = Product::query()
+        $query = StockLevel::query()->whereRaw('1 = 0');
+
+        if (! empty($storeIds)) {
+            $query = StockLevel::query()
+                ->with(['product.category', 'store'])
                 ->whereIn('store_id', $storeIds)
-                ->where('track_inventory', true)
-                ->whereColumn('stock', '<=', 'min_stock_level')
-                ->where('status', true);
+                ->whereColumn('current_stock', '<=', 'min_stock_level')
+                ->whereHas('product', function ($query) {
+                    $query->where('track_inventory', true)
+                        ->where('status', true);
+                });
         }
 
         return $table
             ->query($query)
             ->columns([
-                Tables\Columns\ImageColumn::make('image')
+                Tables\Columns\ImageColumn::make('product.image')
                     ->label('Gambar')
                     ->circular()
                     ->size(40)
                     ->defaultImageUrl(url('/img/placeholder-product.png')),
 
-                Tables\Columns\TextColumn::make('name')
+                Tables\Columns\TextColumn::make('product.name')
                     ->label('Produk')
                     ->searchable()
                     ->sortable()
                     ->weight('medium'),
 
-                Tables\Columns\TextColumn::make('sku')
+                Tables\Columns\TextColumn::make('product.sku')
                     ->label('SKU')
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('stock')
+                Tables\Columns\TextColumn::make('current_stock')
                     ->label('Stok Saat Ini')
                     ->numeric()
                     ->sortable()
@@ -77,7 +80,7 @@ class LowStockWidget extends BaseWidget
                     ->color('info')
                     ->visible(fn () => ! $selectedStore),
 
-                Tables\Columns\TextColumn::make('category.name')
+                Tables\Columns\TextColumn::make('product.category.name')
                     ->label('Kategori')
                     ->badge()
                     ->color('gray'),

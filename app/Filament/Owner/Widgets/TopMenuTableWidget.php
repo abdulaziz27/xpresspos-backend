@@ -25,52 +25,70 @@ class TopMenuTableWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
-        $filters = $this->dashboardFilters();
-        $storeIds = $this->dashboardStoreIds();
-        $summary = $this->dashboardFilterSummary();
-        
-        if (empty($storeIds)) {
+        try {
+            $filters = $this->dashboardFilters();
+            $storeIds = $this->dashboardStoreIds();
+            $summary = $this->dashboardFilterSummary();
+            $tenantId = $filters['tenant_id'] ?? null;
+            $dateRange = $filters['range'] ?? null;
+
+            $hasValidFilters = $tenantId && ! empty($storeIds) && $dateRange;
+            
+            $query = Product::query()->whereRaw('1 = 0');
+
+            if ($hasValidFilters) {
+                $query = Product::query()
+                    ->select('products.*')
+                    ->selectSub(
+                        DB::table('cogs_history')
+                        ->selectRaw('COALESCE(SUM(quantity_sold), 0)')
+                        ->whereColumn('cogs_history.product_id', 'products.id')
+                        ->whereIn('cogs_history.store_id', $storeIds)
+                            ->whereBetween('cogs_history.created_at', [$dateRange['start'], $dateRange['end']]),
+                        'total_qty'
+                    )
+                    ->where('tenant_id', $tenantId)
+                    ->where('status', true)
+                        ->having('total_qty', '>', 0)
+                        ->orderByDesc('total_qty')
+                        ->limit(10);
+            }
+
+            $emptyHeading = $hasValidFilters
+                ? 'Tidak Ada Produk yang Terjual'
+                : 'Tenant atau Cabang Belum Dipilih';
+
+            $emptyDescription = $hasValidFilters
+                ? 'Belum ada transaksi untuk ' . ($summary['store'] ?? 'Semua Cabang') . '.'
+                : 'Silakan pilih tenant dan cabang untuk melihat produk terlaris.';
+
+            return $table
+                ->query($query)
+                ->columns([
+                    Tables\Columns\TextColumn::make('name')
+                        ->label('Produk')
+                        ->searchable()
+                        ->sortable()
+                        ->limit(30),
+                    Tables\Columns\TextColumn::make('total_qty')
+                        ->label('Terjual')
+                        ->numeric()
+                        ->sortable()
+                        ->formatStateUsing(fn ($state) => $state ?? 0),
+                ])
+                ->emptyStateHeading($emptyHeading)
+                ->emptyStateDescription($emptyDescription)
+                ->paginated(false)
+                ->striped();
+        } catch (\Throwable $e) {
+            report($e);
+
             return $table
                 ->query(Product::query()->whereRaw('1 = 0'))
-                ->emptyStateHeading('Tidak Ada Data')
-                ->emptyStateDescription('Tenant atau cabang belum dipilih.');
+                ->emptyStateHeading('Tidak dapat memuat data')
+                ->emptyStateDescription('Terjadi kesalahan saat memuat data penjualan produk.')
+                ->paginated(false)
+                ->striped();
         }
-
-        $dateRange = $filters['range'];
-
-        return $table
-            ->query(
-                Product::query()
-                    ->whereIn('store_id', $storeIds)
-            )
-            ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->label('Produk')
-                    ->searchable()
-                    ->sortable()
-                    ->limit(30),
-                Tables\Columns\TextColumn::make('total_qty')
-                    ->label('Terjual')
-                    ->numeric()
-                    ->sortable()
-                    ->formatStateUsing(fn ($state) => $state ?? 0),
-            ])
-            ->modifyQueryUsing(function ($query) use ($storeIds, $dateRange) {
-                $sumSub = DB::table('cogs_history')
-                    ->selectRaw('COALESCE(SUM(quantity_sold), 0)')
-                    ->whereColumn('cogs_history.product_id', 'products.id')
-                    ->whereIn('cogs_history.store_id', $storeIds)
-                    ->whereBetween('cogs_history.created_at', [$dateRange['start'], $dateRange['end']]);
-
-                $query->select('products.*')
-                    ->selectSub($sumSub, 'total_qty')
-                    ->having('total_qty', '>', 0)
-                    ->orderByDesc('total_qty')
-                    ->limit(10);
-            })
-            ->emptyStateHeading('Tidak Ada Produk yang Terjual')
-            ->emptyStateDescription('Belum ada transaksi untuk ' . ($summary['store'] ?? 'Semua Cabang') . '.')
-            ->paginated(false)
-            ->striped();
     }
 }

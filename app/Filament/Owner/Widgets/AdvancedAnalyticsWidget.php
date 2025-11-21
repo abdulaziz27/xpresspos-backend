@@ -2,15 +2,19 @@
 
 namespace App\Filament\Owner\Widgets;
 
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Services\FnBAnalyticsService;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class AdvancedAnalyticsWidget extends BaseWidget
 {
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
+
     protected static ?int $sort = 2;
     
-    // Only show for users with advanced_analytics feature
     public static function canView(): bool
     {
         return auth()->user()->hasFeature('advanced_analytics');
@@ -18,36 +22,53 @@ class AdvancedAnalyticsWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $storeId = auth()->user()?->store_id;
+        $filters = $this->dashboardFilters();
+        $storeIds = $this->dashboardStoreIds();
+        $summary = $this->dashboardFilterSummary();
 
-        if (!$storeId) {
+        if (empty($storeIds) || ! ($filters['tenant_id'] ?? null)) {
             return [];
         }
 
+        $preset = $filters['date_preset'] ?? 'today';
+        $customRange = $preset === 'custom'
+            ? [$filters['range']['start'], $filters['range']['end']]
+            : null;
+
         $analyticsService = app(FnBAnalyticsService::class);
-        $analytics = $analyticsService->getSalesAnalytics('today');
-        $profitAnalysis = $analyticsService->getProfitAnalysis('today');
+        $salesAnalytics = $analyticsService->getSalesAnalyticsForStores($storeIds, $preset, $customRange);
+        $profitAnalysis = $analyticsService->getProfitAnalysisForStores($storeIds, $preset, $customRange);
 
         $totalProfit = collect($profitAnalysis)->sum('profit');
         $avgMargin = collect($profitAnalysis)->avg('margin_percent') ?? 0;
         $topProduct = collect($profitAnalysis)->first();
+        $itemsSold = $salesAnalytics['summary']['total_items_sold'] ?? 0;
+
+        $context = $summary['tenant'] ?? 'Tenant';
+        $storeLabel = $summary['store'] ?? 'Semua Cabang';
+        $dateLabel = $summary['date_preset_label'] ?? 'Periode Berjalan';
+        $description = "{$context} • {$storeLabel} • {$dateLabel}";
 
         return [
-            Stat::make('Today\'s Profit', 'Rp ' . number_format($totalProfit, 0, ',', '.'))
-                ->description('Total profit from all products')
-                ->color('success'),
+            Stat::make('Total Profit', 'Rp ' . number_format($totalProfit, 0, ',', '.'))
+                ->description($description)
+                ->color($totalProfit > 0 ? 'success' : 'gray'),
 
-            Stat::make('Average Margin', number_format($avgMargin, 1) . '%')
-                ->description('Average profit margin across products')
+            Stat::make('Rata-rata Margin', number_format($avgMargin, 1) . '%')
+                ->description('Rata-rata margin produk pada periode ini')
                 ->color($avgMargin >= 30 ? 'success' : ($avgMargin >= 20 ? 'warning' : 'danger')),
 
-            Stat::make('Top Selling Product', $topProduct['product_name'] ?? 'No sales')
-                ->description($topProduct ? 'Sold: ' . $topProduct['quantity_sold'] . ' units' : 'No products sold today')
+            Stat::make('Produk Teratas', $topProduct['product_name'] ?? 'Belum ada penjualan')
+                ->description(
+                    $topProduct
+                        ? 'Terjual: ' . number_format($topProduct['quantity_sold'] ?? 0)
+                        : 'Tidak ada transaksi pada periode ini'
+                )
                 ->color('info'),
 
-            Stat::make('Items Sold', number_format($analytics['summary']['total_items_sold'] ?? 0))
-                ->description('Total items sold today')
-                ->color('warning'),
+            Stat::make('Unit Terjual', number_format($itemsSold, 0, ',', '.'))
+                ->description('Total produk terjual pada periode yang dipilih')
+                ->color($itemsSold > 0 ? 'warning' : 'gray'),
         ];
     }
 }

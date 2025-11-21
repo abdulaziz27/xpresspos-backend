@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class InventoryTransfer extends Model
 {
@@ -59,6 +60,11 @@ class InventoryTransfer extends Model
     public function toStore(): BelongsTo
     {
         return $this->belongsTo(Store::class, 'to_store_id');
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(InventoryTransferItem::class);
     }
 }
 

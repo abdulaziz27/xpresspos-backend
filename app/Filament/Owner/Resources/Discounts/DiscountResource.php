@@ -8,11 +8,13 @@ use App\Filament\Owner\Resources\Discounts\Pages\ListDiscounts;
 use App\Filament\Owner\Resources\Discounts\Schemas\DiscountForm;
 use App\Filament\Owner\Resources\Discounts\Tables\DiscountsTable;
 use App\Models\Discount;
+use App\Services\StoreContext;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class DiscountResource extends Resource
 {
@@ -49,17 +51,23 @@ class DiscountResource extends Resource
         ];
     }
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        
-        if ($user && $user->store_id) {
-            return parent::getEloquentQuery()
-                ->withoutGlobalScopes()
-                ->where('store_id', $user->store_id);
+        $storeContext = StoreContext::instance();
+        $storeId = $storeContext->current($user);
+
+        $query = parent::getEloquentQuery();
+
+        if ($storeId) {
+            return $query->where('store_id', $storeId);
         }
 
-        return parent::getEloquentQuery();
+        if ($user && $user->hasRole('admin_sistem')) {
+            return $query;
+        }
+
+        return $query->whereRaw('1 = 0');
     }
 
     public static function canViewAny(): bool

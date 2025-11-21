@@ -5,6 +5,7 @@ namespace App\Filament\Owner\Resources\Members;
 use App\Filament\Owner\Resources\Members\Pages\CreateMember;
 use App\Filament\Owner\Resources\Members\Pages\EditMember;
 use App\Filament\Owner\Resources\Members\Pages\ListMembers;
+use App\Filament\Owner\Resources\Members\RelationManagers\LoyaltyTransactionsRelationManager;
 use App\Filament\Owner\Resources\Members\Schemas\MemberForm;
 use App\Filament\Owner\Resources\Members\Tables\MembersTable;
 use App\Models\Member;
@@ -28,7 +29,7 @@ class MemberResource extends Resource
 
     protected static ?int $navigationSort = 0;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Pelanggan & Loyalti';
+    protected static string|\UnitEnum|null $navigationGroup = 'Member & Loyalti';
 
 
 
@@ -46,7 +47,7 @@ class MemberResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            LoyaltyTransactionsRelationManager::class,
         ];
     }
 
