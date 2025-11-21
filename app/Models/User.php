@@ -81,6 +81,31 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Get the primary store for the user (helper for backward compatibility).
+     * This is a convenience method that returns the primary store or first store.
+     */
+    public function store(): ?Store
+    {
+        // Try primary store first
+        $primaryStore = $this->primaryStore();
+        if ($primaryStore) {
+            return $primaryStore;
+        }
+
+        // Fallback to first store
+        return $this->stores()->first();
+    }
+
+    /**
+     * Get store_id attribute (accessor for backward compatibility).
+     */
+    public function getStoreIdAttribute(): ?string
+    {
+        $store = $this->store();
+        return $store?->id;
+    }
+
+    /**
      * Get tenants that the user has access to.
      */
     public function tenants(): BelongsToMany
@@ -108,7 +133,7 @@ class User extends Authenticatable implements FilamentUser
         $firstTenant = $this->tenants()->first();
         return $firstTenant;
     }
-    
+
     /**
      * Get current tenant ID from context.
      */
@@ -118,16 +143,16 @@ class User extends Authenticatable implements FilamentUser
         if ($tenant) {
             return $tenant->id;
         }
-        
+
         // Fallback: get tenant from primary store
         $primaryStore = $this->primaryStore();
         if ($primaryStore && $primaryStore->tenant_id) {
             return $primaryStore->tenant_id;
         }
-        
+
         return null;
     }
-    
+
     /**
      * Get roles with proper team context.
      */
@@ -139,7 +164,7 @@ class User extends Authenticatable implements FilamentUser
         }
         return $this->roles;
     }
-    
+
     /**
      * Get permissions with proper team context.
      */

@@ -84,7 +84,11 @@ Route::prefix('v1')
     });
 
     // Protected auth routes
-    Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureStoreContext::class])->prefix('auth')->group(function (): void {
+    Route::middleware([
+        'auth:sanctum',
+        \App\Http\Middleware\EnsureTenantContext::class,
+        \App\Http\Middleware\EnsureStoreContext::class
+    ])->prefix('auth')->group(function (): void {
         Route::post('logout', [AuthController::class, 'logout'])->name('api.v1.auth.logout');
         Route::get('me', [AuthController::class, 'me'])->name('api.v1.auth.me');
         Route::get('sessions', [AuthController::class, 'sessions'])->name('api.v1.auth.sessions');
@@ -92,7 +96,11 @@ Route::prefix('v1')
     });
 
     // Protected routes
-    Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureStoreContext::class])->group(function (): void {
+    Route::middleware([
+        'auth:sanctum',
+        \App\Http\Middleware\EnsureTenantContext::class,
+        \App\Http\Middleware\EnsureStoreContext::class
+    ])->group(function (): void {
 
         // Subscription management
         Route::prefix('subscription')->group(function (): void {

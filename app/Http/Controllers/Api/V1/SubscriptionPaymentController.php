@@ -75,8 +75,30 @@ class SubscriptionPaymentController extends Controller
 
         try {
             return DB::transaction(function () use ($request) {
-                $user = Auth::user() ?? request()->user();
-                $store = $user?->store;
+                $user = Auth::user();
+                
+                if (!$user) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'UNAUTHENTICATED',
+                            'message' => 'User not authenticated',
+                        ],
+                    ], 401);
+                }
+                
+                $store = $user->store();
+                
+                if (!$store) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'STORE_NOT_FOUND',
+                            'message' => 'User does not have an associated store',
+                        ],
+                    ], 404);
+                }
+                
                 $plan = Plan::findOrFail($request->plan_id);
                 $billingCycle = $request->billing_cycle;
                 $paymentMethod = $request->payment_method_id
@@ -134,8 +156,9 @@ class SubscriptionPaymentController extends Controller
                 ]);
             });
         } catch (\Exception $e) {
+            $userId = Auth::check() ? Auth::id() : null;
             Log::error('Subscription creation failed', [
-                'user_id' => Auth::id(),
+                'user_id' => $userId,
                 'plan_id' => $request->plan_id,
                 'error' => $e->getMessage(),
             ]);
@@ -169,8 +192,19 @@ class SubscriptionPaymentController extends Controller
                 $invoice = Invoice::with('subscription.store')->findOrFail($invoiceId);
 
                 // Check if user has access to this invoice
-                $user = Auth::user() ?? request()->user();
-                $userStore = $user?->store;
+                $user = Auth::user();
+                
+                if (!$user) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'UNAUTHENTICATED',
+                            'message' => 'User not authenticated',
+                        ],
+                    ], 401);
+                }
+                
+                $userStore = $user->store();
                 $invoiceTenant = $invoice->subscription->tenant;
                 
                 if (!$userStore || !$invoiceTenant || $userStore->tenant_id !== $invoiceTenant->id) {
@@ -237,9 +271,10 @@ class SubscriptionPaymentController extends Controller
                 ]);
             });
         } catch (\Exception $e) {
+            $userId = Auth::check() ? Auth::id() : null;
             Log::error('Invoice payment failed', [
                 'invoice_id' => $invoiceId,
-                'user_id' => Auth::id(),
+                'user_id' => $userId,
                 'error' => $e->getMessage(),
             ]);
 
@@ -263,7 +298,7 @@ class SubscriptionPaymentController extends Controller
      */
     public function paymentMethods(Request $request): JsonResponse
     {
-        $user = Auth::user() ?? request()->user();
+        $user = Auth::user();
 
         if (!$user) {
             return response()->json([
@@ -313,7 +348,7 @@ class SubscriptionPaymentController extends Controller
      */
     public function invoices(Request $request): JsonResponse
     {
-        $user = Auth::user() ?? request()->user();
+        $user = Auth::user();
 
         if (!$user) {
             return response()->json([
@@ -330,7 +365,7 @@ class SubscriptionPaymentController extends Controller
             ], 401);
         }
 
-        $store = $user->store;
+        $store = $user->store();
 
         if (!$store) {
             return response()->json([
@@ -413,7 +448,18 @@ class SubscriptionPaymentController extends Controller
         $invoice = Invoice::with(['payments', 'subscription.store'])->findOrFail($invoiceId);
 
         // Check if user has access to this invoice
-        $userStore = Auth::user()->store;
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated',
+                ],
+            ], 401);
+        }
+        $userStore = $user->store();
         $invoiceTenant = $invoice->subscription->tenant;
         
         if (!$userStore || !$invoiceTenant || $userStore->tenant_id !== $invoiceTenant->id) {

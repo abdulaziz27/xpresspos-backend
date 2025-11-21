@@ -140,6 +140,8 @@ class UserSeeder extends Seeder
         );
 
         // CRITICAL: Create store_user_assignment for cashier
+        // Note: assignment_role uses 'staff' (AssignmentRoleEnum doesn't have 'cashier')
+        // but Spatie Permission role is 'cashier' for proper permissions
         if ($storeId) {
             \App\Models\StoreUserAssignment::updateOrCreate(
                 [

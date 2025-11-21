@@ -27,17 +27,39 @@ class AddOrderItemRequest extends FormRequest
                 'required',
                 'integer',
                 Rule::exists('products', 'id')->where(function ($query) {
-                    $query->where('store_id', request()->user()->store_id)
-                          ->where('status', true);
+                    $user = auth()->user() ?? request()->user();
+                    if ($user) {
+                        $tenantId = $user->store()?->tenant_id ?? $user->currentTenantId();
+                        if ($tenantId) {
+                            $query->where('tenant_id', $tenantId)
+                                  ->where('status', true);
+                        } else {
+                            // If no tenant context, restrict to no results
+                            $query->whereRaw('1 = 0');
+                        }
+                    } else {
+                        $query->whereRaw('1 = 0');
+                    }
                 })
             ],
             'quantity' => 'required|integer|min:1|max:1000',
             'product_options' => 'nullable|array',
             'product_options.*' => [
                 'uuid',
-                Rule::exists('product_options', 'id')->where(function ($query) {
-                    $query->where('store_id', request()->user()->store_id)
-                          ->where('is_active', true);
+                Rule::exists('product_variants', 'id')->where(function ($query) {
+                    $user = auth()->user() ?? request()->user();
+                    if ($user) {
+                        $tenantId = $user->store()?->tenant_id ?? $user->currentTenantId();
+                        if ($tenantId) {
+                            $query->where('tenant_id', $tenantId)
+                                  ->where('is_active', true);
+                        } else {
+                            // If no tenant context, restrict to no results
+                            $query->whereRaw('1 = 0');
+                        }
+                    } else {
+                        $query->whereRaw('1 = 0');
+                    }
                 })
             ],
             'notes' => 'nullable|string|max:500',

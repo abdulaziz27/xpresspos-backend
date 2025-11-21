@@ -187,15 +187,58 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
-            $user = auth()->user() ?? request()->user();
-            $store = $user->store;
+            // Get user from request (should be set by middleware)
+            $user = $request->user() ?? auth()->user();
+            
+            if (!$user) {
+                DB::rollBack();
+                Log::warning('Order creation attempted without authentication', [
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'has_token' => $request->bearerToken() !== null,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'UNAUTHENTICATED',
+                        'message' => 'User not authenticated. Please provide a valid authentication token.',
+                    ],
+                ], 401);
+            }
+            
+            $store = $user->store();
+            
+            if (!$store) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'STORE_NOT_FOUND',
+                        'message' => 'User does not have an associated store',
+                    ],
+                ], 404);
+            }
+
+            // Validate tenant context (required for tenant-centric architecture)
+            $tenantId = $store->tenant_id ?? $user->currentTenantId();
+            if (!$tenantId) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'TENANT_CONTEXT_MISSING',
+                        'message' => 'No tenant context found for this store. Please contact support.',
+                    ],
+                ], 400);
+            }
             
             // Resolve customer information
             $customerService = app(\App\Services\CustomerResolutionService::class);
             $customerData = $customerService->resolveCustomer($request->all(), $store);
             
             $order = Order::create([
-                'store_id' => $user->store_id,
+                'tenant_id' => $tenantId,  // Explicit tenant_id for tenant-centric architecture
+                'store_id' => $store->id,
                 'user_id' => $user->id,  // Staff who created the order
                 'member_id' => $customerData['customer_id'],
                 'customer_name' => $customerData['customer_name'],
@@ -225,7 +268,7 @@ class OrderController extends Controller
                         'order_id' => $order->id,
                         'order_number' => $order->order_number,
                         'items_count' => $order->items->count(),
-                        'user_id' => auth()->id()
+                        'user_id' => $user->id
                     ]);
                 }
             }
@@ -273,9 +316,10 @@ class OrderController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
+            $userId = auth()->check() ? auth()->id() : null;
             Log::error('Order creation failed', [
                 'error' => $e->getMessage(),
-                'user_id' => auth()->id(),
+                'user_id' => $userId,
                 'request_data' => $request->validated()
             ]);
 
@@ -423,10 +467,11 @@ class OrderController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            $userId = auth()->check() ? auth()->id() : null;
             Log::error('Order update failed', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
-                'user_id' => auth()->id()
+                'user_id' => $userId
             ]);
 
             return response()->json([
@@ -495,10 +540,11 @@ class OrderController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            $userId = auth()->check() ? auth()->id() : null;
             Log::error('Order deletion failed', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
-                'user_id' => auth()->id()
+                'user_id' => $userId
             ]);
 
             return response()->json([
@@ -562,10 +608,11 @@ class OrderController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
+            $userId = auth()->check() ? auth()->id() : null;
             Log::error('Add item to order failed', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
-                'user_id' => auth()->id()
+                'user_id' => $userId
             ]);
 
             return response()->json([
@@ -664,11 +711,12 @@ class OrderController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            $userId = auth()->check() ? auth()->id() : null;
             Log::error('Update order item failed', [
                 'order_id' => $order->id,
                 'item_id' => $item->id,
                 'error' => $e->getMessage(),
-                'user_id' => auth()->id()
+                'user_id' => $userId
             ]);
 
             return response()->json([
@@ -747,11 +795,12 @@ class OrderController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            $userId = auth()->check() ? auth()->id() : null;
             Log::error('Remove order item failed', [
                 'order_id' => $order->id,
                 'item_id' => $item->id,
                 'error' => $e->getMessage(),
-                'user_id' => auth()->id()
+                'user_id' => $userId
             ]);
 
             return response()->json([
@@ -825,10 +874,11 @@ class OrderController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            $userId = auth()->check() ? auth()->id() : null;
             Log::error('Order completion failed', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
-                'user_id' => auth()->id()
+                'user_id' => $userId
             ]);
 
             return response()->json([
@@ -979,11 +1029,12 @@ class OrderController extends Controller
                 $items = $order->items()->with('product')->get();
                 $this->restoreInventoryForItems($items);
                 
+                $userId = auth()->check() ? auth()->id() : null;
                 Log::info('Inventory restored for cancelled order', [
                     'order_id' => $order->id,
                     'order_number' => $order->order_number,
                     'items_count' => $items->count(),
-                    'user_id' => auth()->id()
+                    'user_id' => $userId
                 ]);
             }
 
@@ -1021,10 +1072,11 @@ class OrderController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            $userId = auth()->check() ? auth()->id() : null;
             Log::error('Order cancellation failed', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
-                'user_id' => auth()->id()
+                'user_id' => $userId
             ]);
 
             return response()->json([

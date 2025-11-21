@@ -414,17 +414,16 @@ class OwnerDemoSeeder extends Seeder
             ]
         );
 
-        // Generate recent orders for today and the past 5 days (total 50 orders)
+        // Generate recent orders for the past 5 days (total 50 orders, maksimal hari kemarin)
         // Use only enum-allowed methods from payments migration
         $paymentMethods = ['cash', 'qris', 'credit_card', 'debit_card', 'bank_transfer', 'e_wallet'];
-        $todayCount = 10; // 10 orders today
-        $pastDays = 4; // 4 days ago (total 5 days including today)
+        $pastDays = 4; // 4 days ago (total 5 days, mulai dari hari kemarin)
 
         $orderSeq = [];
-        for ($d = 0; $d <= $pastDays; $d++) {
+        for ($d = 1; $d <= $pastDays + 1; $d++) {
             $date = now()->subDays($d);
-            // Distribute 50 orders across 5 days: 10 today, 10 per past day
-            $ordersPerDay = $d === 0 ? $todayCount : 10;
+            // Distribute 50 orders across 5 days: 10 per day (maksimal hari kemarin)
+            $ordersPerDay = 10;
             $dateKey = $date->format('Ymd');
             // Initialize sequence from existing orders on that date (if any)
             $orderSeq[$dateKey] = Order::withoutGlobalScopes()->whereDate('created_at', $date->toDateString())->count();
@@ -436,6 +435,7 @@ class OwnerDemoSeeder extends Seeder
                 $orderNumber = 'ORD' . $dateKey . str_pad($orderSeq[$dateKey], 4, '0', STR_PAD_LEFT);
 
                 $order = Order::withoutGlobalScopes()->create([
+                    'tenant_id' => $store->tenant_id,
                     'store_id' => $store->id,
                     'user_id' => $cashier?->id ?? $owner?->id,
                     'member_id' => $customer?->id,
@@ -446,7 +446,7 @@ class OwnerDemoSeeder extends Seeder
                     'discount_amount' => 0,
                     'service_charge' => 0,
                     'total_amount' => 0,
-                    'notes' => $d === 0 ? 'Order today' : 'Historical order',
+                    'notes' => 'Historical order',
                     'created_at' => $orderTime,
                     'updated_at' => $orderTime,
                     'completed_at' => $orderTime->copy()->addMinutes(5),
@@ -516,13 +516,14 @@ class OwnerDemoSeeder extends Seeder
             }
         }
 
-        // Staff performance sample
+        // Staff performance sample (hari kemarin)
+        $yesterday = now()->subDay();
         StaffPerformance::updateOrCreate(
-            ['store_id' => $store->id, 'user_id' => $cashier?->id ?? $owner?->id, 'date' => now()->toDateString()],
+            ['store_id' => $store->id, 'user_id' => $cashier?->id ?? $owner?->id, 'date' => $yesterday->toDateString()],
             [
-                'orders_processed' => $todayCount,
-                'total_sales' => Payment::where('store_id', $store->id)->whereDate('created_at', now())->sum('amount'),
-                'average_order_value' => Order::withoutGlobalScopes()->where('store_id', $store->id)->whereDate('created_at', now())->avg('total_amount') ?? 0,
+                'orders_processed' => Order::withoutGlobalScopes()->where('store_id', $store->id)->whereDate('created_at', $yesterday)->count(),
+                'total_sales' => Payment::where('store_id', $store->id)->whereDate('created_at', $yesterday)->sum('amount'),
+                'average_order_value' => Order::withoutGlobalScopes()->where('store_id', $store->id)->whereDate('created_at', $yesterday)->avg('total_amount') ?? 0,
                 'additional_metrics' => [
                     'note' => 'Auto-generated performance data'
                 ],

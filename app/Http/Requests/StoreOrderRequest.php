@@ -27,15 +27,35 @@ class StoreOrderRequest extends FormRequest
                 'nullable',
                 'uuid',
                 Rule::exists('members', 'id')->where(function ($query) {
-                    $query->where('store_id', request()->user()->store_id);
+                    $user = auth()->user() ?? request()->user();
+                    if ($user) {
+                        $store = $user->store();
+                        if ($store) {
+                            $query->where('store_id', $store->id);
+                        } else {
+                            $query->whereRaw('1 = 0');
+                        }
+                    } else {
+                        $query->whereRaw('1 = 0');
+                    }
                 })
             ],
             'table_id' => [
                 'nullable',
                 'uuid',
                 Rule::exists('tables', 'id')->where(function ($query) {
-                    $query->where('store_id', request()->user()->store_id)
-                          ->where('status', 'available');
+                    $user = auth()->user() ?? request()->user();
+                    if ($user) {
+                        $store = $user->store();
+                        if ($store) {
+                            $query->where('store_id', $store->id)
+                                  ->where('status', 'available');
+                        } else {
+                            $query->whereRaw('1 = 0');
+                        }
+                    } else {
+                        $query->whereRaw('1 = 0');
+                    }
                 })
             ],
             'status' => 'nullable|in:draft,open,completed',
@@ -49,13 +69,41 @@ class StoreOrderRequest extends FormRequest
                 'required_with:items',
                 'integer',
                 Rule::exists('products', 'id')->where(function ($query) {
-                    $query->where('store_id', request()->user()->store_id)
-                          ->where('status', true);
+                    $user = auth()->user() ?? request()->user();
+                    if ($user) {
+                        $tenantId = $user->store()?->tenant_id ?? $user->currentTenantId();
+                        if ($tenantId) {
+                            $query->where('tenant_id', $tenantId)
+                                  ->where('status', true);
+                        } else {
+                            // If no tenant context, restrict to no results
+                            $query->whereRaw('1 = 0');
+                        }
+                    } else {
+                        $query->whereRaw('1 = 0');
+                    }
                 })
             ],
             'items.*.quantity' => 'required_with:items|integer|min:1|max:1000',
             'items.*.product_options' => 'nullable|array',
-            'items.*.product_options.*' => 'uuid|exists:product_options,id',
+            'items.*.product_options.*' => [
+                'uuid',
+                Rule::exists('product_variants', 'id')->where(function ($query) {
+                    $user = auth()->user() ?? request()->user();
+                    if ($user) {
+                        $tenantId = $user->store()?->tenant_id ?? $user->currentTenantId();
+                        if ($tenantId) {
+                            $query->where('tenant_id', $tenantId)
+                                  ->where('is_active', true);
+                        } else {
+                            // If no tenant context, restrict to no results
+                            $query->whereRaw('1 = 0');
+                        }
+                    } else {
+                        $query->whereRaw('1 = 0');
+                    }
+                })
+            ],
             'items.*.notes' => 'nullable|string|max:500',
             
             // Inventory management

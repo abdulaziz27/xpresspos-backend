@@ -27,14 +27,34 @@ class UpdateOrderRequest extends FormRequest
                 'nullable',
                 'uuid',
                 Rule::exists('members', 'id')->where(function ($query) {
-                    $query->where('store_id', request()->user()->store_id);
+                    $user = auth()->user() ?? request()->user();
+                    if ($user) {
+                        $store = $user->store();
+                        if ($store) {
+                            $query->where('store_id', $store->id);
+                        } else {
+                            $query->whereRaw('1 = 0');
+                        }
+                    } else {
+                        $query->whereRaw('1 = 0');
+                    }
                 })
             ],
             'table_id' => [
                 'nullable',
                 'uuid',
                 Rule::exists('tables', 'id')->where(function ($query) {
-                    $query->where('store_id', request()->user()->store_id);
+                    $user = auth()->user() ?? request()->user();
+                    if ($user) {
+                        $store = $user->store();
+                        if ($store) {
+                            $query->where('store_id', $store->id);
+                        } else {
+                            $query->whereRaw('1 = 0');
+                        }
+                    } else {
+                        $query->whereRaw('1 = 0');
+                    }
                 })
             ],
             'status' => 'sometimes|in:draft,open,completed,cancelled',
@@ -48,8 +68,19 @@ class UpdateOrderRequest extends FormRequest
                 'required_with:items',
                 'integer',
                 Rule::exists('products', 'id')->where(function ($query) {
-                    $query->where('store_id', request()->user()->store_id)
-                          ->where('status', true);
+                    $user = auth()->user() ?? request()->user();
+                    if ($user) {
+                        $tenantId = $user->store()?->tenant_id ?? $user->currentTenantId();
+                        if ($tenantId) {
+                            $query->where('tenant_id', $tenantId)
+                                  ->where('status', true);
+                        } else {
+                            // If no tenant context, restrict to no results
+                            $query->whereRaw('1 = 0');
+                        }
+                    } else {
+                        $query->whereRaw('1 = 0');
+                    }
                 })
             ],
             'items.*.product_name' => 'nullable|string|max:255',

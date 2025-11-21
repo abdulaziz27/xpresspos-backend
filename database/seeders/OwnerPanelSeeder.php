@@ -169,6 +169,86 @@ class OwnerPanelSeeder extends Seeder
                 ['assignment_role' => 'owner', 'is_primary' => $idx === 0]
             );
 
+            // Create cashier for each store
+            $cashierEmail = 'cashier.b' . ($idx + 1) . '@xpresspos.id';
+            $cashier = User::firstOrCreate(
+                ['email' => $cashierEmail],
+                [
+                    'name' => 'Cashier ' . ($idx + 1) . ' - ' . $branchName,
+                    'password' => bcrypt('cashier123'),
+                    'email_verified_at' => now(),
+                ]
+            );
+
+            // CRITICAL: Create store_user_assignment for cashier
+            // Note: assignment_role uses 'staff' (AssignmentRoleEnum doesn't have 'cashier')
+            // but Spatie Permission role is 'cashier' for proper permissions
+            StoreUserAssignment::updateOrCreate(
+                [
+                    'store_id' => $store->id,
+                    'user_id' => $cashier->id,
+                ],
+                [
+                    'assignment_role' => 'staff',
+                    'is_primary' => false,
+                ]
+            );
+
+            // CRITICAL: Create user_tenant_access for cashier
+            if ($tenant) {
+                $exists = \DB::table('user_tenant_access')
+                    ->where('user_id', $cashier->id)
+                    ->where('tenant_id', $tenant->id)
+                    ->exists();
+
+                if (!$exists) {
+                    \DB::table('user_tenant_access')->insert([
+                        'id' => \Illuminate\Support\Str::uuid()->toString(),
+                        'user_id' => $cashier->id,
+                        'tenant_id' => $tenant->id,
+                        'role' => 'cashier',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } else {
+                    \DB::table('user_tenant_access')
+                        ->where('user_id', $cashier->id)
+                        ->where('tenant_id', $tenant->id)
+                        ->update([
+                            'role' => 'cashier',
+                            'updated_at' => now(),
+                        ]);
+                }
+            }
+
+            // CRITICAL: Assign cashier role with team context
+            $cashierRole = \Spatie\Permission\Models\Role::where('name', 'cashier')
+                ->where('tenant_id', $tenant->id)
+                ->first();
+            
+            if ($cashierRole) {
+                // CRITICAL: Always set team context BEFORE any role operation
+                setPermissionsTeamId($tenant->id);
+                
+                // Force remove any existing role assignments for this user in this tenant
+                $cashier->roles()->wherePivot('tenant_id', $tenant->id)->detach();
+                
+                // Assign role fresh
+                $cashier->assignRole($cashierRole);
+                
+                // Verify assignment
+                $cashier->refresh();
+                setPermissionsTeamId($tenant->id);
+                
+                if ($cashier->hasRole('cashier')) {
+                    $this->command->info("✅ Cashier role successfully assigned to {$cashierEmail} for store {$branchName}");
+                } else {
+                    $this->command->warn("⚠️ Failed to assign cashier role to {$cashierEmail} for store {$branchName}");
+                }
+            } else {
+                $this->command->warn("⚠️ Cashier role not found for tenant {$tenant->name} (ID: {$tenant->id})");
+            }
+
             // CRITICAL: Ensure the owner's primary store assignment points to Central branch (first store)
             // This is essential for auth gate to work correctly
             if ($idx === 0) {
@@ -282,7 +362,8 @@ class OwnerPanelSeeder extends Seeder
             $days = now()->day; // month-to-date days
 
             $seqByDate = [];
-            for ($d = $days - 1; $d >= 0; $d--) {
+            // Maksimal hari kemarin, mulai dari hari kemarin (d = 1) sampai beberapa hari sebelumnya
+            for ($d = 1; $d <= $days; $d++) {
                 $date = now()->subDays($d);
                 $dateKey = $date->format('Ymd');
                 $seqByDate[$dateKey] = Order::withoutGlobalScopes()->where('store_id', $store->id)->whereDate('created_at', $date)->count();
@@ -312,7 +393,9 @@ class OwnerPanelSeeder extends Seeder
                     }
 
                     $order = Order::withoutGlobalScopes()->create([
+                        'tenant_id' => $store->tenant_id,
                         'store_id' => $store->id,
+                        'user_id' => $cashier->id,
                         'order_number' => $orderNumber,
                         'status' => 'completed',
                         'subtotal' => 0,
@@ -374,10 +457,10 @@ class OwnerPanelSeeder extends Seeder
                 }
             }
 
-            // Post-adjustment for Central: exact MTD revenue and transaction count target
+                // Post-adjustment for Central: exact MTD revenue and transaction count target
             if ($idx === 0) {
                 $monthStart = now()->startOfMonth();
-                $monthEnd = now()->endOfMonth();
+                $monthEnd = now()->subDay()->endOfDay(); // Maksimal hari kemarin
                 $targetRevenue = 198134650;
                 $currentRevenue = Payment::withoutStoreScope()
                     ->where('store_id', $store->id)
@@ -387,7 +470,7 @@ class OwnerPanelSeeder extends Seeder
 
                 $diff = (int) ($targetRevenue - $currentRevenue);
                 if ($diff > 0) {
-                    $today = now();
+                    $today = now()->subDay(); // Maksimal hari kemarin
                     $dateKey = $today->format('Ymd');
                     $seqByDate[$dateKey] = ($seqByDate[$dateKey] ?? 0);
                     $skuKeys = array_keys($products);
@@ -403,7 +486,9 @@ class OwnerPanelSeeder extends Seeder
                             continue;
                         }
                         $order = Order::withoutGlobalScopes()->create([
+                            'tenant_id' => $store->tenant_id,
                             'store_id' => $store->id,
+                            'user_id' => $cashier->id,
                             'order_number' => $orderNumber,
                             'status' => 'completed',
                             'subtotal' => 0,
@@ -464,7 +549,7 @@ class OwnerPanelSeeder extends Seeder
                 $targetOrders = 1429;
                 $addOrders = max(0, $targetOrders - $currentOrders);
                 if ($addOrders > 0) {
-                    $today = now();
+                    $today = now()->subDay(); // Maksimal hari kemarin
                     $dateKey = $today->format('Ymd');
                     $seqByDate[$dateKey] = ($seqByDate[$dateKey] ?? 0);
                     $skuKeys = array_keys($products);
@@ -479,7 +564,9 @@ class OwnerPanelSeeder extends Seeder
                             continue;
                         }
                         $order = Order::withoutGlobalScopes()->create([
+                            'tenant_id' => $store->tenant_id,
                             'store_id' => $store->id,
+                            'user_id' => $cashier->id,
                             'order_number' => $orderNumber,
                             'status' => 'completed',
                             'subtotal' => 0,
