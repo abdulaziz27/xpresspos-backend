@@ -5,7 +5,7 @@
             <!-- Logo -->
             <div class="flex-shrink-0 flex items-center">
                 <a href="{{ url('/') }}" class="flex items-center space-x-2 group transition-all duration-300 ease-in-out">
-                    <img src="{{ asset('logo/logo-2-(ori-white-ver).svg') }}" class="h-10">
+                    <img src="{{ asset('logo/logo-1-(ori-white-ver).png') }}" class="h-10">
                     <!-- <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
                         <span class="text-white font-bold text-sm">X</span>
                     </div>
