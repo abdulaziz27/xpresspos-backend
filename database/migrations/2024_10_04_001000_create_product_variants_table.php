@@ -10,7 +10,8 @@ return new class extends Migration
     {
         Schema::create('product_variants', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignId('product_id')->constrained('products')->cascadeOnDelete();
             $table->string('name');
             $table->string('value');
@@ -19,8 +20,8 @@ return new class extends Migration
             $table->integer('sort_order')->default(0);
             $table->timestamps();
 
+            $table->index(['tenant_id', 'product_id']);
             $table->index(['product_id', 'is_active']);
-            $table->index('store_id');
             $table->index('sort_order');
         });
     }

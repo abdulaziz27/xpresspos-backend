@@ -15,6 +15,7 @@ class PurchaseOrder extends Model
     use BelongsToStore;
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
         'supplier_id',
         'po_number',
@@ -24,6 +25,29 @@ class PurchaseOrder extends Model
         'total_amount',
         'notes',
     ];
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (!$model->tenant_id && $model->store_id) {
+                $store = Store::find($model->store_id);
+                if ($store) {
+                    $model->tenant_id = $store->tenant_id;
+                }
+            }
+        });
+    }
+
+    /**
+     * Get the tenant that owns the purchase order.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     protected $casts = [
         'ordered_at' => 'datetime',

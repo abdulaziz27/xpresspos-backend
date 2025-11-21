@@ -12,11 +12,17 @@ class CategorySeeder extends Seeder
      */
     public function run(): void
     {
-        $storeId = config('demo.store_id') ?? \App\Models\Store::first()->id;
+        $store = \App\Models\Store::first();
+        if (!$store) {
+            $this->command->error('No store found. Make sure StoreSeeder runs first.');
+            return;
+        }
+        
+        $tenantId = $store->tenant_id;
 
         $categories = [
             [
-                'store_id' => $storeId,
+                'tenant_id' => $tenantId,
                 'name' => 'Coffee',
                 'slug' => 'coffee',
                 'description' => 'Various coffee drinks',
@@ -24,7 +30,7 @@ class CategorySeeder extends Seeder
                 'sort_order' => 1,
             ],
             [
-                'store_id' => $storeId,
+                'tenant_id' => $tenantId,
                 'name' => 'Tea',
                 'slug' => 'tea',
                 'description' => 'Tea and herbal drinks',
@@ -32,7 +38,7 @@ class CategorySeeder extends Seeder
                 'sort_order' => 2,
             ],
             [
-                'store_id' => $storeId,
+                'tenant_id' => $tenantId,
                 'name' => 'Pastry',
                 'slug' => 'pastry',
                 'description' => 'Fresh baked goods',
@@ -40,7 +46,7 @@ class CategorySeeder extends Seeder
                 'sort_order' => 3,
             ],
             [
-                'store_id' => $storeId,
+                'tenant_id' => $tenantId,
                 'name' => 'Snacks',
                 'slug' => 'snacks',
                 'description' => 'Light snacks and appetizers',
@@ -50,7 +56,7 @@ class CategorySeeder extends Seeder
         ];
 
         foreach ($categories as $category) {
-            \App\Models\Category::query()->withoutStoreScope()->create($category);
+            \App\Models\Category::query()->withoutTenantScope()->create($category);
         }
     }
 }

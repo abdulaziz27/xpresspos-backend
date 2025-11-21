@@ -14,6 +14,7 @@ class Order extends Model
     use HasFactory, HasUuids, BelongsToStore;
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
         'user_id',           // Staff who created the order
         'member_id',         // Customer (can be member or guest)
@@ -52,7 +53,23 @@ class Order extends Model
             if (!$order->order_number) {
                 $order->order_number = static::generateOrderNumber();
             }
+            
+            // Auto-set tenant_id from store
+            if (!$order->tenant_id && $order->store_id) {
+                $store = Store::find($order->store_id);
+                if ($store) {
+                    $order->tenant_id = $store->tenant_id;
+                }
+            }
         });
+    }
+
+    /**
+     * Get the tenant that owns the order.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
     }
 
     /**

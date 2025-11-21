@@ -15,6 +15,8 @@ return new class extends Migration
     {
         Schema::create('purchase_orders', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
             $table->string('supplier_id', 36);
             $table->string('po_number');
@@ -29,6 +31,7 @@ return new class extends Migration
             $table->foreign('supplier_id')->references('id')->on('suppliers')->onDelete('restrict');
 
             // Indexes
+            $table->index(['tenant_id', 'store_id']);
             $table->index(['store_id', 'status'], 'idx_po_store_status');
             $table->index(['store_id', 'ordered_at'], 'idx_po_store_ordered');
             

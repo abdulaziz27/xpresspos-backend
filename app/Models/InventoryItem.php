@@ -2,21 +2,42 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\BelongsToStore;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Scopes\TenantScope;
 
 class InventoryItem extends Model
 {
     use HasFactory;
     use HasUuids;
-    use BelongsToStore;
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new TenantScope);
+        
+        // Automatically set tenant_id when creating
+        static::creating(function ($model) {
+            if (!$model->tenant_id && auth()->check()) {
+                $user = auth()->user();
+                $tenantId = $user->currentTenant()?->id;
+                
+                if (!$tenantId) {
+                    throw new \Exception('Tidak dapat menentukan tenant aktif untuk pengguna.');
+                }
+                
+                $model->tenant_id = $tenantId;
+            }
+        });
+    }
 
     protected $fillable = [
-        'store_id',
+        'tenant_id',
         'name',
         'sku',
         'category',
@@ -34,6 +55,14 @@ class InventoryItem extends Model
         'min_stock_level' => 'decimal:3',
         'default_cost' => 'decimal:4',
     ];
+
+    /**
+     * Get the tenant that owns the inventory item.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     public function uom(): BelongsTo
     {

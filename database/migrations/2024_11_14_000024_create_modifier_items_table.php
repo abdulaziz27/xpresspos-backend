@@ -16,7 +16,8 @@ return new class extends Migration
         Schema::create('modifier_items', function (Blueprint $table) {
             $table->string('id', 36)->primary();
             $table->string('modifier_group_id', 36);
-            $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete(); // Denormalized for POS performance
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->string('name');
             $table->text('description')->nullable();
             $table->decimal('price_delta', 18, 2)->default(0);
@@ -28,7 +29,7 @@ return new class extends Migration
             $table->foreign('modifier_group_id')->references('id')->on('modifier_groups')->onDelete('cascade');
 
             // Indexes for POS UI optimization
-            $table->index(['store_id', 'is_active'], 'idx_mod_items_store_active');
+            $table->index(['tenant_id', 'is_active'], 'idx_mod_items_tenant_active');
             $table->index(['modifier_group_id', 'is_active'], 'idx_mod_items_group_active');
             $table->index(['modifier_group_id', 'sort_order'], 'idx_mod_items_group_sort');
         });

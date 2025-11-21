@@ -436,7 +436,15 @@ class CashSessionController extends Controller
         $user->setAttribute('store_id', $session->store_id);
 
         if (function_exists('setPermissionsTeamId')) {
-            setPermissionsTeamId($session->store_id);
+            // Use tenant_id from store for permissions
+            if ($session->store && $session->store->tenant_id) {
+                setPermissionsTeamId($session->store->tenant_id);
+            } else {
+                $tenantId = $user->currentTenantId();
+                if ($tenantId) {
+                    setPermissionsTeamId($tenantId);
+                }
+            }
         }
 
         return true;

@@ -96,24 +96,24 @@ class UserSeeder extends Seeder
         }
 
         // CRITICAL: Set team context BEFORE assigning role
-        if ($storeId) {
-            // Find owner role for this specific store
+        if ($storeId && $tenantId) {
+            // Find owner role for this specific tenant
             $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
-                ->where('store_id', $storeId)
+                ->where('tenant_id', $tenantId)
                 ->first();
             
             if ($ownerRole) {
-                setPermissionsTeamId($storeId);
+                setPermissionsTeamId($tenantId);
                 
-                // Force remove any existing role assignments for this user in this store
-                $owner->roles()->wherePivot('store_id', $storeId)->detach();
+                // Force remove any existing role assignments for this user in this tenant
+                $owner->roles()->wherePivot('tenant_id', $tenantId)->detach();
                 
                 // Assign role fresh
                 $owner->assignRole($ownerRole);
                 
                 // Verify assignment
                 $owner->refresh();
-                setPermissionsTeamId($storeId);
+                setPermissionsTeamId($tenantId);
                 
                 if ($owner->hasRole('owner')) {
                     $this->command->info("✅ Owner role successfully assigned to {$owner->email}");
@@ -121,12 +121,12 @@ class UserSeeder extends Seeder
                     $this->command->error("❌ Failed to assign owner role to {$owner->email}");
                 }
             } else {
-                $this->command->warn("⚠️ Owner role not found for store ID: {$storeId}. Role will be assigned after PermissionsAndRolesSeeder runs.");
+                $this->command->warn("⚠️ Owner role not found for tenant ID: {$tenantId}. Role will be assigned after PermissionsAndRolesSeeder runs.");
                 // Fallback: assign role without team context (will be fixed by PermissionsAndRolesSeeder)
                 $owner->assignRole('owner');
             }
         } else {
-            $this->command->warn("⚠️ No store found. Owner role assignment skipped. Run StoreSeeder first.");
+            $this->command->warn("⚠️ No store or tenant found. Owner role assignment skipped. Run StoreSeeder first.");
         }
 
         // Create Cashier
@@ -183,24 +183,24 @@ class UserSeeder extends Seeder
         }
 
         // CRITICAL: Set team context BEFORE assigning role
-        if ($storeId) {
-            // Find cashier role for this specific store
+        if ($storeId && $tenantId) {
+            // Find cashier role for this specific tenant
             $cashierRole = \Spatie\Permission\Models\Role::where('name', 'cashier')
-                ->where('store_id', $storeId)
+                ->where('tenant_id', $tenantId)
                 ->first();
             
             if ($cashierRole) {
-                setPermissionsTeamId($storeId);
+                setPermissionsTeamId($tenantId);
                 
-                // Force remove any existing role assignments for this user in this store
-                $cashier->roles()->wherePivot('store_id', $storeId)->detach();
+                // Force remove any existing role assignments for this user in this tenant
+                $cashier->roles()->wherePivot('tenant_id', $tenantId)->detach();
                 
                 // Assign role fresh
                 $cashier->assignRole($cashierRole);
                 
                 // Verify assignment
                 $cashier->refresh();
-                setPermissionsTeamId($storeId);
+                setPermissionsTeamId($tenantId);
                 
                 if ($cashier->hasRole('cashier')) {
                     $this->command->info("✅ Cashier role successfully assigned to {$cashier->email}");
@@ -208,7 +208,7 @@ class UserSeeder extends Seeder
                     $this->command->error("❌ Failed to assign cashier role to {$cashier->email}");
                 }
             } else {
-                $this->command->warn("⚠️ Cashier role not found for store ID: {$storeId}. Role will be assigned after PermissionsAndRolesSeeder runs.");
+                $this->command->warn("⚠️ Cashier role not found for tenant ID: {$tenantId}. Role will be assigned after PermissionsAndRolesSeeder runs.");
                 // Fallback: assign role without team context (will be fixed by PermissionsAndRolesSeeder)
                 $cashier->assignRole('cashier');
             }

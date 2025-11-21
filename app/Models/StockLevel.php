@@ -13,6 +13,7 @@ class StockLevel extends Model
     use HasFactory, HasUuids, BelongsToStore;
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
         'product_id',
         'current_stock',
@@ -22,6 +23,29 @@ class StockLevel extends Model
         'total_value',
         'last_movement_at',
     ];
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (!$model->tenant_id && $model->store_id) {
+                $store = Store::find($model->store_id);
+                if ($store) {
+                    $model->tenant_id = $store->tenant_id;
+                }
+            }
+        });
+    }
+
+    /**
+     * Get the tenant that owns the stock level.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     protected $casts = [
         'current_stock' => 'integer',
@@ -138,10 +162,16 @@ class StockLevel extends Model
     public static function getOrCreateForProduct(string $productId, ?string $storeId = null): self
     {
         $user = auth()->user() ?? request()->user();
-        $storeId = $storeId ?? ($user ? $user->store_id : null);
+        $storeContext = \App\Services\StoreContext::instance();
+        $storeId = $storeId ?? $storeContext->current($user);
 
         if (!$storeId) {
             throw new \Exception('Store ID is required to get or create stock level');
+        }
+
+        $store = Store::find($storeId);
+        if (!$store) {
+            throw new \Exception('Store not found');
         }
 
         return self::firstOrCreate(
@@ -150,6 +180,7 @@ class StockLevel extends Model
                 'product_id' => $productId,
             ],
             [
+                'tenant_id' => $store->tenant_id,
                 'current_stock' => 0,
                 'reserved_stock' => 0,
                 'available_stock' => 0,

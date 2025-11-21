@@ -19,12 +19,13 @@ class ListProducts extends ListRecords
 
     public function mount(): void
     {
-        // Pastikan store context diset dengan benar
+        // Set tenant context for permissions
         $user = auth()->user();
-        if ($user && $user->store_id) {
-            $storeContext = \App\Services\StoreContext::instance();
-            $storeContext->set($user->store_id);
-            setPermissionsTeamId($user->store_id);
+        if ($user) {
+            $tenantId = $user->currentTenantId();
+            if ($tenantId) {
+                setPermissionsTeamId($tenantId);
+            }
         }
 
         parent::mount();

@@ -10,6 +10,8 @@ return new class extends Migration
     {
         Schema::create('inventory_movements', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
             $table->foreignId('product_id')->constrained('products');
             $table->foreignId('user_id')->constrained('users');
@@ -23,6 +25,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
+            $table->index(['tenant_id', 'store_id']);
             $table->index(['store_id', 'product_id']);
             $table->index(['store_id', 'type']);
             $table->index(['store_id', 'created_at']);

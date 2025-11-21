@@ -51,7 +51,6 @@ class UpgradeDowngradeFlowTest extends TestCase
             'assignment_role' => 'owner',
             'is_primary' => true,
         ]);
-        $user->update(['store_id' => $store->id]);
 
         $basicPlan = Plan::where('slug', 'basic')->first();
         $proPlan = Plan::where('slug', 'pro')->first();
@@ -143,7 +142,6 @@ class UpgradeDowngradeFlowTest extends TestCase
             'assignment_role' => 'owner',
             'is_primary' => true,
         ]);
-        $user->update(['store_id' => $store->id]);
 
         $basicPlan = Plan::where('slug', 'basic')->first();
         $proPlan = Plan::where('slug', 'pro')->first();
@@ -225,7 +223,13 @@ class UpgradeDowngradeFlowTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-        $user->update(['store_id' => $store->id]);
+        // Create store_user_assignment instead of updating store_id
+        StoreUserAssignment::create([
+            'store_id' => $store->id,
+            'user_id' => $user->id,
+            'assignment_role' => 'owner',
+            'is_primary' => true,
+        ]);
 
         $basicPlan = Plan::where('slug', 'basic')->first();
         $proPlan = Plan::where('slug', 'pro')->first();
@@ -307,7 +311,6 @@ class UpgradeDowngradeFlowTest extends TestCase
             'assignment_role' => 'owner',
             'is_primary' => true,
         ]);
-        $user->update(['store_id' => $store->id]);
 
         $basicPlan = Plan::where('slug', 'basic')->first();
 
@@ -367,7 +370,6 @@ class UpgradeDowngradeFlowTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-        $user->update(['store_id' => $store1->id]);
 
         $basicPlan = Plan::where('slug', 'basic')->first();
         $proPlan = Plan::where('slug', 'pro')->first();
@@ -435,7 +437,6 @@ class UpgradeDowngradeFlowTest extends TestCase
             'assignment_role' => 'owner',
             'is_primary' => true,
         ]);
-        $user->update(['store_id' => $store->id]);
 
         $basicPlan = Plan::where('slug', 'basic')->first();
         $proPlan = Plan::where('slug', 'pro')->first();

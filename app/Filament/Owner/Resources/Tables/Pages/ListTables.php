@@ -25,30 +25,38 @@ class ListTables extends ListRecords
 
         $query = TableModel::query();
 
-        if ($user && $user->store_id) {
+        if ($user) {
             $storeContext = \App\Services\StoreContext::instance();
-            $storeContext->set($user->store_id);
-            setPermissionsTeamId($user->store_id);
+            $storeId = $storeContext->current($user);
+            
+            if ($storeId) {
+                $storeContext->set($storeId);
+                // Set tenant context for permissions
+                $tenantId = $user->currentTenantId();
+                if ($tenantId) {
+                    setPermissionsTeamId($tenantId);
+                }
 
-            $scoped = $query->withoutGlobalScopes()
-                ->where('store_id', $user->store_id);
+                $scoped = $query->withoutGlobalScopes()
+                    ->where('store_id', $storeId);
 
-            try {
-                $sampleIds = (clone $scoped)->limit(5)->pluck('id');
-                \Log::info('[Filament][Tables] ListTables::getTableQuery', [
-                    'user_id' => $user->id,
-                    'user_email' => $user->email,
-                    'store_id' => $user->store_id,
-                    'sql' => $scoped->toSql(),
-                    'bindings' => $scoped->getBindings(),
-                    'count' => (clone $scoped)->count(),
-                    'sample_ids' => $sampleIds,
-                ]);
-            } catch (\Throwable $e) {
-                // ignore logging error
+                try {
+                    $sampleIds = (clone $scoped)->limit(5)->pluck('id');
+                    \Log::info('[Filament][Tables] ListTables::getTableQuery', [
+                        'user_id' => $user->id,
+                        'user_email' => $user->email,
+                        'store_id' => $storeId,
+                        'sql' => $scoped->toSql(),
+                        'bindings' => $scoped->getBindings(),
+                        'count' => (clone $scoped)->count(),
+                        'sample_ids' => $sampleIds,
+                    ]);
+                } catch (\Throwable $e) {
+                    // ignore logging error
+                }
+
+                return $scoped;
             }
-
-            return $scoped;
         }
 
         return $query;

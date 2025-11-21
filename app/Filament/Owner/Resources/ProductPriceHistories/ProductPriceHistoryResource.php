@@ -55,14 +55,7 @@ class ProductPriceHistoryResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $user = auth()->user();
-        
-        if ($user && $user->store_id) {
-            return parent::getEloquentQuery()
-                ->withoutGlobalScopes()
-                ->where('store_id', $user->store_id);
-        }
-
+        // Tenant scope is automatically applied via TenantScope global scope
         return parent::getEloquentQuery();
     }
 

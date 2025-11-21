@@ -13,6 +13,7 @@ class InventoryTransfer extends Model
     use HasUuids;
 
     protected $fillable = [
+        'tenant_id',
         'from_store_id',
         'to_store_id',
         'transfer_number',
@@ -21,6 +22,29 @@ class InventoryTransfer extends Model
         'received_at',
         'notes',
     ];
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (!$model->tenant_id && $model->from_store_id) {
+                $store = Store::find($model->from_store_id);
+                if ($store) {
+                    $model->tenant_id = $store->tenant_id;
+                }
+            }
+        });
+    }
+
+    /**
+     * Get the tenant that owns the inventory transfer.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     protected $casts = [
         'shipped_at' => 'datetime',

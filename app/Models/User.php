@@ -110,13 +110,32 @@ class User extends Authenticatable implements FilamentUser
     }
     
     /**
+     * Get current tenant ID from context.
+     */
+    public function currentTenantId(): ?string
+    {
+        $tenant = $this->currentTenant();
+        if ($tenant) {
+            return $tenant->id;
+        }
+        
+        // Fallback: get tenant from primary store
+        $primaryStore = $this->primaryStore();
+        if ($primaryStore && $primaryStore->tenant_id) {
+            return $primaryStore->tenant_id;
+        }
+        
+        return null;
+    }
+    
+    /**
      * Get roles with proper team context.
      */
     public function getRolesWithContext()
     {
-        $storeId = StoreContext::instance()->current($this);
-        if ($storeId) {
-            setPermissionsTeamId($storeId);
+        $tenantId = $this->currentTenantId();
+        if ($tenantId) {
+            setPermissionsTeamId($tenantId);
         }
         return $this->roles;
     }
@@ -126,9 +145,9 @@ class User extends Authenticatable implements FilamentUser
      */
     public function getPermissionsWithContext()
     {
-        $storeId = StoreContext::instance()->current($this);
-        if ($storeId) {
-            setPermissionsTeamId($storeId);
+        $tenantId = $this->currentTenantId();
+        if ($tenantId) {
+            setPermissionsTeamId($tenantId);
         }
         return $this->getAllPermissions();
     }

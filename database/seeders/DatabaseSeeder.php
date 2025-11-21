@@ -41,6 +41,13 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $storeId = config('demo.store_id');
+        $store = \App\Models\Store::find($storeId);
+        $tenantId = $store?->tenant_id;
+
+        if (!$storeId || !$tenantId) {
+            $this->command->warn('⚠️ No store or tenant found. Skipping manager and staff role assignment.');
+            return;
+        }
 
         // Create manager user
         $managerUser = User::firstOrCreate(
@@ -48,26 +55,25 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Store Manager',
                 'password' => Hash::make('password123'),
-                'store_id' => $storeId,
                 'email_verified_at' => now(),
             ]
         );
         $managerRole = \Spatie\Permission\Models\Role::where('name', 'manager')
-            ->where('store_id', $storeId)
+            ->where('tenant_id', $tenantId)
             ->first();
         if ($managerRole) {
             // CRITICAL: Always set team context BEFORE any role operation
-            setPermissionsTeamId($storeId);
+            setPermissionsTeamId($tenantId);
             
-            // Force remove any existing role assignments for this user in this store
-            $managerUser->roles()->wherePivot('store_id', $storeId)->detach();
+            // Force remove any existing role assignments for this user in this tenant
+            $managerUser->roles()->wherePivot('tenant_id', $tenantId)->detach();
             
             // Assign role fresh
             $managerUser->assignRole($managerRole);
             
             // Verify assignment
             $managerUser->refresh();
-            setPermissionsTeamId($storeId);
+            setPermissionsTeamId($tenantId);
         }
         $this->assignUserToStore($managerUser, $storeId, 'manager');
 
@@ -77,26 +83,25 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Store Staff',
                 'password' => Hash::make('password123'),
-                'store_id' => $storeId,
                 'email_verified_at' => now(),
             ]
         );
         $staffRole = \Spatie\Permission\Models\Role::where('name', 'staff')
-            ->where('store_id', $storeId)
+            ->where('tenant_id', $tenantId)
             ->first();
         if ($staffRole) {
             // CRITICAL: Always set team context BEFORE any role operation
-            setPermissionsTeamId($storeId);
+            setPermissionsTeamId($tenantId);
             
-            // Force remove any existing role assignments for this user in this store
-            $staffUser->roles()->wherePivot('store_id', $storeId)->detach();
+            // Force remove any existing role assignments for this user in this tenant
+            $staffUser->roles()->wherePivot('tenant_id', $tenantId)->detach();
             
             // Assign role fresh
             $staffUser->assignRole($staffRole);
             
             // Verify assignment
             $staffUser->refresh();
-            setPermissionsTeamId($storeId);
+            setPermissionsTeamId($tenantId);
         }
         $this->assignUserToStore($staffUser, $storeId, 'staff');
 

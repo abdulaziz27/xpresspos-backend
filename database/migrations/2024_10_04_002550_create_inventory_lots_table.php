@@ -15,6 +15,8 @@ return new class extends Migration
     {
         Schema::create('inventory_lots', function (Blueprint $table) {
             $table->string('id', 36)->primary();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
             $table->string('inventory_item_id', 36);
             $table->string('lot_code');
@@ -30,6 +32,7 @@ return new class extends Migration
             $table->foreign('inventory_item_id')->references('id')->on('inventory_items')->onDelete('cascade');
 
             // Indexes
+            $table->index(['tenant_id', 'store_id']);
             $table->index(['store_id', 'inventory_item_id'], 'idx_lots_store_item');
             $table->index(['store_id', 'exp_date'], 'idx_lots_store_exp');
             $table->index(['store_id', 'inventory_item_id', 'status'], 'idx_lots_store_item_status');

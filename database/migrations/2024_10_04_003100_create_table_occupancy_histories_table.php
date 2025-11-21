@@ -10,6 +10,8 @@ return new class extends Migration
     {
         Schema::create('table_occupancy_histories', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
             $table->foreignUuid('table_id')->constrained('tables')->cascadeOnDelete();
             $table->foreignUuid('order_id')->nullable()->constrained('orders')->nullOnDelete();
@@ -24,6 +26,7 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->timestamps();
 
+            $table->index(['tenant_id', 'store_id']);
             $table->index(['store_id', 'occupied_at']);
             $table->index(['table_id', 'occupied_at']);
             $table->index('status');

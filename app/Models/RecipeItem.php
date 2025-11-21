@@ -6,14 +6,14 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Concerns\BelongsToStore;
+use App\Models\Scopes\TenantScope;
 
 class RecipeItem extends Model
 {
-    use HasFactory, HasUuids, BelongsToStore;
+    use HasFactory, HasUuids;
 
     protected $fillable = [
-        'store_id',
+        'tenant_id',
         'recipe_id',
         'ingredient_product_id',
         'quantity',
@@ -28,6 +28,14 @@ class RecipeItem extends Model
         'unit_cost' => 'decimal:2',
         'total_cost' => 'decimal:2',
     ];
+
+    /**
+     * Get the tenant that owns the recipe item.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     /**
      * Get the recipe that owns the recipe item.
@@ -50,17 +58,29 @@ class RecipeItem extends Model
      */
     protected static function booted(): void
     {
+        static::addGlobalScope(new TenantScope);
+        
+        // Automatically set tenant_id when creating
+        static::creating(function ($model) {
+            if (!$model->tenant_id && $model->recipe_id) {
+                $recipe = Recipe::withoutTenantScope()->find($model->recipe_id);
+                if ($recipe) {
+                    $model->tenant_id = $recipe->tenant_id;
+                }
+            }
+        });
+
         static::saving(function ($recipeItem) {
             $recipeItem->total_cost = $recipeItem->quantity * $recipeItem->unit_cost;
         });
 
         static::saved(function ($recipeItem) {
-            $recipe = Recipe::withoutStoreScope()->find($recipeItem->recipe_id);
+            $recipe = Recipe::find($recipeItem->recipe_id);
             $recipe?->recalculateCosts();
         });
 
         static::deleted(function ($recipeItem) {
-            $recipe = Recipe::withoutStoreScope()->find($recipeItem->recipe_id);
+            $recipe = Recipe::find($recipeItem->recipe_id);
             $recipe?->recalculateCosts();
         });
     }

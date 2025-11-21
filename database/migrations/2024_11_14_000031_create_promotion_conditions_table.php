@@ -15,6 +15,8 @@ return new class extends Migration
     {
         Schema::create('promotion_conditions', function (Blueprint $table) {
             $table->id();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->string('promotion_id', 36);
             $table->enum('condition_type', [
                 'MIN_SPEND',
@@ -28,8 +30,11 @@ return new class extends Migration
             $table->json('condition_value');
             $table->timestamps();
 
-            // Foreign key
+            // Foreign keys
             $table->foreign('promotion_id')->references('id')->on('promotions')->onDelete('cascade');
+            
+            // Indexes
+            $table->index(['tenant_id', 'promotion_id']);
         });
     }
 

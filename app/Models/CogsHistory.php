@@ -15,6 +15,7 @@ class CogsHistory extends Model
     protected $table = 'cogs_history';
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
         'product_id',
         'order_id',
@@ -24,6 +25,29 @@ class CogsHistory extends Model
         'calculation_method',
         'cost_breakdown',
     ];
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (!$model->tenant_id && $model->store_id) {
+                $store = Store::find($model->store_id);
+                if ($store) {
+                    $model->tenant_id = $store->tenant_id;
+                }
+            }
+        });
+    }
+
+    /**
+     * Get the tenant that owns the COGS history.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     protected $casts = [
         'quantity_sold' => 'integer',
@@ -87,8 +111,12 @@ class CogsHistory extends Model
         $unitCost = $stockLevel->average_cost;
         $totalCogs = $unitCost * $quantitySold;
 
+        $storeId = self::resolveStoreId($product);
+        $store = $storeId ? Store::find($storeId) : null;
+        
         return self::create([
-            'store_id' => self::resolveStoreId($product),
+            'tenant_id' => $store?->tenant_id,
+            'store_id' => $storeId,
             'product_id' => $product->id,
             'order_id' => $orderId,
             'quantity_sold' => $quantitySold,
@@ -137,8 +165,12 @@ class CogsHistory extends Model
 
         $averageUnitCost = $quantitySold > 0 ? $totalCogs / $quantitySold : 0;
 
+        $storeId = self::resolveStoreId($product);
+        $store = $storeId ? Store::find($storeId) : null;
+        
         return self::create([
-            'store_id' => self::resolveStoreId($product),
+            'tenant_id' => $store?->tenant_id,
+            'store_id' => $storeId,
             'product_id' => $product->id,
             'order_id' => $orderId,
             'quantity_sold' => $quantitySold,
@@ -188,8 +220,12 @@ class CogsHistory extends Model
 
         $averageUnitCost = $quantitySold > 0 ? $totalCogs / $quantitySold : 0;
 
+        $storeId = self::resolveStoreId($product);
+        $store = $storeId ? Store::find($storeId) : null;
+        
         return self::create([
-            'store_id' => self::resolveStoreId($product),
+            'tenant_id' => $store?->tenant_id,
+            'store_id' => $storeId,
             'product_id' => $product->id,
             'order_id' => $orderId,
             'quantity_sold' => $quantitySold,
@@ -202,6 +238,8 @@ class CogsHistory extends Model
 
     protected static function resolveStoreId(Product $product): ?string
     {
-        return $product->store_id ?? auth()->user()?->currentStoreId();
+        $storeContext = \App\Services\StoreContext::instance();
+        $user = auth()->user();
+        return $storeContext->current($user);
     }
 }

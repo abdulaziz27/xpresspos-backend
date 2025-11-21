@@ -6,16 +6,40 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Scopes\StoreScope;
+use App\Models\Scopes\TenantScope;
 
 class ProductVariant extends Model
 {
     use HasFactory, HasUuids;
 
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new TenantScope);
+        
+        // Automatically set tenant_id when creating
+        static::creating(function ($model) {
+            if (!$model->tenant_id && $model->product_id) {
+                $product = Product::withoutTenantScope()->find($model->product_id);
+                if ($product) {
+                    $model->tenant_id = $product->tenant_id;
+                } elseif (auth()->check()) {
+                    $user = auth()->user();
+                    $tenantId = $user->currentTenant()?->id;
+                    if ($tenantId) {
+                        $model->tenant_id = $tenantId;
+                    }
+                }
+            }
+        });
+    }
+
     protected $table = 'product_variants';
     
     protected $fillable = [
-        'store_id',
+        'tenant_id',
         'product_id',
         'name',
         'value',
@@ -30,11 +54,11 @@ class ProductVariant extends Model
     ];
 
     /**
-     * The "booted" method of the model.
+     * Get the tenant that owns the product variant.
      */
-    protected static function booted(): void
+    public function tenant(): BelongsTo
     {
-        static::addGlobalScope(new StoreScope);
+        return $this->belongsTo(Tenant::class);
     }
 
     /**
@@ -43,14 +67,6 @@ class ProductVariant extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
-    }
-
-    /**
-     * Get the store that owns the product option.
-     */
-    public function store(): BelongsTo
-    {
-        return $this->belongsTo(Store::class);
     }
 
     /**
@@ -95,10 +111,16 @@ class ProductVariant extends Model
     public function isAvailable(): bool
     {
         $product = $this->product ?: Product::withoutGlobalScopes()->find($this->product_id);
-        return $this->is_active && 
-               $product && 
-               $product->status && 
-               (!$product->track_inventory || $product->stock > 0);
+        if (!$this->is_active || !$product || !$product->status) {
+            return false;
+        }
+        
+        if ($product->track_inventory) {
+            $stockLevel = $product->stockLevel;
+            return $stockLevel && $stockLevel->current_stock > 0;
+        }
+        
+        return true;
     }
 
     /**

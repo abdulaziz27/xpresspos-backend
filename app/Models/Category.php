@@ -6,14 +6,22 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\Concerns\BelongsToStore;
+use App\Models\Scopes\TenantScope;
 
 class Category extends Model
 {
-    use HasFactory, BelongsToStore;
+    use HasFactory;
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new TenantScope);
+    }
 
     protected $fillable = [
-        'store_id',
+        'tenant_id',
         'name',
         'slug',
         'description',
@@ -27,6 +35,14 @@ class Category extends Model
     ];
 
 
+
+    /**
+     * Get the tenant that owns the category.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     /**
      * Get the products for the category.

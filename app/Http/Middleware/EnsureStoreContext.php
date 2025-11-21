@@ -60,8 +60,16 @@ class EnsureStoreContext
                     }
                 }
                 
-                // CRITICAL: Set team context for permissions
-                setPermissionsTeamId($currentStoreId);
+                // CRITICAL: Set team context for permissions using tenant_id from store
+                if ($store && $store->tenant_id) {
+                    setPermissionsTeamId($store->tenant_id);
+                } else {
+                    // Fallback to user's tenant if store doesn't have tenant_id
+                    $tenantId = $user->currentTenantId();
+                    if ($tenantId) {
+                        setPermissionsTeamId($tenantId);
+                    }
+                }
             }
         }
 

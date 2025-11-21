@@ -7,14 +7,32 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\Concerns\BelongsToStore;
+use App\Models\Scopes\TenantScope;
 
 class Recipe extends Model
 {
-    use HasFactory, HasUuids, BelongsToStore;
+    use HasFactory, HasUuids;
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new TenantScope);
+        
+        // Automatically set tenant_id when creating
+        static::creating(function ($model) {
+            if (!$model->tenant_id && $model->product_id) {
+                $product = Product::withoutTenantScope()->find($model->product_id);
+                if ($product) {
+                    $model->tenant_id = $product->tenant_id;
+                }
+            }
+        });
+    }
 
     protected $fillable = [
-        'store_id',
+        'tenant_id',
         'product_id',
         'name',
         'description',
@@ -33,6 +51,14 @@ class Recipe extends Model
     ];
 
 
+
+    /**
+     * Get the tenant that owns the recipe.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     /**
      * Get the product associated with the recipe.

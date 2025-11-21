@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use App\Models\Store;
+use App\Models\Tenant;
 
 class PermissionsAndRolesSeeder extends Seeder
 {
@@ -330,21 +330,21 @@ class PermissionsAndRolesSeeder extends Seeder
         // Re-enable teams for other roles
         config(['permission.teams' => true]);
 
-        // Create roles and assign permissions for each store
-        $stores = Store::all();
+        // Create roles and assign permissions for each tenant
+        $tenants = Tenant::all();
         
-        foreach ($stores as $store) {
+        foreach ($tenants as $tenant) {
             foreach ($rolePermissions as $roleName => $rolePerms) {
                 // Skip admin_sistem as it's already created globally
                 if ($roleName === 'admin_sistem') {
                     continue;
                 }
 
-                // Create role for this store
+                // Create role for this tenant
                 $role = Role::firstOrCreate([
                     'name' => $roleName,
                     'guard_name' => 'web',
-                    'store_id' => $store->id,
+                    'tenant_id' => $tenant->id,
                 ]);
 
                 // Assign permissions to role
@@ -370,6 +370,6 @@ class PermissionsAndRolesSeeder extends Seeder
             }
         }
 
-        $this->command->info('Permissions and roles created successfully for all stores!');
+        $this->command->info('Permissions and roles created successfully for all tenants!');
     }
 }

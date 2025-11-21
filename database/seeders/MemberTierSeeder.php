@@ -14,12 +14,12 @@ class MemberTierSeeder extends Seeder
     {
         $loyaltyService = app(\App\Services\LoyaltyService::class);
         
-        // Initialize default tiers for all existing stores
-        \App\Models\Store::all()->each(function ($store) use ($loyaltyService) {
-            // Check if store already has tiers
-            if (\App\Models\MemberTier::where('store_id', $store->id)->count() === 0) {
-                $loyaltyService->initializeDefaultTiers($store->id);
-                $this->command->info("Initialized default member tiers for store: {$store->name}");
+        // Initialize default tiers for all existing tenants
+        \App\Models\Tenant::all()->each(function ($tenant) use ($loyaltyService) {
+            // Check if tenant already has tiers
+            if (\App\Models\MemberTier::where('tenant_id', $tenant->id)->count() === 0) {
+                $loyaltyService->initializeDefaultTiers($tenant->id);
+                $this->command->info("Initialized default member tiers for tenant: {$tenant->name}");
             }
         });
     }

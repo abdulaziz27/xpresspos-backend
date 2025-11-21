@@ -10,7 +10,8 @@ return new class extends Migration
     {
         Schema::create('categories', function (Blueprint $table) {
             $table->id();
-            $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->string('name');
             $table->string('slug')->nullable();
             $table->text('description')->nullable();
@@ -19,8 +20,9 @@ return new class extends Migration
             $table->integer('sort_order')->default(0);
             $table->timestamps();
 
-            $table->index(['store_id', 'status']);
+            $table->index(['tenant_id', 'status']);
             $table->index('sort_order');
+            $table->unique(['tenant_id', 'slug'], 'uk_categories_tenant_slug');
         });
     }
 

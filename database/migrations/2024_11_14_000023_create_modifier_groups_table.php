@@ -15,7 +15,8 @@ return new class extends Migration
     {
         Schema::create('modifier_groups', function (Blueprint $table) {
             $table->string('id', 36)->primary();
-            $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->string('name');
             $table->text('description')->nullable();
             $table->integer('min_select')->default(0);
@@ -26,8 +27,8 @@ return new class extends Migration
             $table->timestamps();
 
             // Indexes
-            $table->index(['store_id', 'is_active'], 'idx_mod_groups_store_active');
-            $table->index(['store_id', 'sort_order'], 'idx_mod_groups_store_sort');
+            $table->index(['tenant_id', 'is_active'], 'idx_mod_groups_tenant_active');
+            $table->index(['tenant_id', 'sort_order'], 'idx_mod_groups_tenant_sort');
         });
     }
 

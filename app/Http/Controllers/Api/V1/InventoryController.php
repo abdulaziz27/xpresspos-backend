@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\InventoryMovement;
 use App\Services\InventoryService;
+use App\Services\StoreContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -79,7 +80,8 @@ class InventoryController extends Controller
             ], 401);
         }
 
-        if (!$user->store_id) {
+        $storeId = StoreContext::instance()->current($user);
+        if (!$storeId) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -87,20 +89,19 @@ class InventoryController extends Controller
                     'message' => 'User missing store context',
                     'debug' => [
                         'user_id' => $user->id,
-                        'user_store_id' => $user->store_id
                     ]
                 ]
             ], 400);
         }
 
+        // Product is tenant-scoped, no need to filter by store_id
         $product = Product::where('track_inventory', true)
-            ->where('store_id', $user->store_id)
             ->findOrFail($productId);
-        $stockLevel = StockLevel::getOrCreateForProduct($productId, $user->store_id);
+        $stockLevel = StockLevel::getOrCreateForProduct($productId, $storeId);
 
-        // Get recent movements
+        // Get recent movements (InventoryMovement is store-scoped)
         $recentMovements = InventoryMovement::where('product_id', $productId)
-            ->where('store_id', $user->store_id)
+            ->where('store_id', $storeId)
             ->with('user:id,name')
             ->orderByDesc('created_at')
             ->limit(10)
@@ -126,12 +127,23 @@ class InventoryController extends Controller
     {
         $user = auth()->user() ?? request()->user();
 
-        if (!$user || !$user->store_id) {
+        if (!$user) {
             return response()->json([
                 'success' => false,
                 'error' => [
                     'code' => 'UNAUTHORIZED',
-                    'message' => 'User is not authenticated or missing store context'
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
+        $storeId = StoreContext::instance()->current($user);
+        if (!$storeId) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'STORE_CONTEXT_MISSING',
+                    'message' => 'User missing store context'
                 ]
             ], 401);
         }
@@ -144,8 +156,8 @@ class InventoryController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
+        // Product is tenant-scoped, no need to filter by store_id
         $product = Product::where('track_inventory', true)
-            ->where('store_id', $user->store_id)
             ->findOrFail($request->product_id);
 
         $result = $this->inventoryService->adjustStock(
@@ -291,12 +303,23 @@ class InventoryController extends Controller
     {
         $user = auth()->user() ?? request()->user();
 
-        if (!$user || !$user->store_id) {
+        if (!$user) {
             return response()->json([
                 'success' => false,
                 'error' => [
                     'code' => 'UNAUTHORIZED',
-                    'message' => 'User is not authenticated or missing store context'
+                    'message' => 'User is not authenticated'
+                ]
+            ], 401);
+        }
+
+        $storeId = StoreContext::instance()->current($user);
+        if (!$storeId) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'STORE_CONTEXT_MISSING',
+                    'message' => 'User missing store context'
                 ]
             ], 401);
         }
@@ -310,8 +333,8 @@ class InventoryController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
+        // Product is tenant-scoped, no need to filter by store_id
         $product = Product::where('track_inventory', true)
-            ->where('store_id', $user->store_id)
             ->findOrFail($request->product_id);
 
         try {
@@ -326,8 +349,8 @@ class InventoryController extends Controller
                 $request->notes
             );
 
-            // Update stock level
-            $stockLevel = StockLevel::getOrCreateForProduct($product->id, $user->store_id);
+            // Update stock level (StockLevel is store-scoped)
+            $stockLevel = StockLevel::getOrCreateForProduct($product->id, $storeId);
             $stockLevel->updateFromMovement($movement);
 
             return response()->json([

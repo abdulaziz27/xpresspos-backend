@@ -10,6 +10,8 @@ return new class extends Migration
     {
         Schema::create('tables', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
             $table->string('table_number');
             $table->string('name')->nullable();
@@ -27,6 +29,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
+            $table->index(['tenant_id', 'store_id']);
             $table->index(['store_id', 'status']);
             $table->index(['store_id', 'is_active']);
             $table->unique(['store_id', 'table_number']);

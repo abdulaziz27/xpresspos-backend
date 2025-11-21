@@ -27,8 +27,11 @@ class TableForm
                                     ->maxLength(50)
                                     ->unique(ignoreRecord: true, modifyRuleUsing: function ($rule) {
                                         $user = auth()->user();
-                                        if ($user && $user->store_id) {
-                                            $rule->where('store_id', $user->store_id);
+                                        if ($user) {
+                                            $storeId = \App\Services\StoreContext::instance()->current($user);
+                                            if ($storeId) {
+                                                $rule->where('store_id', $storeId);
+                                            }
                                         }
                                         return $rule;
                                     }),

@@ -27,10 +27,8 @@ class RecipeForm
                                 Select::make('product_id')
                                     ->label('Produk')
                                     ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
+                                        // Product is tenant-scoped, TenantScope will automatically filter
                                         return Product::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->pluck('name', 'id');
                                     })
                                     ->searchable()
@@ -101,10 +99,8 @@ class RecipeForm
                                         Select::make('ingredient_product_id')
                                             ->label('Bahan')
                                             ->options(function () {
-                                                $storeId = auth()->user()?->currentStoreId();
-
+                                                // Product is tenant-scoped, TenantScope will automatically filter
                                                 return Product::query()
-                                                    ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                                     ->pluck('name', 'id');
                                             })
                                             ->searchable()

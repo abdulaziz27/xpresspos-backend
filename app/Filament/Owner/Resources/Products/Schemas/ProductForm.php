@@ -96,25 +96,8 @@ class ProductForm
                                     ->default(true),
                             ]),
 
-                        Group::make([
-                            Grid::make(2)
-                                ->schema([
-                                    TextInput::make('stock')
-                                        ->label('Stok')
-                                        ->numeric()
-                                        ->minValue(0)
-                                        ->default(0)
-                                        ->visible(fn(callable $get) => $get('track_inventory')),
-
-                                    TextInput::make('min_stock_level')
-                                        ->label('Batas Minimum Stok')
-                                        ->numeric()
-                                        ->minValue(0)
-                                        ->default(0)
-                                        ->visible(fn(callable $get) => $get('track_inventory')),
-                                ])
-                                ->visible(fn(callable $get) => $get('track_inventory')),
-                        ]),
+                        // Note: Stock is now tracked via stock_levels table, not product.stock column
+                        // Stock management is done per store via StockLevel model
                     ])
                     ->columns(1),
 
@@ -127,11 +110,8 @@ class ProductForm
                                     ->label('Kategori')
                                     ->required()
                                     ->options(function () {
-                                        $user = auth()->user();
-                                        $storeId = $user ? $user->store_id : null;
-
+                                        // Category is tenant-scoped, TenantScope will automatically filter
                                         return Category::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->where('status', true)
                                             ->pluck('name', 'id');
                                     })
@@ -150,8 +130,7 @@ class ProductForm
                                             ->default(true),
                                     ])
                                     ->createOptionUsing(function (array $data): int {
-                                        $user = auth()->user();
-                                        $data['store_id'] = $user ? $user->store_id : null;
+                                        // Category is tenant-scoped, tenant_id will be auto-set by model booted()
                                         return Category::create($data)->getKey();
                                     }),
 

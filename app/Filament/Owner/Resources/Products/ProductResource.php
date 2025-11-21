@@ -65,20 +65,7 @@ class ProductResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $user = auth()->user();
-        
-        if ($user && $user->store_id) {
-            // Set store context secara eksplisit
-            $storeContext = \App\Services\StoreContext::instance();
-            $storeContext->set($user->store_id);
-            setPermissionsTeamId($user->store_id);
-            
-            // Force query untuk store ini
-            return parent::getEloquentQuery()
-                ->withoutGlobalScopes()
-                ->where('store_id', $user->store_id);
-        }
-
+        // Tenant scope is automatically applied via TenantScope global scope
         return parent::getEloquentQuery();
     }
 

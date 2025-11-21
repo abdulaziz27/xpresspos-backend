@@ -6,13 +6,13 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Concerns\BelongsToStore;
 
 class LoyaltyPointTransaction extends Model
 {
-    use HasFactory, HasUuids, BelongsToStore;
+    use HasFactory, HasUuids;
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
         'member_id',
         'order_id',
@@ -34,6 +34,40 @@ class LoyaltyPointTransaction extends Model
         'metadata' => 'array',
         'expires_at' => 'datetime',
     ];
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (!$model->tenant_id) {
+                // Try to get from member first
+                if ($model->member_id) {
+                    $member = Member::find($model->member_id);
+                    if ($member && $member->tenant_id) {
+                        $model->tenant_id = $member->tenant_id;
+                    }
+                }
+                
+                // Fallback to store
+                if (!$model->tenant_id && $model->store_id) {
+                    $store = Store::find($model->store_id);
+                    if ($store) {
+                        $model->tenant_id = $store->tenant_id;
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Get the tenant that owns the loyalty point transaction.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     /**
      * Get the member that owns the transaction.

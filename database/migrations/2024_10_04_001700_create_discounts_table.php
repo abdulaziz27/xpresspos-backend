@@ -10,6 +10,8 @@ return new class extends Migration
     {
         Schema::create('discounts', function (Blueprint $table) {
             $table->id();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
             $table->string('name');
             $table->text('description')->nullable();
@@ -19,6 +21,7 @@ return new class extends Migration
             $table->date('expired_date')->nullable();
             $table->timestamps();
 
+            $table->index(['tenant_id', 'store_id']);
             $table->index(['store_id', 'status']);
         });
     }

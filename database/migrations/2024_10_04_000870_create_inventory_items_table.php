@@ -14,7 +14,8 @@ return new class extends Migration
         if (!Schema::hasTable('inventory_items')) {
             Schema::create('inventory_items', function (Blueprint $table) {
                 $table->string('id', 36)->primary();
-                $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
+                $table->string('tenant_id', 36);
+                $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
                 $table->string('name', 255);
                 $table->string('sku', 100)->nullable();
                 $table->string('category', 100)->nullable();
@@ -30,11 +31,11 @@ return new class extends Migration
                 $table->foreign('uom_id')->references('id')->on('uoms')->onDelete('restrict');
                 
                 // Indexes for performance
-                $table->index(['store_id', 'status'], 'idx_inv_items_store_status');
-                $table->index(['store_id', 'name'], 'idx_inv_items_store_name');
+                $table->index(['tenant_id', 'status'], 'idx_inv_items_tenant_status');
+                $table->index(['tenant_id', 'name'], 'idx_inv_items_tenant_name');
                 
-                // Unique constraint: SKU must be unique per store (if provided)
-                $table->unique(['store_id', 'sku'], 'uk_inv_items_store_sku');
+                // Unique constraint: SKU must be unique per tenant (if provided)
+                $table->unique(['tenant_id', 'sku'], 'uk_inv_items_tenant_sku');
             });
         }
     }

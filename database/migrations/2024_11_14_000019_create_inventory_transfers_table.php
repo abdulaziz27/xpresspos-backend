@@ -15,6 +15,8 @@ return new class extends Migration
     {
         Schema::create('inventory_transfers', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignUuid('from_store_id')->constrained('stores')->cascadeOnDelete();
             $table->foreignUuid('to_store_id')->constrained('stores')->cascadeOnDelete();
             $table->string('transfer_number');
@@ -25,6 +27,8 @@ return new class extends Migration
             $table->timestamps();
 
             // Indexes
+            $table->index(['tenant_id', 'from_store_id']);
+            $table->index(['tenant_id', 'to_store_id']);
             $table->index(['from_store_id', 'status'], 'idx_transfers_from_status');
             $table->index(['to_store_id', 'status'], 'idx_transfers_to_status');
         });

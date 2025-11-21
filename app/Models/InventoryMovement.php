@@ -13,6 +13,7 @@ class InventoryMovement extends Model
     use HasFactory, HasUuids, BelongsToStore;
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
         'product_id',
         'user_id',
@@ -25,6 +26,29 @@ class InventoryMovement extends Model
         'reference_id',
         'notes',
     ];
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (!$model->tenant_id && $model->store_id) {
+                $store = Store::find($model->store_id);
+                if ($store) {
+                    $model->tenant_id = $store->tenant_id;
+                }
+            }
+        });
+    }
+
+    /**
+     * Get the tenant that owns the inventory movement.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     protected $casts = [
         'quantity' => 'integer',
@@ -148,9 +172,21 @@ class InventoryMovement extends Model
         ?string $notes = null
     ): self {
         $user = auth()->user() ?? request()->user();
+        $storeContext = \App\Services\StoreContext::instance();
+        $storeId = $storeContext->current($user);
+
+        if (!$storeId) {
+            throw new \Exception('Store context is required to create inventory movement');
+        }
+
+        $store = Store::find($storeId);
+        if (!$store) {
+            throw new \Exception('Store not found');
+        }
 
         return self::create([
-            'store_id' => $user?->store_id,
+            'tenant_id' => $store->tenant_id,
+            'store_id' => $storeId,
             'product_id' => $productId,
             'user_id' => $user?->id,
             'type' => $type,

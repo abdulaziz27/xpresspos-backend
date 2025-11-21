@@ -78,9 +78,11 @@ class RegistrationProvisioningTest extends TestCase
             'is_primary' => true,
         ]);
 
-        // Assert: User's store_id was updated
+        // Assert: User has primary store assignment
         $user->refresh();
-        $this->assertEquals($store->id, $user->store_id);
+        $primaryStore = $user->primaryStore();
+        $this->assertNotNull($primaryStore);
+        $this->assertEquals($store->id, $primaryStore->id);
     }
 
     public function test_auto_provision_tidak_membuat_duplikat_jika_user_sudah_punya_tenant(): void
@@ -198,12 +200,12 @@ class RegistrationProvisioningTest extends TestCase
         $this->assertNotNull($user->primaryStore());
         $this->assertNotNull($user->currentTenant());
         
-        // Assert: User has a valid store_id
-        $this->assertNotNull($user->store_id);
+        // Assert: User has a valid primary store assignment
+        $primaryStore = $user->primaryStore();
+        $this->assertNotNull($primaryStore);
         
         // Assert: Store is active
-        $store = $user->primaryStore();
-        $this->assertEquals('active', $store->status);
+        $this->assertEquals('active', $primaryStore->status);
     }
 
     public function test_login_redirect_intended_after_authentication(): void

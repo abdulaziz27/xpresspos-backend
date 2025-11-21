@@ -20,7 +20,11 @@ class CreateTable extends CreateRecord
     {
         \Log::info('CreateTable::handleRecordCreation start', $data);
         // Ensure the new table is tied to the active store
-        $data['store_id'] = auth()->user()?->store_id;
+        $user = auth()->user();
+        $storeId = \App\Services\StoreContext::instance()->current($user);
+        if ($storeId) {
+            $data['store_id'] = $storeId;
+        }
         $model = static::getModel();
         $record = $model::create($data);
         \Log::info('CreateTable::handleRecordCreation done', ['id' => $record->id, 'store_id' => $record->store_id]);

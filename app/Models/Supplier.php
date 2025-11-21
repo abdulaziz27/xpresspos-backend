@@ -16,7 +16,6 @@ class Supplier extends Model
 
     protected $fillable = [
         'tenant_id',
-        'store_id',
         'name',
         'email',
         'phone',
@@ -37,13 +36,6 @@ class Supplier extends Model
             if (! $supplier->tenant_id && auth()->check()) {
                 $supplier->tenant_id = auth()->user()->currentTenant()?->id;
             }
-
-            if (! $supplier->store_id && auth()->check()) {
-                $storeId = auth()->user()->currentStoreId();
-                if ($storeId) {
-                    $supplier->store_id = $storeId;
-                }
-            }
         });
 
         static::addGlobalScope('tenant', function (Builder $query): void {
@@ -51,11 +43,6 @@ class Supplier extends Model
                 $query->where('tenant_id', $tenantId);
             }
         });
-    }
-
-    public function store(): BelongsTo
-    {
-        return $this->belongsTo(Store::class);
     }
 
     public function tenant(): BelongsTo

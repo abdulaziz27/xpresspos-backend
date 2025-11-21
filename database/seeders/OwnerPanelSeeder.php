@@ -131,30 +131,37 @@ class OwnerPanelSeeder extends Seeder
                 $store->save();
             }
 
+            // Get tenant from store
+            $tenant = $store->tenant ?: $primaryTenant;
+            if (!$tenant) {
+                $this->command->warn("⚠️ Store {$store->name} has no tenant. Skipping role assignment.");
+                continue;
+            }
+            
             $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
-                ->where('store_id', $store->id)
+                ->where('tenant_id', $tenant->id)
                 ->first();
             
             if ($ownerRole) {
                 // CRITICAL: Always set team context BEFORE any role operation
-                setPermissionsTeamId($store->id);
+                setPermissionsTeamId($tenant->id);
                 
-                // Force remove any existing role assignments for this user in this store
+                // Force remove any existing role assignments for this user in this tenant
                 // to ensure clean state (prevents duplicate role assignments)
-                $owner->roles()->wherePivot('store_id', $store->id)->detach();
+                $owner->roles()->wherePivot('tenant_id', $tenant->id)->detach();
                 
                 // Assign role fresh
                 $owner->assignRole($ownerRole);
                 
                 // Verify assignment was successful
                 $owner->refresh();
-                setPermissionsTeamId($store->id); // Set context again after refresh
+                setPermissionsTeamId($tenant->id); // Set context again after refresh
                 
                 if (!$owner->hasRole('owner')) {
-                    $this->command->warn("⚠️ Failed to assign owner role to {$owner->email} for store {$store->name}");
+                    $this->command->warn("⚠️ Failed to assign owner role to {$owner->email} for tenant {$tenant->name}");
                 }
             } else {
-                $this->command->warn("⚠️ Owner role not found for store {$store->name} (ID: {$store->id})");
+                $this->command->warn("⚠️ Owner role not found for tenant {$tenant->name} (ID: {$tenant->id})");
             }
 
             StoreUserAssignment::updateOrCreate(
@@ -180,8 +187,8 @@ class OwnerPanelSeeder extends Seeder
 
             $categoryMap = [];
             foreach ($categoriesSpec as $cat) {
-                $category = Category::withoutStoreScope()->updateOrCreate(
-                    ['store_id' => $store->id, 'slug' => $cat['slug']],
+                $category = Category::withoutTenantScope()->updateOrCreate(
+                    ['tenant_id' => $store->tenant_id, 'slug' => $cat['slug']],
                     [
                         'name' => $cat['name'],
                         'description' => $cat['name'],
@@ -194,8 +201,8 @@ class OwnerPanelSeeder extends Seeder
 
             $products = [];
             foreach ($productsSpec as $pd) {
-                $products[$pd['sku']] = Product::withoutStoreScope()->updateOrCreate(
-                    ['store_id' => $store->id, 'sku' => $pd['sku']],
+                $products[$pd['sku']] = Product::withoutTenantScope()->updateOrCreate(
+                    ['tenant_id' => $store->tenant_id, 'sku' => $pd['sku']],
                     [
                         'category_id' => $categoryMap[$pd['cat']]->id,
                         'name' => $pd['name'],
@@ -203,26 +210,42 @@ class OwnerPanelSeeder extends Seeder
                         'price' => $pd['price'],
                         'cost_price' => $pd['cost'],
                         'track_inventory' => true,
-                        'stock' => $pd['stock'],
-                        'min_stock_level' => $pd['min'],
                         'status' => true,
                     ]
                 );
             }
 
-            $tier = MemberTier::withoutStoreScope()->where('store_id', $store->id)->ordered()->first();
+            // Get tenant from store
+            $tenant = $store->tenant ?: $primaryTenant;
+            if (!$tenant) {
+                $this->command->warn("⚠️ Store {$store->name} has no tenant. Skipping member creation.");
+                continue;
+            }
+
+            $tier = MemberTier::where('tenant_id', $tenant->id)->ordered()->first();
             for ($m = 1; $m <= 40; $m++) {
-                // Use a globally unique and deterministic member number based on store id hash
-                $memberNumber = 'MBR' . strtoupper(substr(md5((string) $store->id), 0, 6)) . str_pad((string) $m, 4, '0', STR_PAD_LEFT);
+                // Use a globally unique and deterministic member number based on tenant id hash
+                $memberNumber = 'MBR' . strtoupper(substr(md5((string) $tenant->id), 0, 6)) . str_pad((string) $m, 4, '0', STR_PAD_LEFT);
                 $legacyEmail = 'member' . $m . '@arasta.coffee';
                 $memberEmail = 'member' . $m . '.b' . ($idx + 1) . '@arasta.coffee';
 
-                // Prefer updating legacy record if it exists for this store to stay idempotent
-                $member = Member::withoutStoreScope()->where('store_id', $store->id)->where('email', $legacyEmail)->first();
+                // Prefer updating legacy record if it exists for this tenant to stay idempotent
+                $member = Member::where('tenant_id', $tenant->id)->where('email', $legacyEmail)->first();
                 if (!$member) {
-                    $member = Member::withoutStoreScope()->firstOrCreate(
-                        ['store_id' => $store->id, 'email' => $memberEmail],
+                    // Check if member with this member_number already exists for this tenant
+                    $existingMember = Member::where('tenant_id', $tenant->id)
+                        ->where('member_number', $memberNumber)
+                        ->first();
+                    
+                    if ($existingMember) {
+                        // Skip if member_number already exists (member already created for another store in same tenant)
+                        continue;
+                    }
+                    
+                    $member = Member::firstOrCreate(
+                        ['tenant_id' => $tenant->id, 'email' => $memberEmail],
                         [
+                            'store_id' => $store->id,
                             'member_number' => $memberNumber,
                             'name' => 'Member ' . $m,
                             'phone' => '+62813' . rand(10000000, 99999999),

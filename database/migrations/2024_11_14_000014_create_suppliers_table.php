@@ -16,7 +16,6 @@ return new class extends Migration
         Schema::create('suppliers', function (Blueprint $table) {
             $table->string('id', 36)->primary();
             $table->string('tenant_id', 36); // NOT NULL - supplier belongs to tenant
-            $table->foreignUuid('store_id')->nullable()->constrained('stores')->onDelete('set null'); // Optional - can be shared across stores
             $table->string('name');
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
@@ -32,8 +31,6 @@ return new class extends Migration
 
             // Indexes
             $table->index(['tenant_id', 'status'], 'idx_suppliers_tenant_status');
-            $table->index(['tenant_id', 'store_id'], 'idx_suppliers_tenant_store');
-            $table->index(['store_id', 'name'], 'idx_suppliers_store_name');
         });
     }
 

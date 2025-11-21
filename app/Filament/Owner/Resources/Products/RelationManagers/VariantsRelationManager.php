@@ -109,10 +109,7 @@ class VariantsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label('Add Variant')
-                    ->mutateFormDataUsing(function (array $data): array {
-                        $data['store_id'] = auth()->user()->store_id;
-                        return $data;
-                    }),
+                    // ProductVariant is tenant-scoped, tenant_id will be auto-set by model booted()
             ])
             ->actions([
                 EditAction::make(),

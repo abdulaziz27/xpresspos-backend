@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::create('payment_security_logs', function (Blueprint $table) {
             $table->id();
+            $table->string('tenant_id', 36)->nullable();
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->string('event')->index();
             $table->string('level')->default('info');
             $table->string('ip_address')->index();
@@ -26,6 +28,8 @@ return new class extends Migration
             $table->timestamps();
 
             // Indexes for performance
+            $table->index(['tenant_id', 'created_at']);
+            $table->index(['tenant_id', 'event']);
             $table->index(['event', 'ip_address']);
             $table->index(['created_at', 'event']);
             $table->index(['user_id', 'created_at']);

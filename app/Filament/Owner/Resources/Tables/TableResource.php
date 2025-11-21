@@ -75,29 +75,37 @@ class TableResource extends Resource
     {
         $user = auth()->user();
 
-        if ($user && $user->store_id) {
-            // Set store context secara eksplisit agar konsisten dengan resource lain
+        if ($user) {
             $storeContext = \App\Services\StoreContext::instance();
-            $storeContext->set($user->store_id);
-            setPermissionsTeamId($user->store_id);
+            $storeId = $storeContext->current($user);
+            
+            if ($storeId) {
+                // Set store context secara eksplisit agar konsisten dengan resource lain
+                $storeContext->set($storeId);
+                // Set tenant context for permissions
+                $tenantId = $user->currentTenantId();
+                if ($tenantId) {
+                    setPermissionsTeamId($tenantId);
+                }
 
-            $query = parent::getEloquentQuery()
-                ->withoutGlobalScopes()
-                ->where('store_id', $user->store_id);
+                $query = parent::getEloquentQuery()
+                    ->withoutGlobalScopes()
+                    ->where('store_id', $storeId);
 
-            try {
-                \Log::info('[Filament][Tables] TableResource::getEloquentQuery', [
-                    'user_id' => $user->id,
-                    'user_email' => $user->email,
-                    'store_id' => $user->store_id,
-                    'sql' => $query->toSql(),
-                    'bindings' => $query->getBindings(),
-                ]);
-            } catch (\Throwable $e) {
-                // ignore logging error
+                try {
+                    \Log::info('[Filament][Tables] TableResource::getEloquentQuery', [
+                        'user_id' => $user->id,
+                        'user_email' => $user->email,
+                        'store_id' => $storeId,
+                        'sql' => $query->toSql(),
+                        'bindings' => $query->getBindings(),
+                    ]);
+                } catch (\Throwable $e) {
+                    // ignore logging error
+                }
+
+                return $query;
             }
-
-            return $query;
         }
 
         return parent::getEloquentQuery();

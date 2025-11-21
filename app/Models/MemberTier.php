@@ -7,13 +7,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\Concerns\BelongsToStore;
 
 class MemberTier extends Model
 {
-    use HasFactory, HasUuids, BelongsToStore;
+    use HasFactory, HasUuids;
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
         'name',
         'slug',
@@ -35,6 +35,32 @@ class MemberTier extends Model
         'sort_order' => 'integer',
         'is_active' => 'boolean',
     ];
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (!$model->tenant_id) {
+                $user = auth()->user();
+                if ($user) {
+                    $tenant = $user->currentTenant();
+                    if ($tenant) {
+                        $model->tenant_id = $tenant->id;
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Get the tenant that owns the member tier.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     /**
      * Get the members in this tier.
@@ -81,7 +107,7 @@ class MemberTier extends Model
      */
     public function getNextTier(): ?self
     {
-        return static::where('store_id', $this->store_id)
+        return static::where('tenant_id', $this->tenant_id)
             ->where('min_points', '>', $this->min_points)
             ->active()
             ->ordered()

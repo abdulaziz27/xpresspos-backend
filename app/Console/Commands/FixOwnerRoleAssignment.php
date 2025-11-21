@@ -83,13 +83,20 @@ class FixOwnerRoleAssignment extends Command
             $this->info("✅ Updated user's store_id to: {$storeId}");
         }
 
-        // Set team context
-        setPermissionsTeamId($storeId);
-        $this->info("✅ Set team context to: {$storeId}");
+        // Get tenant from store
+        $tenant = $store->tenant;
+        if (!$tenant) {
+            $this->error("❌ Store '{$store->name}' has no tenant!");
+            return self::FAILURE;
+        }
 
-        // Find or create owner role for this store
+        // Set team context using tenant_id
+        setPermissionsTeamId($tenant->id);
+        $this->info("✅ Set team context to tenant: {$tenant->id}");
+
+        // Find or create owner role for this tenant
         $ownerRole = Role::where('name', 'owner')
-            ->where('store_id', $storeId)
+            ->where('tenant_id', $tenant->id)
             ->first();
 
         if (!$ownerRole) {
@@ -100,7 +107,7 @@ class FixOwnerRoleAssignment extends Command
             
             // Try again
             $ownerRole = Role::where('name', 'owner')
-                ->where('store_id', $storeId)
+                ->where('tenant_id', $tenant->id)
                 ->first();
             
             if (!$ownerRole) {
@@ -109,11 +116,11 @@ class FixOwnerRoleAssignment extends Command
             }
         }
 
-        $this->info("✅ Found owner role: {$ownerRole->name} (ID: {$ownerRole->id}, Store: {$ownerRole->store_id})");
+        $this->info("✅ Found owner role: {$ownerRole->name} (ID: {$ownerRole->id}, Tenant: {$ownerRole->tenant_id})");
 
         // Check current role assignment
-        // Disambiguate store_id column to avoid ambiguous column errors
-        $currentRoles = $user->roles()->where('roles.store_id', $storeId)->get();
+        // Disambiguate tenant_id column to avoid ambiguous column errors
+        $currentRoles = $user->roles()->where('roles.tenant_id', $tenant->id)->get();
         $hasOwnerRole = $currentRoles->contains('id', $ownerRole->id);
 
         if ($hasOwnerRole && !$force) {
@@ -126,7 +133,7 @@ class FixOwnerRoleAssignment extends Command
             }
 
             // Assign role with team context
-            setPermissionsTeamId($storeId);
+            setPermissionsTeamId($tenant->id);
             $user->assignRole($ownerRole);
             $this->info("✅ Assigned owner role to user!");
         }
@@ -148,16 +155,15 @@ class FixOwnerRoleAssignment extends Command
         $this->call('permission:cache-reset');
 
         // Verify assignment
-        setPermissionsTeamId($storeId);
+        setPermissionsTeamId($tenant->id);
         $hasRole = $user->hasRole('owner');
         $roleNames = $user->getRoleNames();
 
-        // Check database directly
+        // Check database directly (note: model_has_roles no longer has store_id, only tenant_id via team context)
         $dbCheck = \DB::table('model_has_roles')
             ->where('model_type', \App\Models\User::class)
             ->where('model_id', $user->id)
             ->where('role_id', $ownerRole->id)
-            ->where('store_id', $storeId)
             ->exists();
 
         $this->newLine();

@@ -28,10 +28,10 @@ class FilamentUserSeeder extends Seeder
             ]
         );
 
-        // Assign admin_sistem role (global role without store_id)
+        // Assign admin_sistem role (global role without tenant_id)
         // Note: No team context needed for global roles
         $adminSistemRole = \Spatie\Permission\Models\Role::where('name', 'admin_sistem')
-            ->whereNull('store_id')
+            ->whereNull('tenant_id')
             ->first();
         if ($adminSistemRole) {
             if (!$admin->hasRole($adminSistemRole)) {
@@ -100,25 +100,25 @@ class FilamentUserSeeder extends Seeder
             $this->command->info("✅ Updated user_tenant_access for owner@xpresspos.id → tenant {$primaryTenantId}");
         }
 
-        // Assign owner role for the specific store
+        // Assign owner role for the specific tenant
         $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
-            ->where('store_id', $primaryStoreId)
+            ->where('tenant_id', $primaryTenantId)
             ->first();
         
         if ($ownerRole) {
             // CRITICAL: Always set team context BEFORE any role operation
-            setPermissionsTeamId($primaryStoreId);
+            setPermissionsTeamId($primaryTenantId);
             
-            // Force remove any existing role assignments for this user in this store
+            // Force remove any existing role assignments for this user in this tenant
             // to ensure clean state
-            $owner->roles()->wherePivot('store_id', $primaryStoreId)->detach();
+            $owner->roles()->wherePivot('tenant_id', $primaryTenantId)->detach();
             
             // Assign role fresh
             $owner->assignRole($ownerRole);
             
             // Verify assignment was successful
             $owner->refresh(); // Refresh to clear any cache
-            setPermissionsTeamId($primaryStoreId); // Set context again after refresh
+            setPermissionsTeamId($primaryTenantId); // Set context again after refresh
             
             if ($owner->hasRole('owner')) {
                 $this->command->info("✅ Owner role successfully assigned to {$owner->email}");
@@ -129,7 +129,7 @@ class FilamentUserSeeder extends Seeder
                 $this->command->warn("Current roles for user: " . $owner->getRoleNames()->implode(', '));
             }
         } else {
-            $this->command->error("❌ Owner role not found for store {$primaryStoreId}. Please ensure PermissionsAndRolesSeeder ran successfully.");
+            $this->command->error("❌ Owner role not found for tenant {$primaryTenantId}. Please ensure PermissionsAndRolesSeeder ran successfully.");
         }
 
         // Ensure owner user has store context
