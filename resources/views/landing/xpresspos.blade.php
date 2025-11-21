@@ -70,13 +70,14 @@
             <!-- Demo Video/Image Placeholder - Simplified animations -->
             <div class="mt-16 px-2 sm:mt-20 md:mt-24 animate-fade-in-up" style="animation-delay: 1.2s">
                 <div class="demo-container mx-auto h-auto w-full max-w-6xl rounded-3xl bg-gradient-to-br from-blue-50 via-indigo-50/30 to-indigo-100 p-8 shadow-lg">
-                    <div class="flex items-center justify-center h-96 bg-white rounded-2xl border-2 border-dashed border-gray-300 hover:border-blue-300 transition-colors duration-300">
-                        <div class="text-center">
+                    <div class="flex items-center justify-center h-fit overflow-hidden bg-white rounded-2xl border-2 border-dashed border-gray-300 hover:border-blue-300 transition-colors duration-300">
+                        <img src="{{ asset('img/campaign-home-page.jpg') }}" alt="">
+                        <!-- <div class="text-center">
                             <div class="relative">
                                 <svg class="mx-auto h-16 w-16 text-gray-400 hover:text-blue-500 transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                 </svg>
-                                <!-- Play button overlay -->
+                                Play button overlay
                                 <div class="absolute inset-0 flex items-center justify-center">
                                     <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors duration-300 cursor-pointer">
                                         <svg class="w-5 h-5 text-white ml-1" fill="currentColor" viewBox="0 0 20 20">
@@ -87,7 +88,7 @@
                             </div>
                             <p class="mt-4 text-sm text-gray-600 font-medium">Demo Video XpressPOS</p>
                             <p class="text-xs text-gray-500">Lihat bagaimana XpressPOS bekerja</p>
-                        </div>
+                        </div> -->
                     </div>
                 </div>
             </div>
@@ -166,13 +167,14 @@
                     </div>
                     <div class="relative order-1 lg:order-none lg:order-2">
                         <div class="demo-container mx-auto h-auto w-full max-w-lg rounded-3xl bg-gradient-to-br from-blue-50 via-blue-50/50 to-indigo-100 p-8 shadow-lg">
-                            <div class="flex items-center justify-center h-64 bg-white rounded-2xl border-2 border-dashed border-gray-300">
-                                <div class="text-center">
+                            <div class="flex items-center justify-center h-fit overflow-hidden bg-white rounded-2xl border-2 border-dashed border-gray-300">
+                                <img src="{{ asset('img/manajemen-stok.jpg') }}" >
+                                <!-- <div class="text-center">
                                     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                                     </svg>
                                     <p class="mt-2 text-sm text-gray-500">Inventory Demo</p>
-                                </div>
+                                </div> -->
                             </div>
                         </div>
                     </div>
@@ -204,13 +206,14 @@
                     </div>
                     <div class="relative order-1 lg:order-none lg:order-1 lg:col-start-1">
                         <div class="demo-container mx-auto h-auto w-full max-w-lg rounded-3xl bg-gradient-to-br from-green-50 via-emerald-50/50 to-emerald-100 p-8 shadow-lg">
-                            <div class="flex items-center justify-center h-64 bg-white rounded-2xl border-2 border-dashed border-gray-300">
-                                <div class="text-center">
+                            <div class="flex items-center justify-center h-fit overflow-hidden bg-white rounded-2xl border-2 border-dashed border-gray-300">
+                                <img src="{{ asset('img/laporan-aktivitas-bisnis.jpg') }}" >
+                                <!-- <div class="text-center">
                                     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                                     </svg>
                                     <p class="mt-2 text-sm text-gray-500">Analytics Demo</p>
-                                </div>
+                                </div> -->
                             </div>
                         </div>
                     </div>
@@ -243,13 +246,14 @@
                     </div>
                     <div class="relative order-1 lg:order-none lg:order-2">
                         <div class="demo-container mx-auto h-auto w-full max-w-lg rounded-3xl bg-gradient-to-br from-purple-50 via-violet-50/50 to-violet-100 p-8 shadow-lg">
-                            <div class="flex items-center justify-center h-64 bg-white rounded-2xl border-2 border-dashed border-gray-300">
-                                <div class="text-center">
+                            <div class="flex items-center justify-center h-fit overflow-hidden bg-white rounded-2xl border-2 border-dashed border-gray-300">
+                                <img src="{{ asset('img/http-otomatis.jpg') }}">
+                                <!-- <div class="text-center">
                                     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                     </svg>
                                     <p class="mt-2 text-sm text-gray-500">Reports Demo</p>
-                                </div>
+                                </div> -->
                             </div>
                         </div>
                     </div>
