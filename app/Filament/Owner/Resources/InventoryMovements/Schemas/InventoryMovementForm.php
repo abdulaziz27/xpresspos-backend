@@ -2,19 +2,21 @@
 
 namespace App\Filament\Owner\Resources\InventoryMovements\Schemas;
 
+use App\Filament\Owner\Resources\Concerns\ResolvesGlobalFilters;
 use App\Models\Product;
-use App\Models\User;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use App\Support\Money;
 
 class InventoryMovementForm
 {
+    use ResolvesGlobalFilters;
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -26,14 +28,7 @@ class InventoryMovementForm
                             ->schema([
                                 Select::make('product_id')
                                     ->label('Produk')
-                                    ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
-                                        return Product::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                            ->where('track_inventory', true)
-                                            ->pluck('name', 'id');
-                                    })
+                                    ->options(fn () => static::productOptions())
                                     ->searchable()
                                     ->preload()
                                     ->required()
@@ -115,13 +110,7 @@ class InventoryMovementForm
                             ->schema([
                                 Select::make('user_id')
                                     ->label('Dicatat Oleh')
-                                    ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
-                                        return User::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                            ->pluck('name', 'id');
-                                    })
+                                    ->options(fn () => static::userOptionsForCurrentContext())
                                     ->searchable()
                                     ->preload()
                                     ->default(auth()->id())
@@ -152,5 +141,24 @@ class InventoryMovementForm
                     ->columns(1)
                     ->visible(fn($operation) => $operation === 'create'),
             ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected static function productOptions(): array
+    {
+        $tenantId = static::currentTenantId();
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        return Product::query()
+            ->where('tenant_id', $tenantId)
+            ->where('track_inventory', true)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

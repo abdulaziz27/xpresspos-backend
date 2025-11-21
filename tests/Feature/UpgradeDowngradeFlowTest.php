@@ -16,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class UpgradeDowngradeFlowTest extends TestCase
 {
@@ -30,7 +31,7 @@ class UpgradeDowngradeFlowTest extends TestCase
         $this->artisan('db:seed', ['--class' => 'RoleSeeder']);
     }
 
-    /** @test */
+    #[Test]
     public function user_dapat_upgrade_dari_basic_ke_pro(): void
     {
         // Setup: User dengan Basic plan
@@ -121,7 +122,7 @@ class UpgradeDowngradeFlowTest extends TestCase
         $this->assertEquals($basicPlan->id, $metadata['previous_plan_id']);
     }
 
-    /** @test */
+    #[Test]
     public function user_dapat_downgrade_dari_pro_ke_basic(): void
     {
         // Setup: User dengan Pro plan
@@ -208,7 +209,7 @@ class UpgradeDowngradeFlowTest extends TestCase
         $this->assertEquals($proPlan->id, $metadata['previous_plan_id']);
     }
 
-    /** @test */
+    #[Test]
     public function subscription_usage_di_recreate_setelah_upgrade(): void
     {
         // Setup
@@ -290,7 +291,7 @@ class UpgradeDowngradeFlowTest extends TestCase
         $this->assertGreaterThanOrEqual(0, $newUsageCount);
     }
 
-    /** @test */
+    #[Test]
     public function pricing_page_menampilkan_tombol_dinamis_berdasarkan_current_plan(): void
     {
         // Setup: User dengan Basic plan
@@ -339,7 +340,7 @@ class UpgradeDowngradeFlowTest extends TestCase
         // But we verified the data is passed correctly
     }
 
-    /** @test */
+    #[Test]
     public function guest_user_melihat_tombol_pilih_paket_biasa(): void
     {
         // Act: Visit pricing as guest
@@ -352,7 +353,7 @@ class UpgradeDowngradeFlowTest extends TestCase
         $response->assertViewHas('currentPlan', null);
     }
 
-    /** @test */
+    #[Test]
     public function data_tidak_hilang_setelah_downgrade(): void
     {
         // Setup: User dengan Pro plan dan 2 stores
@@ -416,7 +417,7 @@ class UpgradeDowngradeFlowTest extends TestCase
         // tapi data lama tetap aman
     }
 
-    /** @test */
+    #[Test]
     public function tidak_membuat_duplicate_subscription_saat_upgrade(): void
     {
         // Setup

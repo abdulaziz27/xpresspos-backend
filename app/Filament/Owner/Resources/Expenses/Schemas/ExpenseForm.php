@@ -2,19 +2,21 @@
 
 namespace App\Filament\Owner\Resources\Expenses\Schemas;
 
+use App\Filament\Owner\Resources\Concerns\ResolvesGlobalFilters;
 use App\Models\CashSession;
-use App\Models\User;
 use Filament\Forms\Components\DatePicker;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use App\Support\Money;
 
 class ExpenseForm
 {
+    use ResolvesGlobalFilters;
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -83,14 +85,7 @@ class ExpenseForm
 
                                 Select::make('cash_session_id')
                                     ->label('Sesi Kas')
-                                    ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
-                                        return CashSession::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                            ->where('status', 'open')
-                                            ->pluck('id', 'id');
-                                    })
+                                    ->options(fn () => static::cashSessionOptions())
                                     ->searchable()
                                     ->preload()
                                     ->helperText('Hubungkan ke sesi kas yang sedang dibuka'),
@@ -98,13 +93,7 @@ class ExpenseForm
 
                         Select::make('user_id')
                             ->label('Dicatat Oleh')
-                            ->options(function () {
-                                $storeId = auth()->user()?->currentStoreId();
-
-                                return User::query()
-                                    ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                    ->pluck('name', 'id');
-                            })
+                            ->options(fn () => static::userOptionsForCurrentContext())
                             ->searchable()
                             ->preload()
                             ->default(auth()->id())
@@ -123,5 +112,31 @@ class ExpenseForm
                     ])
                     ->columns(1),
             ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected static function cashSessionOptions(): array
+    {
+        $tenantId = static::currentTenantId();
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        $query = CashSession::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'open');
+
+        $storeIds = static::currentStoreIds();
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
+
+        return $query
+            ->latest('opened_at')
+            ->pluck('id', 'id')
+            ->toArray();
     }
 }

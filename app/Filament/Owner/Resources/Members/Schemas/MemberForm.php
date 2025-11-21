@@ -3,7 +3,7 @@
 namespace App\Filament\Owner\Resources\Members\Schemas;
 
 use App\Models\MemberTier;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\DatePicker;
 use Filament\Schemas\Components\Grid;
@@ -38,7 +38,8 @@ class MemberForm
 
                         Select::make('store_id')
                             ->label('Cabang Registrasi')
-                            ->options(self::storeOptions())
+                            ->options(fn () => self::storeOptions())
+                            ->default(fn () => self::getDefaultStoreId())
                             ->searchable()
                             ->placeholder('Tidak ditentukan')
                             ->helperText('Opsional: catat cabang tempat member pertama kali dibuat.'),
@@ -90,7 +91,7 @@ class MemberForm
 
                                         Select::make('store_id')
                                             ->label('Cabang Khusus')
-                                            ->options(self::storeOptions())
+                                            ->options(fn () => self::storeOptions())
                                             ->searchable()
                                             ->placeholder('Semua cabang'),
 
@@ -200,15 +201,20 @@ class MemberForm
 
     protected static function storeOptions(): array
     {
-        $user = auth()->user();
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
 
-        if (! $user) {
-            return [];
-        }
-
-        return StoreContext::instance()
-            ->accessibleStores($user)
+        return $globalFilter->getAvailableStores(auth()->user())
             ->pluck('name', 'id')
             ->toArray();
+    }
+
+    protected static function getDefaultStoreId(): ?string
+    {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+
+        return $globalFilter->getCurrentStoreId()
+            ?? ($globalFilter->getStoreIdsForCurrentTenant()[0] ?? null);
     }
 }

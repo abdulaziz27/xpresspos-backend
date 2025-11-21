@@ -9,11 +9,13 @@ use App\Filament\Owner\Resources\CashSessions\Schemas\CashSessionForm;
 use App\Filament\Owner\Resources\CashSessions\RelationManagers\ExpensesRelationManager;
 use App\Filament\Owner\Resources\CashSessions\Tables\CashSessionsTable;
 use App\Models\CashSession;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class CashSessionResource extends Resource
 {
@@ -61,5 +63,21 @@ class CashSessionResource extends Resource
     public static function canViewAny(): bool
     {
         return true;
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()
+            ->with(['store', 'user']);
+
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
+
+        return $query;
     }
 }

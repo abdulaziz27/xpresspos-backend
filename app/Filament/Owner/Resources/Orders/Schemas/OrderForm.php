@@ -2,20 +2,22 @@
 
 namespace App\Filament\Owner\Resources\Orders\Schemas;
 
+use App\Filament\Owner\Resources\Concerns\ResolvesGlobalFilters;
 use App\Models\Member;
 use App\Models\Table;
-use App\Models\User;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use App\Support\Money;
 
 class OrderForm
 {
+    use ResolvesGlobalFilters;
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -32,13 +34,7 @@ class OrderForm
 
                                 Select::make('user_id')
                                     ->label('Staf')
-                                    ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
-                                        return User::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                            ->pluck('name', 'id');
-                                    })
+                                    ->options(fn () => static::userOptionsForCurrentContext())
                                     ->searchable()
                                     ->preload()
                                     ->default(auth()->id())
@@ -49,14 +45,7 @@ class OrderForm
                             ->schema([
                                 Select::make('member_id')
                                     ->label('Pelanggan/Member')
-                                    ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
-                                        return Member::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                            ->where('is_active', true)
-                                            ->pluck('name', 'id');
-                                    })
+                                    ->options(fn () => static::memberOptions())
                                     ->searchable()
                                     ->preload()
                                     ->createOptionForm([
@@ -73,26 +62,24 @@ class OrderForm
                                             ->tel()
                                             ->maxLength(20),
                                     ])
-                                    ->createOptionUsing(function (array $data): int {
-                                        $storeId = auth()->user()?->currentStoreId();
-                                        $data['store_id'] = $storeId;
-                                        $count = Member::withoutStoreScope()
-                                            ->where('store_id', $storeId)
-                                            ->count();
-                                        $data['member_number'] = 'MBR' . str_pad($count + 1, 6, '0', STR_PAD_LEFT);
-                                        return Member::create($data)->getKey();
+                                    ->createOptionUsing(function (array $data): string {
+                                        $storeId = static::defaultStoreId();
+                                        $tenantId = static::currentTenantId();
+
+                                        if ($storeId) {
+                                            $data['store_id'] = $storeId;
+                                        }
+
+                                        if ($tenantId) {
+                                            $data['tenant_id'] = $tenantId;
+                                        }
+
+                                        return Member::withoutStoreScope()->create($data)->getKey();
                                     }),
 
                                 Select::make('table_id')
                                     ->label('Meja')
-                                    ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
-                                        return Table::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                            ->where('is_active', true)
-                                            ->pluck('name', 'id');
-                                    })
+                                    ->options(fn () => static::tableOptions())
                                     ->searchable()
                                     ->preload(),
                             ]),
@@ -194,5 +181,61 @@ class OrderForm
                     ->columns(1)
                     ->visible(fn($record) => $record?->status === 'completed'),
             ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected static function memberOptions(): array
+    {
+        $tenantId = static::currentTenantId();
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        $query = Member::query()
+            ->where('tenant_id', $tenantId)
+            ->where('is_active', true);
+
+        $storeIds = static::currentStoreIds();
+        if (! empty($storeIds)) {
+            $query->where(function ($memberQuery) use ($storeIds) {
+                $memberQuery
+                    ->whereIn('store_id', $storeIds)
+                    ->orWhereNull('store_id');
+            });
+        }
+
+        return $query
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected static function tableOptions(): array
+    {
+        $tenantId = static::currentTenantId();
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        $query = Table::query()
+            ->where('tenant_id', $tenantId)
+            ->where('is_active', true);
+
+        $storeIds = static::currentStoreIds();
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
+
+        return $query
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

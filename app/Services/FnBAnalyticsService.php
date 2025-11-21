@@ -6,16 +6,13 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 
 class FnBAnalyticsService
 {
-    private ?string $storeId;
-
-    public function __construct(private ?StoreContext $storeContext = null)
+    public function __construct(private ?GlobalFilterService $filterService = null)
     {
-        $this->storeContext = $this->storeContext ?? StoreContext::instance();
-        $this->storeId = $this->storeContext->current(auth()->user());
+        $this->filterService = $this->filterService ?? app(GlobalFilterService::class);
     }
 
     public function getSalesAnalytics(string $period = 'today'): array
@@ -252,7 +249,11 @@ class FnBAnalyticsService
             return array_values(array_filter($storeIds));
         }
 
-        return $this->storeId ? [$this->storeId] : [];
+        if (! $this->filterService) {
+            return [];
+        }
+
+        return $this->filterService->getStoreIdsForCurrentTenant();
     }
 
     private function getDateRange(string $period): array

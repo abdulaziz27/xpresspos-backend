@@ -5,8 +5,7 @@ namespace App\Filament\Owner\Resources\InventoryTransfers;
 use App\Filament\Owner\Resources\InventoryTransfers\Pages;
 use App\Filament\Owner\Resources\InventoryTransfers\RelationManagers\ItemsRelationManager;
 use App\Models\InventoryTransfer;
-use App\Models\Store;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -20,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class InventoryTransferResource extends Resource
 {
@@ -43,12 +43,13 @@ class InventoryTransferResource extends Resource
                             ->schema([
                                 Select::make('from_store_id')
                                     ->label('Dari Toko')
-                                    ->options(self::storeOptions())
+                                    ->options(fn () => self::storeOptions())
+                                    ->default(fn () => self::getDefaultStoreId())
                                     ->searchable()
                                     ->required(),
                                 Select::make('to_store_id')
                                     ->label('Ke Toko')
-                                    ->options(self::storeOptions())
+                                    ->options(fn () => self::storeOptions())
                                     ->searchable()
                                     ->required(),
                             ]),
@@ -136,16 +137,41 @@ class InventoryTransferResource extends Resource
 
     protected static function storeOptions(): array
     {
-        $user = auth()->user();
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
 
-        if (! $user) {
-            return [];
-        }
-
-        return StoreContext::instance()
-            ->accessibleStores($user)
+        return $globalFilter->getAvailableStores(auth()->user())
             ->pluck('name', 'id')
             ->toArray();
+    }
+
+    protected static function getDefaultStoreId(): ?string
+    {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+
+        return $globalFilter->getCurrentStoreId()
+            ?? ($globalFilter->getStoreIdsForCurrentTenant()[0] ?? null);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()
+            ->with(['fromStore', 'toStore']);
+
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+
+        if (! empty($storeIds)) {
+            $query->where(function (Builder $query) use ($storeIds) {
+                $query
+                    ->whereIn('from_store_id', $storeIds)
+                    ->orWhereIn('to_store_id', $storeIds);
+            });
+        }
+
+        return $query;
     }
 }
 

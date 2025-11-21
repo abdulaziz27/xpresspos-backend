@@ -9,11 +9,13 @@ use App\Filament\Owner\Resources\Members\RelationManagers\LoyaltyTransactionsRel
 use App\Filament\Owner\Resources\Members\Schemas\MemberForm;
 use App\Filament\Owner\Resources\Members\Tables\MembersTable;
 use App\Models\Member;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class MemberResource extends Resource
 {
@@ -63,5 +65,25 @@ class MemberResource extends Resource
     public static function canViewAny(): bool
     {
         return true;
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()
+            ->with(['store', 'tier']);
+
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+
+        if (! empty($storeIds)) {
+            $query->where(function (Builder $query) use ($storeIds) {
+                $query
+                    ->whereNull('store_id')
+                    ->orWhereIn('store_id', $storeIds);
+            });
+        }
+
+        return $query;
     }
 }

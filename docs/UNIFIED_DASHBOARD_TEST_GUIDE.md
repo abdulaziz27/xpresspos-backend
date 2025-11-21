@@ -241,6 +241,35 @@ window.addEventListener('filter-updated', () => {
 
 ---
 
+### Test 11: Tenant-Scoped Resource Forms
+
+**Steps:**
+1. Set Global Filter → Tenant = target tenant, Store = specific store (e.g., "Toko Cabang A")
+2. Navigate to each resource:
+   - Orders → Edit any order
+   - Inventory Movements → Create
+   - Expenses → Create
+   - COGS History → Create
+3. Observe Select components (Staff, Member, Produk, Order, Cash Session, etc.)
+4. Switch Store filter to "Semua Cabang" and repeat
+
+**Expected Results:**
+- ✅ Each Select only lists records belonging to the current tenant
+- ✅ When Store filter is specific, options are limited to the selected store(s)
+- ✅ When Store filter = "Semua Cabang", options include all accessible stores (with store badges/labels where relevant)
+- ✅ Creating a new member from Order form auto-assigns the store resolved from the filter
+- ✅ No query hits legacy `auth()->user()->store_id` or `StoreContext`
+
+**SQL Query (verify Orders form):**
+```sql
+SELECT id, order_number, store_id 
+FROM orders 
+WHERE tenant_id = 'tenant-123'
+  AND store_id IN ('019aa61e-...A');
+```
+
+---
+
 ## 🔍 Verification SQL Queries
 
 ### Check Store IDs for Tenant
@@ -389,7 +418,7 @@ Dashboard implementation is successful if:
 5. ✅ Date presets (Today, This Week, This Month) work correctly
 6. ✅ Custom date range works
 7. ✅ Filters persist across page refreshes
-8. ✅ OrderResource respects global filter
+8. ✅ OrderResource + scoped forms (Orders, Inventory Movements, Expenses, COGS) respect Global Filter
 9. ✅ No console errors
 10. ✅ Performance is acceptable (<2s for widget refresh)
 

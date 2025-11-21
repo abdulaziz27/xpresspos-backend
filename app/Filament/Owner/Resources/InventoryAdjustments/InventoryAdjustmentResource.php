@@ -5,7 +5,7 @@ namespace App\Filament\Owner\Resources\InventoryAdjustments;
 use App\Filament\Owner\Resources\InventoryAdjustments\Pages;
 use App\Filament\Owner\Resources\InventoryAdjustments\RelationManagers\ItemsRelationManager;
 use App\Models\InventoryAdjustment;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Hidden;
@@ -19,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class InventoryAdjustmentResource extends Resource
 {
@@ -79,11 +80,10 @@ class InventoryAdjustmentResource extends Resource
                         ->schema([
                             Select::make('store_id')
                                 ->label('Toko')
-                                ->options(self::storeOptions())
-                                ->default(fn () => StoreContext::instance()->current(auth()->user()))
+                                ->options(fn () => self::storeOptions())
+                                ->default(fn () => self::getDefaultStoreId())
                                 ->searchable()
                                 ->required()
-                                ->disabled(fn () => ! auth()->user()?->hasRole('admin_sistem'))
                                 ->helperText('Gunakan filter cabang di header untuk mengatur toko aktif.'),
                             Hidden::make('user_id')
                                 ->default(fn () => auth()->id()),
@@ -178,16 +178,37 @@ class InventoryAdjustmentResource extends Resource
 
     protected static function storeOptions(): array
     {
-        $user = auth()->user();
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
 
-        if (! $user) {
-            return [];
-        }
-
-        return StoreContext::instance()
-            ->accessibleStores($user)
+        return $globalFilter->getAvailableStores(auth()->user())
             ->pluck('name', 'id')
             ->toArray();
+    }
+
+    protected static function getDefaultStoreId(): ?string
+    {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+
+        return $globalFilter->getCurrentStoreId()
+            ?? ($globalFilter->getStoreIdsForCurrentTenant()[0] ?? null);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()
+            ->with(['store', 'user']);
+
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
+
+        return $query;
     }
 }
 

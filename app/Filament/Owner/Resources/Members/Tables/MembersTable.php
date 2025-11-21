@@ -2,7 +2,7 @@
 
 namespace App\Filament\Owner\Resources\Members\Tables;
 
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -105,7 +105,7 @@ class MembersTable
 
                 SelectFilter::make('store_id')
                     ->label('Cabang')
-                    ->options(self::storeOptions())
+                    ->options(fn () => self::storeOptions())
                     ->placeholder('Semua cabang'),
 
                 TernaryFilter::make('is_active')
@@ -144,14 +144,10 @@ class MembersTable
 
     protected static function storeOptions(): array
     {
-        $user = auth()->user();
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
 
-        if (! $user) {
-            return [];
-        }
-
-        return StoreContext::instance()
-            ->accessibleStores($user)
+        return $globalFilter->getAvailableStores(auth()->user())
             ->pluck('name', 'id')
             ->toArray();
     }

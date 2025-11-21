@@ -2,21 +2,22 @@
 
 namespace App\Filament\Owner\Resources\Payments\Schemas;
 
+use App\Filament\Owner\Resources\Concerns\ResolvesGlobalFilters;
 use App\Models\Order;
-use App\Models\PaymentMethod;
-use App\Models\User;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use App\Support\Money;
 
 class PaymentForm
 {
+    use ResolvesGlobalFilters;
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -28,14 +29,7 @@ class PaymentForm
                             ->schema([
                                 Select::make('order_id')
                                     ->label('Order')
-                                    ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
-                                        return Order::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                            ->where('status', '!=', 'cancelled')
-                                            ->pluck('order_number', 'id');
-                                    })
+                                    ->options(fn () => static::orderOptions())
                                     ->searchable()
                                     ->preload()
                                     ->required(),
@@ -121,13 +115,7 @@ class PaymentForm
 
                         Select::make('processed_by')
                             ->label('Diproses Oleh')
-                            ->options(function () {
-                                $storeId = auth()->user()?->currentStoreId();
-
-                                return User::query()
-                                    ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                    ->pluck('name', 'id');
-                            })
+                            ->options(fn () => static::userOptionsForCurrentContext())
                             ->searchable()
                             ->preload()
                             ->disabled()
@@ -155,5 +143,32 @@ class PaymentForm
                     ])
                     ->columns(1),
             ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected static function orderOptions(): array
+    {
+        $tenantId = static::currentTenantId();
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        $query = Order::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', '!=', 'cancelled');
+
+        $storeIds = static::currentStoreIds();
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
+
+        return $query
+            ->latest('created_at')
+            ->limit(200)
+            ->pluck('order_number', 'id')
+            ->toArray();
     }
 }

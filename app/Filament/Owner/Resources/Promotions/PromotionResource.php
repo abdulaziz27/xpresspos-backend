@@ -8,7 +8,7 @@ use App\Filament\Owner\Resources\Promotions\Pages\ListPromotions;
 use App\Filament\Owner\Resources\Promotions\RelationManagers\ConditionsRelationManager;
 use App\Filament\Owner\Resources\Promotions\RelationManagers\RewardsRelationManager;
 use App\Models\Promotion;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -98,6 +98,7 @@ class PromotionResource extends Resource
                             Select::make('store_id')
                                 ->label('Cabang Khusus')
                                 ->options($storeOptions)
+                                ->default(fn () => self::defaultStoreId())
                                 ->searchable()
                                 ->placeholder('Semua Cabang')
                                 ->helperText('Kosongkan jika berlaku untuk semua cabang.')
@@ -213,21 +214,41 @@ class PromotionResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('store');
+        $query = parent::getEloquentQuery()
+            ->with('store');
+
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+
+        if (! empty($storeIds)) {
+            $query->where(function (Builder $query) use ($storeIds) {
+                $query
+                    ->whereNull('store_id')
+                    ->orWhereIn('store_id', $storeIds);
+            });
+        }
+
+        return $query;
     }
 
     protected static function storeOptions(): array
     {
-        $user = auth()->user();
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
 
-        if (! $user) {
-            return [];
-        }
-
-        return StoreContext::instance()
-            ->accessibleStores($user)
+        return $globalFilter->getAvailableStores(auth()->user())
             ->pluck('name', 'id')
             ->toArray();
+    }
+
+    protected static function defaultStoreId(): ?string
+    {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+
+        return $globalFilter->getCurrentStoreId()
+            ?? ($globalFilter->getStoreIdsForCurrentTenant()[0] ?? null);
     }
 }
 

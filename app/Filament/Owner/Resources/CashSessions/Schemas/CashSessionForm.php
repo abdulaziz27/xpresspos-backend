@@ -3,13 +3,15 @@
 namespace App\Filament\Owner\Resources\CashSessions\Schemas;
 
 use App\Models\User;
+use App\Services\GlobalFilterService;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Get;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use App\Support\Money;
 
@@ -22,17 +24,19 @@ class CashSessionForm
                 Section::make('Informasi Sesi')
                     ->description('Detail sesi kas dan saldo awal')
                     ->schema([
+                        Select::make('store_id')
+                            ->label('Cabang')
+                            ->options(fn () => self::storeOptions())
+                            ->default(fn () => self::getDefaultStoreId())
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->live(),
                         Grid::make(2)
                             ->schema([
                                 Select::make('user_id')
                                     ->label('Kasir')
-                                    ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
-                                        return User::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                            ->pluck('name', 'id');
-                                    })
+                                    ->options(fn (Get $get) => self::cashierOptions($get('store_id')))
                                     ->searchable()
                                     ->preload()
                                     ->default(auth()->id())
@@ -150,5 +154,35 @@ class CashSessionForm
                     ])
                     ->columns(1),
             ]);
+    }
+
+    protected static function storeOptions(): array
+    {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+
+        return $globalFilter->getAvailableStores(auth()->user())
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
+    protected static function getDefaultStoreId(): ?string
+    {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+
+        return $globalFilter->getCurrentStoreId()
+            ?? ($globalFilter->getStoreIdsForCurrentTenant()[0] ?? null);
+    }
+
+    protected static function cashierOptions(?string $storeId): array
+    {
+        $query = User::query();
+
+        if ($storeId) {
+            $query->whereHas('storeAssignments', fn ($assignment) => $assignment->where('store_id', $storeId));
+        }
+
+        return $query->orderBy('name')->pluck('name', 'id')->toArray();
     }
 }

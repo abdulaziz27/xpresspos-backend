@@ -34,6 +34,13 @@ class CashSessionsTable
                     ->badge()
                     ->color('info'),
 
+                TextColumn::make('store.name')
+                    ->label('Cabang')
+                    ->badge()
+                    ->color('info')
+                    ->sortable()
+                    ->toggleable(),
+
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()

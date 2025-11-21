@@ -6,7 +6,7 @@ use App\Filament\Owner\Resources\PurchaseOrders\Pages;
 use App\Filament\Owner\Resources\PurchaseOrders\RelationManagers\ItemsRelationManager;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -21,6 +21,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class PurchaseOrderResource extends Resource
 {
@@ -47,11 +48,10 @@ class PurchaseOrderResource extends Resource
                                 Select::make('store_id')
                                     ->label('Toko')
                                     ->options($storeOptions)
-                                    ->default(fn () => StoreContext::instance()->current(auth()->user()))
+                                    ->default(fn () => self::getDefaultStoreId())
                                     ->required()
                                     ->searchable()
-                                    ->helperText('Gunakan filter cabang di header untuk mengatur toko aktif.')
-                                    ->disabled(fn () => ! auth()->user()?->hasRole('admin_sistem')),
+                                    ->helperText('Gunakan filter cabang di header untuk mengatur toko aktif.'),
                                 Select::make('supplier_id')
                                     ->label('Pemasok')
                                     ->options(fn () => Supplier::query()->pluck('name', 'id'))
@@ -165,16 +165,37 @@ class PurchaseOrderResource extends Resource
 
     protected static function storeOptions(): array
     {
-        $user = auth()->user();
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
 
-        if (! $user) {
-            return [];
-        }
-
-        return StoreContext::instance()
-            ->accessibleStores($user)
+        return $globalFilter->getAvailableStores(auth()->user())
             ->pluck('name', 'id')
             ->toArray();
+    }
+
+    protected static function getDefaultStoreId(): ?string
+    {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+
+        return $globalFilter->getCurrentStoreId()
+            ?? ($globalFilter->getStoreIdsForCurrentTenant()[0] ?? null);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()
+            ->with(['store', 'supplier']);
+
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
+
+        return $query;
     }
 }
 

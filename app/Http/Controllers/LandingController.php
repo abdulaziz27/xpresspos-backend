@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\User;
 use App\Models\LandingSubscription;
 use App\Models\Plan;
+use App\Models\Subscription;
 use App\Services\XenditService;
 use App\Services\RegistrationProvisioningService;
 use Illuminate\Validation\ValidationException;
@@ -29,7 +30,15 @@ class LandingController extends Controller
             
             if ($tenant) {
                 $activeSubscription = $tenant->activeSubscription();
-                $currentPlan = $activeSubscription?->plan;
+                $currentPlanId = $activeSubscription?->plan_id;
+
+                if (! $currentPlanId) {
+                    $currentPlanId = Subscription::where('tenant_id', $tenant->id)
+                        ->latest('created_at')
+                        ->value('plan_id');
+                }
+
+                $currentPlan = $currentPlanId ? Plan::find($currentPlanId) : null;
             }
         }
         
@@ -245,7 +254,15 @@ class LandingController extends Controller
 
             // Detect upgrade/downgrade
             $activeSubscription = $tenant->activeSubscription();
-            $currentPlan = $activeSubscription?->plan;
+            $currentPlanId = $activeSubscription?->plan_id;
+
+            if (! $currentPlanId) {
+                $currentPlanId = Subscription::where('tenant_id', $tenant->id)
+                    ->latest('created_at')
+                    ->value('plan_id');
+            }
+
+            $currentPlan = $currentPlanId ? Plan::find($currentPlanId) : null;
             $isUpgrade = false;
             $isDowngrade = false;
             
