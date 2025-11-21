@@ -5,12 +5,13 @@
             <!-- Logo -->
             <div class="flex-shrink-0 flex items-center">
                 <a href="{{ url('/') }}" class="flex items-center space-x-2 group transition-all duration-300 ease-in-out">
-                    <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
+                    <img src="{{ asset('logo/logo-2-(ori-white-ver).svg') }}" class="h-10">
+                    <!-- <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
                         <span class="text-white font-bold text-sm">X</span>
                     </div>
                     <span class="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent group-hover:from-blue-600 group-hover:to-blue-500 transition-all duration-300">
                         XpressPOS
-                    </span>
+                    </span> -->
                 </a>
             </div>
 

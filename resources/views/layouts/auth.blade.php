@@ -6,6 +6,10 @@
     <title>@yield('title', 'XpressPOS')</title>
     <meta name="description" content="@yield('description', 'Sistem POS terdepan untuk bisnis modern')">
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ asset('logo/ori.svg') }}">
+    <link rel="alternate icon" href="{{ asset('favicon.ico') }}">
+    
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

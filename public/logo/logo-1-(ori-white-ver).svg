@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_5_copy_2" data-name="Layer 5 copy 2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2801 720">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: url(#linear-gradient-2);
+      }
+
+      .cls-2 {
+        font-family: Poppins-SemiBold, Poppins;
+        font-size: 448.07px;
+        font-weight: 600;
+      }
+
+      .cls-2, .cls-3 {
+        fill: #fff;
+      }
+
+      .cls-4 {
+        fill: none;
+      }
+
+      .cls-5 {
+        fill: url(#linear-gradient-3);
+      }
+
+      .cls-3 {
+        font-family: Poppins-Regular, Poppins;
+        font-size: 127px;
+      }
+
+      .cls-6 {
+        fill: url(#linear-gradient);
+      }
+    </style>
+    <linearGradient id="linear-gradient" x1="248.18" y1="384.32" x2="395.87" y2="384.32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b3d9b"/>
+      <stop offset="1" stop-color="#0079cf"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-2" x1="87.61" y1="296.5" x2="270.23" y2="296.5" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff5311"/>
+      <stop offset=".64" stop-color="#ffa511"/>
+      <stop offset="1" stop-color="#ffcf51"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-3" x1="248.07" y1="208.86" y2="208.86" xlink:href="#linear-gradient"/>
+  </defs>
+  <g>
+    <line class="cls-4" x1="241.38" y1="328.56" x2="241.35" y2="328.6"/>
+    <line class="cls-4" x1="212.44" y1="296.71" x2="212.25" y2="296.5"/>
+    <path class="cls-6" d="M395.87,442.72h0c0,5.32-2.11,10.42-5.87,14.18l-1.72,1.72c-3.76,3.76-8.86,5.87-14.18,5.87h-.38c-5.65,0-11.04-2.39-14.85-6.57l-110.69-121.87,28.85-31.93,113.63,125.11c3.35,3.69,5.21,8.5,5.21,13.48Z"/>
+    <path class="cls-1" d="M270.23,296.64l-28.85,31.92-.03-.03v.07l-116.85,129.27c-3.81,4.22-9.24,6.63-14.92,6.63h-.95c-5.33,0-10.45-2.12-14.22-5.89l-.9-.9c-3.77-3.77-5.89-8.89-5.89-14.22v-.92c0-4.98,1.85-9.79,5.19-13.49l119.64-132.36.19-.21h-.38l-119.42-131.48c-3.36-3.7-5.22-8.52-5.22-13.52v-1.98c0-5.33,2.12-10.45,5.89-14.22l.9-.9c3.77-3.77,8.89-5.89,14.22-5.89h0c5.67,0,11.08,2.39,14.89,6.59l117.79,129.69.04.05,28.76,31.67.13.14Z"/>
+    <path class="cls-5" d="M395.87,150.09h0c0,4.86-1.8,9.54-5.06,13.15l-113.88,125.99-28.86-31.93,110.58-122.34c3.72-4.11,9-6.46,14.54-6.46h1.08c5.2,0,10.19,2.07,13.86,5.74l1.99,1.99c3.68,3.68,5.74,8.66,5.74,13.86Z"/>
+  </g>
+  <text class="cls-3" transform="translate(89.5 631.61)"><tspan x="0" y="0">SISTEM SEDERHANA UNTUK HASIL LUAR BIASA</tspan></text>
+  <text class="cls-2" transform="translate(469.99 455.85)"><tspan x="0" y="0">PRESS POS</tspan></text>
+  <line class="cls-4" x1="309.48" y1="403.87" x2="309.43" y2="403.92"/>
+  <line class="cls-4" x1="269.71" y1="360.09" x2="269.45" y2="359.8"/>
+</svg>
