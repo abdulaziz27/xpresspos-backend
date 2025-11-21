@@ -27,8 +27,8 @@ class TopMenuTableWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
-        $filters = $this->dashboardFilters();
-        $storeIds = $this->dashboardStoreIds();
+            $filters = $this->dashboardFilters();
+            $storeIds = $this->dashboardStoreIds();
         $tenantId = $filters['tenant_id'] ?? null;
         $dateRange = $filters['range'] ?? null;
 
@@ -43,7 +43,7 @@ class TopMenuTableWidget extends BaseWidget
         try {
             $summary = $this->dashboardFilterSummary();
 
-            $query = Product::query()
+                $query = Product::query()
                 ->select('products.*')
                 ->selectSub(
                     DB::table('cogs_history')
@@ -55,9 +55,9 @@ class TopMenuTableWidget extends BaseWidget
                 )
                 ->where('tenant_id', $tenantId)
                 ->where('status', true)
-                ->having('total_qty', '>', 0)
-                ->orderByDesc('total_qty')
-                ->limit(10);
+                        ->having('total_qty', '>', 0)
+                        ->orderByDesc('total_qty')
+                        ->limit(10);
 
             return $table
                 ->query($query)
@@ -74,7 +74,7 @@ class TopMenuTableWidget extends BaseWidget
                 'Tidak dapat memuat data',
                 'Terjadi kesalahan saat memuat data penjualan produk.'
             );
-        }
+                    }
     }
 
     /**
@@ -83,27 +83,27 @@ class TopMenuTableWidget extends BaseWidget
     protected function tableColumns(): array
     {
         return [
-            Tables\Columns\TextColumn::make('name')
-                ->label('Produk')
-                ->searchable()
-                ->sortable()
-                ->limit(30),
-            Tables\Columns\TextColumn::make('total_qty')
-                ->label('Terjual')
-                ->numeric()
-                ->sortable()
-                ->formatStateUsing(fn ($state) => $state ?? 0),
+                    Tables\Columns\TextColumn::make('name')
+                        ->label('Produk')
+                        ->searchable()
+                        ->sortable()
+                        ->limit(30),
+                    Tables\Columns\TextColumn::make('total_qty')
+                        ->label('Terjual')
+                        ->numeric()
+                        ->sortable()
+                        ->formatStateUsing(fn ($state) => $state ?? 0),
         ];
     }
 
     protected function buildFallbackTable(Table $table, string $heading, string $description): Table
     {
-        return $table
-            ->query(Product::query()->whereRaw('1 = 0'))
+            return $table
+                ->query(Product::query()->whereRaw('1 = 0'))
             ->columns($this->tableColumns())
             ->emptyStateHeading($heading)
             ->emptyStateDescription($description)
-            ->paginated(false)
-            ->striped();
+                ->paginated(false)
+                ->striped();
     }
 }

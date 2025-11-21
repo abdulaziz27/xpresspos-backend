@@ -3,7 +3,6 @@
 namespace App\Filament\Owner\Resources\Tables\Schemas;
 
 use App\Services\GlobalFilterService;
-use Filament\Forms\Get;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
@@ -41,7 +40,7 @@ class TableForm
                                     ->required()
                                     ->maxLength(50)
                                     ->rules([
-                                        function (Get $get) {
+                                        function ($get) {
                                             $storeId = $get('store_id') ?? data_get(request()->input('data'), 'store_id');
                                             $rule = Rule::unique('tables', 'table_number');
 
@@ -126,16 +125,11 @@ class TableForm
 
     protected static function getStoreOptions(): array
     {
-        $user = auth()->user();
+        /** @var GlobalFilterService $service */
+        $service = app(GlobalFilterService::class);
 
-        if (! $user) {
-            return [];
-        }
-
-        return $user->stores()
-            ->select(['stores.id', 'stores.name'])
-            ->orderBy('stores.name')
-            ->pluck('stores.name', 'stores.id')
+        return $service->getAvailableStores()
+            ->pluck('name', 'id')
             ->toArray();
     }
 

@@ -28,8 +28,8 @@ class BestBranchesWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
-        $filters = $this->dashboardFilters();
-        $storeIds = $this->dashboardStoreIds();
+            $filters = $this->dashboardFilters();
+            $storeIds = $this->dashboardStoreIds();
         $tenantId = $filters['tenant_id'] ?? null;
         $dateRange = $filters['range'] ?? null;
 
@@ -54,8 +54,8 @@ class BestBranchesWidget extends BaseWidget
                 ])
                 ->leftJoin('payments', function ($join) use ($dateRange) {
                     $join->on('payments.store_id', '=', 'stores.id')
-                        ->where('payments.status', '=', 'completed')
-                        ->whereBetween('payments.created_at', [$dateRange['start'], $dateRange['end']]);
+                         ->where('payments.status', '=', 'completed')
+                         ->whereBetween('payments.created_at', [$dateRange['start'], $dateRange['end']]);
                 })
                 ->where('stores.tenant_id', $tenantId)
                 ->whereIn('stores.id', $storeIds)
@@ -87,28 +87,28 @@ class BestBranchesWidget extends BaseWidget
     protected function tableColumns(): array
     {
         return [
-            Tables\Columns\TextColumn::make('store_name')
-                ->label('Cabang')
-                ->sortable()
-                ->searchable(),
-            Tables\Columns\TextColumn::make('revenue')
-                ->label('Pendapatan')
-                ->formatStateUsing(fn ($state, $record) => Currency::rupiah((float) ($state ?? $record->revenue ?? 0)))
-                ->sortable(),
-            Tables\Columns\TextColumn::make('transactions')
-                ->label('Transaksi')
-                ->sortable(),
+                    Tables\Columns\TextColumn::make('store_name')
+                        ->label('Cabang')
+                        ->sortable()
+                        ->searchable(),
+                    Tables\Columns\TextColumn::make('revenue')
+                        ->label('Pendapatan')
+                        ->formatStateUsing(fn ($state, $record) => Currency::rupiah((float) ($state ?? $record->revenue ?? 0)))
+                        ->sortable(),
+                    Tables\Columns\TextColumn::make('transactions')
+                        ->label('Transaksi')
+                        ->sortable(),
         ];
     }
 
     protected function buildEmptyTable(Table $table, string $heading, string $description): Table
     {
-        return $table
-            ->query(Store::query()->whereRaw('1 = 0'))
+            return $table
+                ->query(Store::query()->whereRaw('1 = 0'))
             ->columns($this->tableColumns())
             ->emptyStateHeading($heading)
             ->emptyStateDescription($description)
-            ->paginated(false)
-            ->striped();
+                ->paginated(false)
+                ->striped();
     }
 }

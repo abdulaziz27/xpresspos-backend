@@ -3,7 +3,9 @@
 namespace App\Filament\Owner\Resources\Orders\Tables;
 
 use App\Services\GlobalFilterService;
+use Illuminate\Support\Carbon;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
@@ -36,6 +38,13 @@ class OrdersTable
                     })
                     ->sortable(),
 
+                TextColumn::make('store.name')
+                    ->label('Cabang')
+                    ->badge()
+                    ->weight('medium')
+                    ->sortable()
+                    ->toggleable(),
+
                 TextColumn::make('member.name')
                     ->label('Pelanggan')
                     ->searchable()
@@ -67,8 +76,23 @@ class OrdersTable
                     ->alignEnd()
                     ->weight('medium'),
 
+                TextColumn::make('payment_mode')
+                    ->label('Mode Pembayaran')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => match ($state) {
+                        'open_bill' => 'Open Bill',
+                        'direct' => 'Langsung',
+                        default => 'Tidak Diketahui',
+                    })
+                    ->color(fn (?string $state) => match ($state) {
+                        'open_bill' => 'warning',
+                        'direct' => 'success',
+                        default => 'gray',
+                    })
+                    ->placeholder('Tidak Diketahui'),
+
                 TextColumn::make('payment_method')
-                    ->label('Pembayaran')
+                    ->label('Metode Pembayaran')
                     ->badge()
                     ->color('success')
                     ->placeholder('Belum Diatur'),
@@ -112,11 +136,19 @@ class OrdersTable
                     ])
                     ->multiple(),
 
+                SelectFilter::make('payment_mode')
+                    ->label('Mode Pembayaran')
+                    ->options([
+                        'direct' => 'Langsung',
+                        'open_bill' => 'Open Bill',
+                    ])
+                    ->multiple(),
+
                 Filter::make('created_at')
                     ->form([
-                        \Filament\Forms\Components\DatePicker::make('created_from')
+                        DatePicker::make('created_from')
                             ->label('Dari Tanggal'),
-                        \Filament\Forms\Components\DatePicker::make('created_until')
+                        DatePicker::make('created_until')
                             ->label('Hingga Tanggal'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
@@ -129,6 +161,45 @@ class OrdersTable
                                 $data['created_until'],
                                 fn(Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
                             );
+                    })
+                    ->indicateUsing(fn (array $data): ?string => match (true) {
+                        filled($data['created_from'] ?? null) && filled($data['created_until'] ?? null) => sprintf(
+                            'Tanggal dibuat: %s - %s',
+                            Carbon::parse($data['created_from'])->format('d M'),
+                            Carbon::parse($data['created_until'])->format('d M'),
+                        ),
+                        filled($data['created_from'] ?? null) => 'Mulai ' . Carbon::parse($data['created_from'])->format('d M'),
+                        filled($data['created_until'] ?? null) => 'Sampai ' . Carbon::parse($data['created_until'])->format('d M'),
+                        default => null,
+                    }),
+
+                Filter::make('completed_at')
+                    ->form([
+                        DatePicker::make('completed_from')
+                            ->label('Selesai Dari'),
+                        DatePicker::make('completed_until')
+                            ->label('Selesai Hingga'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['completed_from'],
+                                fn(Builder $query, $date): Builder => $query->whereDate('completed_at', '>=', $date),
+                            )
+                            ->when(
+                                $data['completed_until'],
+                                fn(Builder $query, $date): Builder => $query->whereDate('completed_at', '<=', $date),
+                            );
+                    })
+                    ->indicateUsing(fn (array $data): ?string => match (true) {
+                        filled($data['completed_from'] ?? null) && filled($data['completed_until'] ?? null) => sprintf(
+                            'Tgl selesai: %s - %s',
+                            Carbon::parse($data['completed_from'])->format('d M'),
+                            Carbon::parse($data['completed_until'])->format('d M'),
+                        ),
+                        filled($data['completed_from'] ?? null) => 'Selesai ≥ ' . Carbon::parse($data['completed_from'])->format('d M'),
+                        filled($data['completed_until'] ?? null) => 'Selesai ≤ ' . Carbon::parse($data['completed_until'])->format('d M'),
+                        default => null,
                     }),
 
                 Filter::make('today')

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Owner\Resources\Tables\Tables;
 
+use App\Services\GlobalFilterService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -9,6 +10,7 @@ use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table as FilamentTable;
 
 class TablesTable
@@ -34,6 +36,29 @@ class TablesTable
                     ->sortable()
                     ->toggleable(),
 
+                TextColumn::make('location')
+                    ->label('Lokasi')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'indoor' => 'Dalam Ruangan',
+                        'outdoor' => 'Luar Ruangan',
+                        'terrace' => 'Teras',
+                        'vip' => 'Area VIP',
+                        'bar' => 'Area Bar',
+                        'other' => 'Lainnya',
+                        default => '-',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'indoor' => 'info',
+                        'outdoor' => 'success',
+                        'terrace' => 'warning',
+                        'vip' => 'danger',
+                        'bar' => 'gray',
+                        default => 'gray',
+                    })
+                    ->sortable()
+                    ->toggleable(),
+
                 TextColumn::make('capacity')
                     ->label('Kapasitas')
                     ->numeric()
@@ -49,9 +74,17 @@ class TablesTable
                         'occupied' => 'warning',
                         'reserved' => 'info',
                         'maintenance' => 'danger',
+                        'cleaning' => 'gray',
                         default => 'gray',
                     })
                     ->sortable(),
+
+                TextColumn::make('currentOrder.order_number')
+                    ->label('Order Aktif')
+                    ->badge()
+                    ->color('warning')
+                    ->placeholder('Tidak Ada Order')
+                    ->toggleable(),
 
                 IconColumn::make('is_active')
                     ->label('Aktif')
@@ -69,7 +102,25 @@ class TablesTable
             ->filters([
                 SelectFilter::make('store_id')
                     ->label('Cabang')
-                    ->options(fn () => static::storeOptions()),
+                    ->options(fn () => static::storeOptions())
+                    ->searchable(),
+
+                SelectFilter::make('status')
+                    ->label('Status')
+                    ->options([
+                        'available' => 'Tersedia',
+                        'occupied' => 'Terisi',
+                        'reserved' => 'Direservasi',
+                        'maintenance' => 'Perawatan',
+                        'cleaning' => 'Pembersihan',
+                    ])
+                    ->multiple(),
+
+                TernaryFilter::make('is_active')
+                    ->label('Aktif')
+                    ->placeholder('Semua')
+                    ->trueLabel('Aktif Saja')
+                    ->falseLabel('Nonaktif Saja'),
             ])
             ->actions([
                 EditAction::make()->label('Ubah'),
@@ -81,16 +132,11 @@ class TablesTable
 
     protected static function storeOptions(): array
     {
-        $user = auth()->user();
+        /** @var GlobalFilterService $service */
+        $service = app(GlobalFilterService::class);
 
-        if (! $user) {
-            return [];
-        }
-
-        return $user->stores()
-            ->select(['stores.id', 'stores.name'])
-            ->orderBy('stores.name')
-            ->pluck('stores.name', 'stores.id')
+        return $service->getAvailableStores()
+            ->pluck('name', 'id')
             ->toArray();
     }
 }

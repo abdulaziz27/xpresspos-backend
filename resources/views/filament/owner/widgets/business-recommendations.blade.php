@@ -1,5 +1,5 @@
 <x-filament-widgets::widget>
-        <x-filament::section>
+    <x-filament::section>
         @php($viewData = $this->getViewData())
         @php($recommendations = $viewData['recommendations'] ?? [])
 

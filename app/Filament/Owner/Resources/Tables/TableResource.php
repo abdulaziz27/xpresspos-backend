@@ -49,7 +49,7 @@ class TableResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            \App\Filament\Owner\Resources\Tables\RelationManagers\TableOccupancyHistoriesRelationManager::class,
         ];
     }
 
@@ -76,7 +76,7 @@ class TableResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
-            ->with('store');
+            ->with(['store', 'currentOrder']);
 
         /** @var GlobalFilterService $globalFilter */
         $globalFilter = app(GlobalFilterService::class);

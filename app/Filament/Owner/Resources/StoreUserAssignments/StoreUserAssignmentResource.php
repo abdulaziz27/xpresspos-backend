@@ -60,7 +60,7 @@ class StoreUserAssignmentResource extends Resource
         $query = parent::getEloquentQuery()
             ->with(['user', 'store'])
             ->select([
-                'id', 'store_id', 'user_id', 'assignment_role',
+                'id', 'store_id', 'user_id', 'assignment_role', 
                 'is_primary', 'created_at', 'updated_at',
             ]);
 
