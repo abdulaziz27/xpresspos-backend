@@ -2352,15 +2352,15 @@
                         © {{ date('Y') }} XpressPOS. All rights reserved.
                     </p>
                     <div class="flex space-x-6">
-                        <a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm relative group">
+                        <a href="{{ route('landing.privacy-policy') }}" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm relative group">
                             Privacy Policy
                             <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-500 transition-all duration-300 group-hover:w-full"></span>
                         </a>
-                        <a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm relative group">
+                        <a href="{{ route('landing.terms-and-conditions') }}" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm relative group">
                             Syarat & Ketentuan
                             <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-500 transition-all duration-300 group-hover:w-full"></span>
                         </a>
-                        <a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm relative group">
+                        <a href="{{ route('landing.cookie-policy') }}" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm relative group">
                             Cookie Policy
                             <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-500 transition-all duration-300 group-hover:w-full"></span>
                         </a>

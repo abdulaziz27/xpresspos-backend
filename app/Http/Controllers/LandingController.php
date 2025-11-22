@@ -1042,4 +1042,34 @@ class LandingController extends Controller
             return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
         }
     }
+
+    /**
+     * Show Privacy Policy page.
+     */
+    public function showPrivacyPolicy()
+    {
+        return view('landing.privacy-policy', [
+            'title' => 'Kebijakan Privasi - XpressPOS'
+        ]);
+    }
+
+    /**
+     * Show Terms and Conditions page.
+     */
+    public function showTermsAndConditions()
+    {
+        return view('landing.terms-and-conditions', [
+            'title' => 'Syarat dan Ketentuan - XpressPOS'
+        ]);
+    }
+
+    /**
+     * Show Cookie Policy page.
+     */
+    public function showCookiePolicy()
+    {
+        return view('landing.cookie-policy', [
+            'title' => 'Kebijakan Cookie - XpressPOS'
+        ]);
+    }
 }

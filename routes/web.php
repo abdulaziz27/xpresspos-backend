@@ -55,6 +55,11 @@ Route::domain(config('domains.main'))->group(function () {
             'title' => 'Company - XpressPOS'
         ]);
     })->name('company');
+    
+    // Policy pages
+    Route::get('/privacy-policy', [LandingController::class, 'showPrivacyPolicy'])->name('landing.privacy-policy');
+    Route::get('/terms-and-conditions', [LandingController::class, 'showTermsAndConditions'])->name('landing.terms-and-conditions');
+    Route::get('/cookie-policy', [LandingController::class, 'showCookiePolicy'])->name('landing.cookie-policy');
 });
 
 // Local development domains
@@ -127,6 +132,11 @@ Route::get('/company', function () {
         'title' => 'Company - XpressPOS'
     ]);
 })->name('company.fallback');
+
+// Policy pages (fallback for localhost)
+Route::get('/privacy-policy', [LandingController::class, 'showPrivacyPolicy'])->name('privacy-policy');
+Route::get('/terms-and-conditions', [LandingController::class, 'showTermsAndConditions'])->name('terms-and-conditions');
+Route::get('/cookie-policy', [LandingController::class, 'showCookiePolicy'])->name('cookie-policy');
 
 // Local development prefix routes (alternative access method)
 Route::prefix('main')->group(function () {
