@@ -68,7 +68,18 @@ class ItemsRelationManager extends RelationManager
                         ->required()
                         ->minValue(0.001)
                         ->step(0.001)
+                        ->inputMode('decimal')
                         ->disabled($isReadOnly || $isShipped)
+                        ->formatStateUsing(fn($state) => $state !== null && $state !== '' ? (string) $state : null)
+                        ->dehydrateStateUsing(function ($state) {
+                            if (empty($state)) {
+                                return null;
+                            }
+                            // Parse input yang mungkin menggunakan format Indonesia (titik sebagai pemisah ribuan, koma sebagai desimal)
+                            $state = str_replace('.', '', (string) $state);
+                            $state = str_replace(',', '.', (string) $state);
+                            return is_numeric($state) ? (float) $state : null;
+                        })
                         ->helperText('Jumlah yang dikirim dari toko asal'),
 
                     Forms\Components\TextInput::make('quantity_received')
@@ -77,7 +88,18 @@ class ItemsRelationManager extends RelationManager
                         ->default(0)
                         ->minValue(0)
                         ->step(0.001)
+                        ->inputMode('decimal')
                         ->disabled($isReadOnly)
+                        ->formatStateUsing(fn($state) => $state !== null && $state !== '' ? (string) $state : '0')
+                        ->dehydrateStateUsing(function ($state) {
+                            if (empty($state)) {
+                                return 0;
+                            }
+                            // Parse input yang mungkin menggunakan format Indonesia (titik sebagai pemisah ribuan, koma sebagai desimal)
+                            $state = str_replace('.', '', (string) $state);
+                            $state = str_replace(',', '.', (string) $state);
+                            return is_numeric($state) ? (float) $state : 0;
+                        })
                         ->helperText(function ($record, callable $get) use ($isShipped) {
                             return $isShipped 
                                 ? 'Jumlah yang diterima di toko tujuan (boleh <= Qty Dikirim)'
@@ -87,7 +109,11 @@ class ItemsRelationManager extends RelationManager
                             function (callable $get) {
                                 return function (string $attribute, $value, \Closure $fail) use ($get) {
                                     $shipped = $get('quantity_shipped') ?? 0;
-                                    if ($value > $shipped) {
+                                    // Parse value untuk validasi
+                                    $parsedValue = str_replace('.', '', (string) $value);
+                                    $parsedValue = str_replace(',', '.', (string) $parsedValue);
+                                    $parsedValue = is_numeric($parsedValue) ? (float) $parsedValue : 0;
+                                    if ($parsedValue > $shipped) {
                                         $fail('Qty Diterima tidak boleh lebih besar dari Qty Dikirim.');
                                     }
                                 };
@@ -155,14 +181,36 @@ class ItemsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('quantity_shipped')
                     ->label('Qty Dikirim')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '-';
+                        }
+                        $value = (float) $state;
+                        // Jika bilangan bulat, tampilkan tanpa desimal
+                        if ($value == (int) $value) {
+                            return number_format($value, 0, ',', '.');
+                        }
+                        // Jika desimal, tampilkan dengan presisi yang sesuai (maks 3 desimal)
+                        return number_format($value, min(3, strlen(substr(strrchr((string)$value, '.'), 1))), ',', '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->suffix(fn($record) => ' ' . ($record->uom?->code ?? $record->inventoryItem?->uom?->code ?? '')),
 
                 Tables\Columns\TextColumn::make('quantity_received')
                     ->label('Qty Diterima')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '-';
+                        }
+                        $value = (float) $state;
+                        // Jika bilangan bulat, tampilkan tanpa desimal
+                        if ($value == (int) $value) {
+                            return number_format($value, 0, ',', '.');
+                        }
+                        // Jika desimal, tampilkan dengan presisi yang sesuai (maks 3 desimal)
+                        return number_format($value, min(3, strlen(substr(strrchr((string)$value, '.'), 1))), ',', '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->color(function ($record) {

@@ -9,6 +9,7 @@ use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -244,6 +245,7 @@ class InventoryTransferResource extends Resource
                     }),
             ])
             ->actions([
+                ViewAction::make(),
                 EditAction::make()
                     ->visible(fn ($record) => !in_array($record->status, [InventoryTransfer::STATUS_RECEIVED, InventoryTransfer::STATUS_CANCELLED])),
             ])
@@ -308,6 +310,7 @@ class InventoryTransferResource extends Resource
         return [
             'index' => Pages\ListInventoryTransfers::route('/'),
             'create' => Pages\CreateInventoryTransfer::route('/create'),
+            'view' => Pages\ViewInventoryTransfer::route('/{record}'),
             'edit' => Pages\EditInventoryTransfer::route('/{record}/edit'),
         ];
     }

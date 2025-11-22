@@ -10,6 +10,7 @@ use App\Support\Currency;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
@@ -190,6 +191,7 @@ class InventoryAdjustmentResource extends Resource
                     }),
             ])
             ->actions([
+                ViewAction::make(),
                 EditAction::make()
                     ->visible(fn ($record) => $record->status === InventoryAdjustment::STATUS_DRAFT),
             ])
@@ -257,6 +259,7 @@ class InventoryAdjustmentResource extends Resource
         return [
             'index' => Pages\ListInventoryAdjustments::route('/'),
             'create' => Pages\CreateInventoryAdjustment::route('/create'),
+            'view' => Pages\ViewInventoryAdjustment::route('/{record}'),
             'edit' => Pages\EditInventoryAdjustment::route('/{record}/edit'),
         ];
     }
