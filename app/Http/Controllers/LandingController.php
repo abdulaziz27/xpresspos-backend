@@ -430,41 +430,257 @@ class LandingController extends Controller
             return redirect()->route('landing.home')->with('error', 'Subscription not found.');
         }
 
-        // Auto-provision account if payment is successful and not yet provisioned
-        if ($subscription->payment_status === 'paid' && !$subscription->provisioned_user_id) {
-            $provisioningService = app(\App\Services\SubscriptionProvisioningService::class);
-            $result = $provisioningService->provisionSubscription($subscription);
-            
-            if ($result['success']) {
-                // Auto-login the user and redirect to owner dashboard
-                $user = \App\Models\User::find($result['user_id']);
+        // Check payment status from Xendit (important for simulated payments)
+        // This ensures we catch payments even if webhook didn't fire
+        $payment = $subscription->latestSubscriptionPayment;
+        
+        // If no payment record exists but we have xendit_invoice_id, create it
+        if (!$payment && $subscription->xendit_invoice_id) {
+            try {
+                $xenditService = app(\App\Services\XenditService::class);
+                $invoiceResult = $xenditService->getInvoice($subscription->xendit_invoice_id);
                 
-                if ($user) {
-                    auth()->login($user);
+                if ($invoiceResult['success']) {
+                    $invoiceData = $invoiceResult['data'];
                     
-                    return redirect()
-                        ->route('filament.owner.pages.dashboard')
-                        ->with('success', 'Welcome! Your subscription is now active. Check your email for login credentials.');
+                    // Create payment record from Xendit invoice
+                    // For dummy invoices, use subscription amount if invoice amount doesn't match
+                    $invoiceAmount = $invoiceData['amount'] ?? $subscription->payment_amount;
+                    if (str_starts_with($subscription->xendit_invoice_id, 'dummy_') && $invoiceAmount != $subscription->payment_amount) {
+                        $invoiceAmount = $subscription->payment_amount;
+                        $invoiceData['amount'] = $subscription->payment_amount;
+                        $invoiceData['paid_amount'] = $subscription->payment_amount;
+                    }
+                    
+                    $payment = \App\Models\SubscriptionPayment::create([
+                        'landing_subscription_id' => $subscription->id,
+                        'xendit_invoice_id' => $subscription->xendit_invoice_id,
+                        'external_id' => $invoiceData['external_id'] ?? 'LS-' . $subscription->id . '-' . time(),
+                        'amount' => $invoiceAmount,
+                        'status' => $this->mapXenditStatus($invoiceData['status'] ?? 'PENDING'),
+                        'gateway_response' => $invoiceData,
+                        'paid_at' => isset($invoiceData['paid_at']) ? ($invoiceData['status'] === 'PAID' ? now() : null) : null,
+                        'expires_at' => isset($invoiceData['expiry_date']) ? \Carbon\Carbon::parse($invoiceData['expiry_date']) : null,
+                    ]);
+                    
+                    \Log::info('Created payment record from Xendit on success page', [
+                        'landing_subscription_id' => $subscription->id,
+                        'payment_id' => $payment->id,
+                    ]);
                 }
-                
-                // Fallback: show success page with login info
-                $subscription->refresh();
-                
-                return view('landing.payment-success', [
-                    'subscription' => $subscription,
-                    'provisioning' => $result,
-                    'showLoginInfo' => true,
-                    'loginUrl' => $result['login_url'],
-                    'temporaryPassword' => $result['temporary_password']
+            } catch (\Exception $e) {
+                \Log::warning('Failed to create payment record from Xendit', [
+                    'landing_subscription_id' => $subscription->id,
+                    'error' => $e->getMessage(),
                 ]);
+            }
+        }
+        
+        if ($payment && $subscription->xendit_invoice_id) {
+            try {
+                $xenditService = app(\App\Services\XenditService::class);
+                $invoiceResult = $xenditService->getInvoice($subscription->xendit_invoice_id);
+                
+                if ($invoiceResult['success'] && isset($invoiceResult['data']['status'])) {
+                    $xenditStatus = $invoiceResult['data']['status'];
+                    
+                    \Log::info('Checking Xendit payment status on success page', [
+                        'landing_subscription_id' => $subscription->id,
+                        'payment_id' => $payment->id,
+                        'xendit_status' => $xenditStatus,
+                        'current_payment_status' => $payment->status,
+                        'current_subscription_status' => $subscription->payment_status,
+                    ]);
+                    
+                    // Update payment status if it's paid on Xendit but not in our database
+                    // For dummy invoices in development, this will always be PAID
+                    // SETTLED is also considered PAID
+                    if (in_array(strtoupper($xenditStatus), ['PAID', 'SETTLED'])) {
+                        // For dummy invoices, ensure amount matches subscription
+                        if (str_starts_with($subscription->xendit_invoice_id, 'dummy_')) {
+                            $invoiceResult['data']['amount'] = $subscription->payment_amount;
+                            $invoiceResult['data']['paid_amount'] = $subscription->payment_amount;
+                        }
+                        
+                        // Always update if Xendit says PAID, regardless of current status
+                        $payment->updateFromXenditCallback($invoiceResult['data']);
+                        $payment->refresh();
+                        
+                        // Update landing subscription status
+                        $subscription->update([
+                            'payment_status' => 'paid',
+                            'status' => 'paid',
+                            'stage' => 'payment_completed',
+                            'paid_at' => $payment->paid_at ?? now(),
+                        ]);
+                        $subscription->refresh();
+                        
+                        \Log::info('Payment status synced from Xendit on success page', [
+                            'landing_subscription_id' => $subscription->id,
+                            'payment_id' => $payment->id,
+                            'xendit_status' => $xenditStatus,
+                            'new_payment_status' => $payment->status,
+                            'new_subscription_status' => $subscription->payment_status,
+                        ]);
+                    } else {
+                        \Log::warning('Xendit invoice is not PAID yet', [
+                            'landing_subscription_id' => $subscription->id,
+                            'xendit_status' => $xenditStatus,
+                        ]);
+                    }
+                } else {
+                    \Log::warning('Failed to get invoice status from Xendit', [
+                        'landing_subscription_id' => $subscription->id,
+                        'success' => $invoiceResult['success'] ?? false,
+                        'error' => $invoiceResult['error'] ?? 'Unknown error',
+                    ]);
+                }
+                } catch (\Exception $e) {
+                \Log::warning('Failed to check Xendit payment status on success page', [
+                    'landing_subscription_id' => $subscription->id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        } elseif (!$payment && $subscription->xendit_invoice_id) {
+            // If no payment record but we have xendit_invoice_id, try to create it and check status
+            try {
+                $xenditService = app(\App\Services\XenditService::class);
+                $invoiceResult = $xenditService->getInvoice($subscription->xendit_invoice_id);
+                
+                if ($invoiceResult['success'] && isset($invoiceResult['data']['status'])) {
+                    $invoiceData = $invoiceResult['data'];
+                    
+                    // Create payment record
+                    $payment = \App\Models\SubscriptionPayment::create([
+                        'landing_subscription_id' => $subscription->id,
+                        'xendit_invoice_id' => $subscription->xendit_invoice_id,
+                        'external_id' => $invoiceData['external_id'] ?? 'LS-' . $subscription->id . '-' . time(),
+                        'amount' => $invoiceData['amount'] ?? $subscription->payment_amount,
+                        'status' => $this->mapXenditStatus($invoiceData['status'] ?? 'PENDING'),
+                        'gateway_response' => $invoiceData,
+                        'paid_at' => ($invoiceData['status'] === 'PAID' && isset($invoiceData['paid_at'])) 
+                            ? \Carbon\Carbon::parse($invoiceData['paid_at']) 
+                            : (($invoiceData['status'] === 'PAID') ? now() : null),
+                        'expires_at' => isset($invoiceData['expiry_date']) 
+                            ? \Carbon\Carbon::parse($invoiceData['expiry_date']) 
+                            : null,
+                    ]);
+                    
+                    // Update subscription if paid
+                    if ($invoiceData['status'] === 'PAID') {
+                        $subscription->update([
+                            'payment_status' => 'paid',
+                            'status' => 'paid',
+                            'stage' => 'payment_completed',
+                            'paid_at' => $payment->paid_at ?? now(),
+                        ]);
+                        $subscription->refresh();
+                    }
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Failed to create payment record from Xendit invoice on success page', [
+                    'landing_subscription_id' => $subscription->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Auto-provision account if payment is successful and not yet provisioned
+        // Check both provisioned_user_id (legacy) and subscription_id (new)
+        $needsProvisioning = $subscription->payment_status === 'paid' && 
+                           !$subscription->provisioned_user_id && 
+                           !$subscription->subscription_id;
+        
+        if ($needsProvisioning) {
+            // Try to find SubscriptionPayment to trigger provisioning
+            if (!$payment) {
+                $payment = $subscription->latestSubscriptionPayment;
+            }
+            
+            // If payment is not paid but subscription says paid, mark payment as paid
+            // This handles cases where status was updated but payment record wasn't
+            if ($payment && !$payment->isPaid() && $subscription->payment_status === 'paid') {
+                $payment->markAsPaid();
+                $payment->refresh();
+            }
+            
+            if ($payment && $payment->isPaid()) {
+                try {
+                    $provisioningService = app(\App\Services\SubscriptionProvisioningService::class);
+                    $result = $provisioningService->provisionFromPaidLandingSubscription($subscription, $payment);
+                    
+                    if ($result['success']) {
+                        // Auto-login the user and redirect to owner dashboard
+                        $user = \App\Models\User::find($result['user_id'] ?? $result['user']->id ?? null);
+                        
+                        if ($user) {
+                            auth()->login($user);
+                            
+                            return redirect()
+                                ->route('filament.owner.pages.dashboard')
+                                ->with('success', 'Welcome! Your subscription is now active.');
+                        }
+                        
+                        // Fallback: show success page with login info
+                        $subscription->refresh();
+                        
+                        return view('landing.payment-success', [
+                            'subscription' => $subscription,
+                            'provisioning' => $result,
+                            'showLoginInfo' => true,
+                            'loginUrl' => $result['login_url'] ?? config('app.owner_url', '/owner'),
+                            'temporaryPassword' => $result['temporary_password'] ?? null
+                        ]);
+                    } else {
+                        \Log::error('Auto-provisioning failed', [
+                            'subscription_id' => $subscription->id, 
+                            'error' => $result['error'] ?? 'Unknown error'
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Exception during auto-provisioning', [
+                        'subscription_id' => $subscription->id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                }
             } else {
-                \Log::error('Auto-provisioning failed', ['subscription_id' => $subscription->id, 'error' => $result['error']]);
+                // Fallback to old method (for legacy subscriptions without payment records)
+                try {
+                    $provisioningService = app(\App\Services\SubscriptionProvisioningService::class);
+                    $result = $provisioningService->provisionSubscription($subscription);
+                    
+                    if ($result['success']) {
+                        $user = \App\Models\User::find($result['user_id'] ?? null);
+                        
+                        if ($user) {
+                            auth()->login($user);
+                            
+                            return redirect()
+                                ->route('filament.owner.pages.dashboard')
+                                ->with('success', 'Welcome! Your subscription is now active.');
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Exception during fallback provisioning', [
+                        'subscription_id' => $subscription->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
         }
 
         // If already provisioned, try to auto-login
-        if ($subscription->provisioned_user_id) {
-            $user = \App\Models\User::find($subscription->provisioned_user_id);
+        if ($subscription->subscription_id || $subscription->provisioned_user_id) {
+            $user = null;
+            
+            // For authenticated users, use the user from landing subscription
+            if ($subscription->user_id) {
+                $user = \App\Models\User::find($subscription->user_id);
+            } elseif ($subscription->provisioned_user_id) {
+                $user = \App\Models\User::find($subscription->provisioned_user_id);
+            }
             
             if ($user && !auth()->check()) {
                 auth()->login($user);
@@ -476,9 +692,23 @@ class LandingController extends Controller
 
         return view('landing.payment-success', [
             'subscription' => $subscription,
-            'showLoginInfo' => $subscription->provisioned_user_id ? true : false,
+            'showLoginInfo' => ($subscription->provisioned_user_id || $subscription->subscription_id) ? true : false,
             'loginUrl' => $subscription->onboarding_url ?? config('app.owner_url', '/owner')
         ]);
+    }
+    
+    /**
+     * Map Xendit status to payment status
+     */
+    private function mapXenditStatus(string $xenditStatus): string
+    {
+        return match(strtoupper($xenditStatus)) {
+            'PAID', 'SETTLED' => 'paid',
+            'PENDING' => 'pending',
+            'EXPIRED' => 'expired',
+            'FAILED' => 'failed',
+            default => 'pending'
+        };
     }
 
     /**

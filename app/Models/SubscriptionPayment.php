@@ -205,8 +205,8 @@ class SubscriptionPayment extends Model
      */
     private function mapXenditStatus(string $xenditStatus): string
     {
-        return match($xenditStatus) {
-            'PAID' => 'paid',
+        return match(strtoupper($xenditStatus)) {
+            'PAID', 'SETTLED' => 'paid',
             'PENDING' => 'pending',
             'EXPIRED' => 'expired',
             'FAILED' => 'failed',

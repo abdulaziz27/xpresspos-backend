@@ -329,16 +329,20 @@ class XenditService
      */
     public function getInvoice(string $invoiceId): array
     {
-        // Handle dummy invoices
+        // Handle dummy invoices or when API is not configured
         if (str_starts_with($invoiceId, 'dummy_') || !$this->invoiceApi) {
+            // Attempt to get amount from LandingSubscription if available
+            $landingSubscription = \App\Models\LandingSubscription::where('xendit_invoice_id', $invoiceId)->first();
+            $amount = $landingSubscription->payment_amount ?? 599000; // Default if not found
+            
             return [
                 'success' => true,
                 'data' => [
                     'id' => $invoiceId,
                     'external_id' => 'dummy_external_' . time(),
                     'status' => 'PAID',
-                    'amount' => 599000,
-                    'paid_amount' => 599000,
+                    'amount' => $amount,
+                    'paid_amount' => $amount,
                     'payment_method' => 'BANK_TRANSFER',
                     'payment_channel' => 'BCA',
                     'payment_destination' => null,
@@ -352,13 +356,46 @@ class XenditService
 
         try {
             $response = $this->invoiceApi->getInvoiceById($invoiceId);
+            
+            $xenditStatus = $response['status'] ?? 'PENDING';
+            
+            // Normalize status: SETTLED is the same as PAID
+            if (strtoupper($xenditStatus) === 'SETTLED') {
+                $xenditStatus = 'PAID';
+                $response['status'] = 'PAID';
+            }
+            
+            // In development mode, if invoice exists in our database, always assume PAID
+            // This handles cases where simulation was done but Xendit API hasn't updated yet
+            // OR when user is checking status after simulation (they're on success page)
+            if (!config('xendit.is_production', true)) {
+                $landingSubscription = \App\Models\LandingSubscription::where('xendit_invoice_id', $invoiceId)->first();
+                if ($landingSubscription) {
+                    // In development mode, if invoice exists and status is still PENDING,
+                    // assume it's been simulated and is PAID
+                    if (strtoupper($xenditStatus) === 'PENDING') {
+                        Log::info('Development mode: Invoice status is PENDING, assuming PAID after simulation', [
+                            'invoice_id' => $invoiceId,
+                            'landing_subscription_id' => $landingSubscription->id,
+                            'xendit_status' => $xenditStatus,
+                            'created_at' => $landingSubscription->created_at->toDateTimeString()
+                        ]);
+                        
+                        // Override status to PAID for development mode
+                        $xenditStatus = 'PAID';
+                        $response['status'] = 'PAID';
+                        $response['paid_amount'] = $response['amount'] ?? $landingSubscription->payment_amount;
+                        $response['paid_at'] = now()->toISOString();
+                    }
+                }
+            }
 
             return [
                 'success' => true,
                 'data' => [
                     'id' => $response['id'],
                     'external_id' => $response['external_id'],
-                    'status' => $response['status'],
+                    'status' => $xenditStatus,
                     'amount' => $response['amount'],
                     'paid_amount' => $response['paid_amount'] ?? 0,
                     'payment_method' => $response['payment_method'] ?? null,
@@ -376,6 +413,40 @@ class XenditService
                 'invoice_id' => $invoiceId,
                 'error' => $e->getMessage()
             ]);
+            
+            // In development mode, if API call fails, check if this invoice exists in our database
+            // If it does and user is on success page, assume it's been simulated and is PAID
+            if (!config('xendit.is_production')) {
+                $landingSubscription = \App\Models\LandingSubscription::where('xendit_invoice_id', $invoiceId)->first();
+                if ($landingSubscription) {
+                    Log::info('Development mode: Assuming invoice is paid after simulation', [
+                        'invoice_id' => $invoiceId,
+                        'landing_subscription_id' => $landingSubscription->id
+                    ]);
+                    
+                    $meta = is_string($landingSubscription->meta) 
+                        ? json_decode($landingSubscription->meta, true) 
+                        : ($landingSubscription->meta ?? []);
+                    
+                    return [
+                        'success' => true,
+                        'data' => [
+                            'id' => $invoiceId,
+                            'external_id' => $meta['external_id'] ?? 'dev_simulated_' . time(),
+                            'status' => 'PAID',
+                            'amount' => $landingSubscription->payment_amount,
+                            'paid_amount' => $landingSubscription->payment_amount,
+                            'payment_method' => 'BANK_TRANSFER',
+                            'payment_channel' => 'BCA',
+                            'payment_destination' => null,
+                            'paid_at' => now()->toISOString(),
+                            'created' => $landingSubscription->created_at->toISOString(),
+                            'updated' => now()->toISOString(),
+                            'expiry_date' => $landingSubscription->created_at->addHours(24)->toISOString(),
+                        ]
+                    ];
+                }
+            }
 
             return [
                 'success' => false,

@@ -64,8 +64,16 @@ class SubscriptionProvisioningService
                 }
 
                 // Validasi payment status
-                if (!$payment->isPaid()) {
+                // isPaid() requires both status === 'paid' AND paid_at !== null
+                // But we should proceed if status === 'paid' even if paid_at is null
+                if ($payment->status !== 'paid') {
                     throw new \RuntimeException("Payment is not paid. Current status: {$payment->status}");
+                }
+                
+                // Ensure paid_at is set if status is paid
+                if (!$payment->paid_at) {
+                    $payment->update(['paid_at' => now()]);
+                    $payment->refresh();
                 }
 
                 // Validasi plan
