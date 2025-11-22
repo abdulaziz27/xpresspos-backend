@@ -60,6 +60,9 @@ Route::domain(config('domains.main'))->group(function () {
     Route::get('/privacy-policy', [LandingController::class, 'showPrivacyPolicy'])->name('landing.privacy-policy');
     Route::get('/terms-and-conditions', [LandingController::class, 'showTermsAndConditions'])->name('landing.terms-and-conditions');
     Route::get('/cookie-policy', [LandingController::class, 'showCookiePolicy'])->name('landing.cookie-policy');
+    
+    // Coupon validation for checkout (public route)
+    Route::post('/checkout/validate-coupon', [\App\Http\Controllers\SubscriptionCouponController::class, 'validateCoupon'])->name('landing.checkout.validate-coupon');
 });
 
 // Local development domains
@@ -137,6 +140,9 @@ Route::get('/company', function () {
 Route::get('/privacy-policy', [LandingController::class, 'showPrivacyPolicy'])->name('privacy-policy');
 Route::get('/terms-and-conditions', [LandingController::class, 'showTermsAndConditions'])->name('terms-and-conditions');
 Route::get('/cookie-policy', [LandingController::class, 'showCookiePolicy'])->name('cookie-policy');
+
+// Coupon validation for checkout (fallback for localhost)
+Route::post('/checkout/validate-coupon', [\App\Http\Controllers\SubscriptionCouponController::class, 'validateCoupon'])->name('checkout.validate-coupon');
 
 // Local development prefix routes (alternative access method)
 Route::prefix('main')->group(function () {

@@ -159,7 +159,8 @@ class LandingController extends Controller
         $request->validate([
             'plan_id' => 'nullable|exists:plans,id', // Primary: plan_id (integer)
             'plan' => 'nullable|string', // Secondary: slug (for backward compatibility)
-            'billing' => 'required|in:monthly,yearly'
+            'billing' => 'required|in:monthly,yearly',
+            'coupon_code' => 'nullable|string|max:255',
         ]);
 
         // Prioritize plan_id over slug
@@ -174,6 +175,38 @@ class LandingController extends Controller
 
         $billing = $request->billing;
         $price = $billing === 'yearly' ? $plan->annual_price : $plan->price;
+        $originalPrice = $price;
+        
+        // Apply coupon if provided
+        $couponData = null;
+        $discountAmount = 0;
+        if ($request->coupon_code) {
+            $tenantId = null;
+            if (Auth::check()) {
+                $tenant = Auth::user()->currentTenant();
+                $tenantId = $tenant?->id;
+            }
+            
+            $couponService = app(\App\Services\SubscriptionCouponService::class);
+            $couponResult = $couponService->validateAndCalculate(
+                strtoupper(trim($request->coupon_code)),
+                $price,
+                $tenantId,
+                $plan
+            );
+            
+            if ($couponResult['valid']) {
+                $price = $couponResult['final_amount'];
+                $discountAmount = $couponResult['discount_amount'];
+                $couponData = [
+                    'code' => $couponResult['voucher']->code,
+                    'discount_amount' => $couponResult['discount_amount'],
+                    'discount_percentage' => $couponResult['discount_percentage'],
+                    'promotion_name' => $couponResult['promotion']->name ?? null,
+                ];
+            }
+        }
+        
         $total = $price; // No tax for now
 
         // Detect upgrade/downgrade for authenticated users
@@ -207,6 +240,10 @@ class LandingController extends Controller
             'planId' => $plan->id, // Use plan_id (integer) instead of slug
             'billing' => $billing,
             'price' => $price,
+            'original_price' => $originalPrice,
+            'discount_amount' => $discountAmount,
+            'coupon' => $couponData,
+            'coupon_code' => $request->coupon_code,
             'tax' => 0, // No tax
             'total' => $total,
             'currentPlan' => $currentPlan,
@@ -754,7 +791,8 @@ class LandingController extends Controller
         $request->validate([
             'plan_id' => 'nullable|exists:plans,id', // Primary: plan_id (integer)
             'plan' => 'nullable|string', // Secondary: slug (for backward compatibility)
-            'billing' => 'required|in:monthly,yearly'
+            'billing' => 'required|in:monthly,yearly',
+            'coupon_code' => 'nullable|string|max:255',
         ]);
 
         // Prioritize plan_id over slug
@@ -769,6 +807,39 @@ class LandingController extends Controller
 
         $billing = $request->billing;
         $price = $billing === 'yearly' ? $selectedPlan->annual_price : $selectedPlan->price;
+        
+        // Apply coupon if provided
+        $couponData = null;
+        $discountAmount = 0;
+        $originalPrice = $price;
+        
+        if ($request->coupon_code) {
+            $tenantId = null;
+            if (Auth::check()) {
+                $tenant = Auth::user()->currentTenant();
+                $tenantId = $tenant?->id;
+            }
+            
+            $couponService = app(\App\Services\SubscriptionCouponService::class);
+            $couponResult = $couponService->validateAndCalculate(
+                strtoupper(trim($request->coupon_code)),
+                $price,
+                $tenantId,
+                $selectedPlan
+            );
+            
+            if ($couponResult['valid']) {
+                $price = $couponResult['final_amount'];
+                $discountAmount = $couponResult['discount_amount'];
+                $couponData = [
+                    'code' => $couponResult['voucher']->code,
+                    'discount_amount' => $couponResult['discount_amount'],
+                    'discount_percentage' => $couponResult['discount_percentage'],
+                    'promotion_name' => $couponResult['promotion']->name ?? null,
+                ];
+            }
+        }
+        
         // No tax calculation
         $total = $price; // No tax
 
@@ -777,6 +848,10 @@ class LandingController extends Controller
             'planId' => $selectedPlan->id, // Use plan_id (integer) instead of slug
             'billing' => $billing,
             'price' => $price,
+            'original_price' => $originalPrice,
+            'discount_amount' => $discountAmount,
+            'coupon' => $couponData,
+            'coupon_code' => $request->coupon_code,
             'tax' => 0, // No tax
             'total' => $total
         ]);
@@ -805,7 +880,8 @@ class LandingController extends Controller
 
         $request->validate([
             'plan_id' => 'required|exists:plans,id', // Changed to plan_id (integer)
-            'billing_cycle' => 'required|in:monthly,yearly'
+            'billing_cycle' => 'required|in:monthly,yearly',
+            'coupon_code' => 'nullable|string|max:255',
         ]);
 
         try {
@@ -814,9 +890,37 @@ class LandingController extends Controller
             // Get plan by ID
             $plan = Plan::findOrFail($request->plan_id);
             
-            // Calculate amount
+            // Calculate base amount
             $amount = $request->billing_cycle === 'yearly' ? $plan->annual_price : $plan->price;
             $totalAmount = $amount; // No tax for now
+            
+            // Apply coupon if provided
+            $couponData = null;
+            $voucherId = null;
+            if ($request->coupon_code) {
+                $couponService = app(\App\Services\SubscriptionCouponService::class);
+                $couponResult = $couponService->validateAndCalculate(
+                    strtoupper(trim($request->coupon_code)),
+                    $amount,
+                    $tenant->id,
+                    $plan
+                );
+                
+                if ($couponResult['valid']) {
+                    $totalAmount = $couponResult['final_amount'];
+                    $couponData = [
+                        'code' => $couponResult['voucher']->code,
+                        'discount_amount' => $couponResult['discount_amount'],
+                        'original_amount' => $couponResult['original_amount'],
+                        'final_amount' => $couponResult['final_amount'],
+                        'discount_percentage' => $couponResult['discount_percentage'],
+                        'promotion_name' => $couponResult['promotion']->name ?? null,
+                    ];
+                    $voucherId = $couponResult['voucher']->id;
+                } else {
+                    return back()->withErrors(['coupon_code' => $couponResult['error'] ?? 'Kode kupon tidak valid']);
+                }
+            }
 
             // Create landing subscription dengan authenticated flow
             $landingSubscription = LandingSubscription::create([
@@ -836,12 +940,12 @@ class LandingController extends Controller
                 'email' => $user->email,
                 'name' => $user->name,
                 'business_name' => $tenant->name,
-                'meta' => [
+                'meta' => array_merge([
                     'source' => 'dashboard',
                     'ip_address' => $request->ip(),
                     'user_agent' => $request->userAgent(),
                     'payment_method' => 'xendit_hosted',
-                ],
+                ], $couponData ? ['coupon' => $couponData, 'voucher_id' => $voucherId] : []),
             ]);
 
             // Create Xendit invoice with all payment methods available

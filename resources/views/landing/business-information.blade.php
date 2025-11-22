@@ -57,6 +57,9 @@
                                 @csrf
                                 <input type="hidden" name="plan_id" value="{{ $planId }}">
                                 <input type="hidden" name="billing_cycle" value="{{ $billing }}">
+                                @if(request('coupon_code'))
+                                <input type="hidden" name="coupon_code" value="{{ request('coupon_code') }}">
+                                @endif
                                 
                                 <!-- Personal Info -->
                                 <div class="mb-8">
@@ -126,8 +129,8 @@
                                     <label class="flex items-start">
                                         <input type="checkbox" required class="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
                                         <span class="text-sm text-gray-600">
-                                            Saya setuju dengan <a href="#" class="text-blue-600 hover:underline">Syarat & Ketentuan</a> 
-                                            dan <a href="#" class="text-blue-600 hover:underline">Kebijakan Privasi</a> XpressPOS
+                                            Saya setuju dengan <a href="{{ route('landing.terms-and-conditions') }}" target="_blank" class="text-blue-600 hover:underline">Syarat & Ketentuan</a> 
+                                            dan <a href="{{ route('landing.privacy-policy') }}" target="_blank" class="text-blue-600 hover:underline">Kebijakan Privasi</a> XpressPOS
                                         </span>
                                     </label>
                                 </div>
@@ -135,7 +138,7 @@
                                 <!-- Navigation Buttons -->
                                 <div class="pt-6 flex flex-col sm:flex-row gap-4">
                                     <!-- Back Button -->
-                                    <button type="button" onclick="goBackToCheckout('{{ $planId }}', '{{ $billing }}')" 
+                                    <button type="button" onclick="goBackToCheckout('{{ $planId }}', '{{ $billing }}', '{{ $coupon_code ?? '' }}')" 
                                        class="flex items-center justify-center px-6 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:border-gray-400 hover:bg-gray-50 transition-all duration-300">
                                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
@@ -172,17 +175,41 @@
                                 <h3 class="font-bold text-gray-900 text-lg">{{ $plan['name'] }}</h3>
                                 <p class="text-sm text-gray-600 mb-2">Paket {{ ucfirst($billing) }}</p>
                                 <div class="flex items-center justify-between">
-                                    <span class="text-2xl font-bold text-blue-600">Rp {{ number_format($price, 0, ',', '.') }}</span>
+                                    <div>
+                                        @if(isset($original_price) && $original_price != $price)
+                                        <div class="text-sm text-gray-400 line-through">Rp {{ number_format($original_price, 0, ',', '.') }}</div>
+                                        @endif
+                                        <span class="text-2xl font-bold text-blue-600">Rp {{ number_format($price, 0, ',', '.') }}</span>
+                                    </div>
                                     <span class="text-sm text-gray-600">{{ $billing === 'yearly' ? '/tahun' : '/bulan' }}</span>
                                 </div>
+                                @if(isset($coupon) && $discount_amount > 0)
+                                <div class="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span class="text-green-700 font-medium">Kupon {{ $coupon['code'] }} diterapkan</span>
+                                        <span class="text-green-600 font-semibold">-{{ number_format($coupon['discount_percentage'] ?? 0, 0) }}%</span>
+                                    </div>
+                                </div>
+                                @endif
                             </div>
                             
                             <!-- Price Breakdown -->
                             <div class="space-y-4 mb-8">
                                 <div class="flex justify-between py-3">
                                     <span class="text-gray-600">Subtotal</span>
-                                    <span class="font-semibold text-gray-900">Rp {{ number_format($price, 0, ',', '.') }}</span>
+                                    <span class="font-semibold text-gray-900">Rp {{ number_format($original_price ?? $price, 0, ',', '.') }}</span>
                                 </div>
+                                @if(isset($coupon) && $discount_amount > 0)
+                                <div class="flex justify-between py-3 border-t border-gray-200">
+                                    <span class="text-gray-600">
+                                        Diskon Kupon 
+                                        @if(isset($coupon['code']))
+                                        <span class="text-xs text-gray-500">({{ $coupon['code'] }})</span>
+                                        @endif
+                                    </span>
+                                    <span class="font-semibold text-green-600">-Rp {{ number_format($discount_amount, 0, ',', '.') }}</span>
+                                </div>
+                                @endif
                                 <div class="flex justify-between py-3 border-t border-gray-200">
                                     <span class="text-gray-600">PPN (11%)</span>
                                     <span class="font-semibold text-gray-900">Rp {{ number_format($tax, 0, ',', '.') }}</span>
@@ -255,11 +282,16 @@
 // Form submission is handled by the form's action attribute
 // No need for JavaScript override
 
-function goBackToCheckout(planId, billing) {
+function goBackToCheckout(planId, billing, couponCode) {
     // Build checkout URL using current domain
     const url = new URL('/checkout', window.location.origin);
     url.searchParams.set('plan_id', planId);
     url.searchParams.set('billing', billing);
+    
+    // Add coupon code if provided
+    if (couponCode && couponCode.trim() !== '') {
+        url.searchParams.set('coupon_code', couponCode);
+    }
     
     // Navigate back to checkout
     window.location.href = url.toString();
