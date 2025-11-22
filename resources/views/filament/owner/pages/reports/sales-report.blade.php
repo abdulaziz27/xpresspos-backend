@@ -69,6 +69,11 @@
                 </ul>
             </x-filament::section>
         </div>
+
+        <x-filament::section>
+            <x-slot name="heading">Detail Transaksi</x-slot>
+            {{ $this->table }}
+        </x-filament::section>
     </div>
 </x-filament-panels::page>
 

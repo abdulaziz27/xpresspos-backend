@@ -15,6 +15,7 @@ trait HasOwnerFilterForm
 {
     use HasFiltersForm {
         HasFiltersForm::updatedFilters as baseUpdatedFilters;
+        HasFiltersForm::normalizeTableFilterValuesFromQueryString as normalizeTableFilterValuesFromQueryStringFilters;
     }
 
     protected function initializeOwnerFilters(): void

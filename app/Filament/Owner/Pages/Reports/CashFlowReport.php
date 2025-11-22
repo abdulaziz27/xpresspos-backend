@@ -6,7 +6,6 @@ use App\Filament\Owner\Pages\Concerns\HasOwnerFilterForm;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\Store;
-use App\Services\GlobalFilterService;
 use App\Support\Currency;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -24,7 +23,9 @@ class CashFlowReport extends Page
 
     protected static string|UnitEnum|null $navigationGroup = 'Keuangan & Laporan';
 
-    protected static ?int $navigationSort = 31;
+    protected static ?int $navigationSort = 20;
+
+    protected static bool $shouldRegisterNavigation = true;
 
     protected string $view = 'filament.owner.pages.reports.cash-flow-report';
 

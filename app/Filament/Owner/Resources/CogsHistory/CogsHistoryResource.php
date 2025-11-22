@@ -30,6 +30,11 @@ class CogsHistoryResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Keuangan & Laporan';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false; // Hidden: cogs_history hanya diakses via COGS report page, bukan sebagai resource sidebar
+    }
+
     public static function form(Schema $schema): Schema
     {
         return CogsHistoryForm::configure($schema);
