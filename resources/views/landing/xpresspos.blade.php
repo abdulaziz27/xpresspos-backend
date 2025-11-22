@@ -297,46 +297,88 @@
 
         <!-- Simple Grid Layout -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            <!-- Testimonial 1 -->
+            <!-- Testimonial 1 - Harmony Mart -->
             <div class="bg-gradient-to-br from-white to-blue-50/30 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 scroll-animate testimonial-card" style="animation-delay: 0.1s">
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
-                        A
+                    <div class="h-12 w-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                        <img src="{{ asset('partner-logo/harmony-mart.jpg') }}" alt="Sajian Harmony" class="h-full w-full object-cover">
                     </div>
                     <div class="text-left">
-                        <h4 class="font-semibold text-gray-900">Ahmad</h4>
-                        <p class="text-sm text-gray-500">Warung Makan Sederhana</p>
+                        <h4 class="font-semibold text-gray-900">Sajian Harmony</h4>
+                        <p class="text-sm text-gray-500">Toko Bahan Kue</p>
                     </div>
                 </div>
-                <p class="text-gray-600 text-sm leading-relaxed">"Sejak pakai XpressPOS, pencatatan jadi lebih rapi dan tidak ada lagi kesalahan hitung."</p>
+                <p class="text-gray-600 text-sm leading-relaxed">"Dengan berbagai varian bahan kue yang kami jual, XpressPOS sangat membantu dalam mengelola stok dan inventory. Sistem yang mudah digunakan membuat kami bisa fokus melayani pelanggan dengan lebih baik."</p>
             </div>
 
-            <!-- Testimonial 2 -->
+            <!-- Testimonial 2 - Orion Coffee -->
             <div class="bg-gradient-to-br from-white to-green-50/30 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 scroll-animate testimonial-card" style="animation-delay: 0.2s">
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center text-white font-semibold">
-                        S
+                    <div class="h-12 w-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                        <img src="{{ asset('partner-logo/orion-coffe.jpg') }}" alt="Orion Coffee" class="h-full w-full object-cover">
                     </div>
                     <div class="text-left">
-                        <h4 class="font-semibold text-gray-900">Sari</h4>
-                        <p class="text-sm text-gray-500">Toko Kelontong</p>
+                        <h4 class="font-semibold text-gray-900">Orion Coffee</h4>
+                        <p class="text-sm text-gray-500">Coffee Shop & Cafe</p>
                     </div>
                 </div>
-                <p class="text-gray-600 text-sm leading-relaxed">"Fitur inventory sangat membantu, sekarang stok selalu terkontrol dengan baik."</p>
+                <p class="text-gray-600 text-sm leading-relaxed">"Laporan penjualan yang detail membantu kami membuat keputusan bisnis yang lebih baik. Fitur laporan harian sangat membantu analisis."</p>
             </div>
 
-            <!-- Testimonial 3 -->
+            <!-- Testimonial 3 - Trek Coffee -->
             <div class="bg-gradient-to-br from-white to-purple-50/30 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 scroll-animate testimonial-card" style="animation-delay: 0.3s">
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="h-10 w-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-semibold">
-                        B
+                    <div class="h-12 w-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                        <img src="{{ asset('partner-logo/trek-coffe.jpg') }}" alt="Trek Coffee" class="h-full w-full object-cover">
                     </div>
                     <div class="text-left">
-                        <h4 class="font-semibold text-gray-900">Budi</h4>
-                        <p class="text-sm text-gray-500">Cafe Corner</p>
+                        <h4 class="font-semibold text-gray-900">Trek Coffee</h4>
+                        <p class="text-sm text-gray-500">Coffee Shop</p>
                     </div>
                 </div>
-                <p class="text-gray-600 text-sm leading-relaxed">"Interface yang mudah dipahami, staff baru bisa langsung pakai tanpa training lama."</p>
+                <p class="text-gray-600 text-sm leading-relaxed">"Interface yang user-friendly membuat staff kami cepat beradaptasi. Proses transaksi menjadi lebih cepat dan efisien."</p>
+            </div>
+
+            <!-- Testimonial 4 - Nakama -->
+            <div class="bg-gradient-to-br from-white to-orange-50/30 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 scroll-animate testimonial-card" style="animation-delay: 0.4s">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="h-12 w-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                        <img src="{{ asset('partner-logo/nakama.jpg') }}" alt="Nakama" class="h-full w-full object-cover">
+                    </div>
+                    <div class="text-left">
+                        <h4 class="font-semibold text-gray-900">Nakama</h4>
+                        <p class="text-sm text-gray-500">Cafe dan Resto</p>
+                    </div>
+                </div>
+                <p class="text-gray-600 text-sm leading-relaxed">"Sistem POS yang stabil dan cepat sangat penting untuk cafe dan resto kami. XpressPOS tidak pernah mengecewakan, bahkan saat rush hour."</p>
+            </div>
+
+            <!-- Testimonial 5 - Los In Between -->
+            <div class="bg-gradient-to-br from-white to-pink-50/30 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 scroll-animate testimonial-card" style="animation-delay: 0.5s">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="h-12 w-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                        <img src="{{ asset('partner-logo/los-in-between.jpg') }}" alt="Los In Between" class="h-full w-full object-cover">
+                    </div>
+                    <div class="text-left">
+                        <h4 class="font-semibold text-gray-900">Los In Between</h4>
+                        <p class="text-sm text-gray-500">Noodle bar</p>
+                    </div>
+                </div>
+                <p class="text-gray-600 text-sm leading-relaxed">"Fitur multi-outlet sangat membantu kami mengelola beberapa cabang. Semua data terpusat dan mudah diakses kapan saja."</p>
+            </div>
+
+            <!-- Testimonial 6 - Workop Sinar Bintang -->
+            <div class="bg-gradient-to-br from-white to-indigo-50/30 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 scroll-animate testimonial-card" style="animation-delay: 0.6s">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="h-12 w-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                        <img src="{{ asset('partner-logo/workop-sinar-bintang.jpg') }}" alt="Workop Sinar Bintang" class="h-full w-full object-cover">
+                    </div>
+                    <div class="text-left">
+                        <h4 class="font-semibold text-gray-900">Workop Sinar Bintang</h4>
+                        <p class="text-sm text-gray-500">Warung Kopi</p>
+                    </div>
+                </div>
+                <p class="text-gray-600 text-sm leading-relaxed">"Sebagai warung kopi yang ramai, XpressPOS membantu kami melayani pelanggan dengan lebih cepat dan efisien. Sistem yang mudah digunakan membuat operasional harian menjadi lebih lancar."</p>
             </div>
         </div>
 
@@ -344,9 +386,15 @@
         <div class="mt-12 flex flex-col sm:flex-row items-center justify-center gap-8 text-center scroll-animate">
             <div class="flex items-center gap-2">
                 <div class="flex -space-x-2">
-                    <div class="h-8 w-8 rounded-full bg-blue-500 border-2 border-white"></div>
-                    <div class="h-8 w-8 rounded-full bg-green-500 border-2 border-white"></div>
-                    <div class="h-8 w-8 rounded-full bg-purple-500 border-2 border-white"></div>
+                    <div class="h-8 w-8 rounded-full overflow-hidden bg-white border-2 border-white">
+                        <img src="{{ asset('partner-logo/orion-coffe.jpg') }}" alt="Orion Coffee" class="h-full w-full object-cover">
+                    </div>
+                    <div class="h-8 w-8 rounded-full overflow-hidden bg-white border-2 border-white">
+                        <img src="{{ asset('partner-logo/trek-coffe.jpg') }}" alt="Trek Coffee" class="h-full w-full object-cover">
+                    </div>
+                    <div class="h-8 w-8 rounded-full overflow-hidden bg-white border-2 border-white">
+                        <img src="{{ asset('partner-logo/nakama.jpg') }}" alt="Nakama" class="h-full w-full object-cover">
+                    </div>
                     <div class="h-8 w-8 rounded-full bg-orange-500 border-2 border-white flex items-center justify-center text-white text-xs font-semibold">+7</div>
                 </div>
                 <span class="text-sm text-gray-600 ml-2"><span data-count="10">0</span>+ bisnis aktif</span>
