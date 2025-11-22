@@ -39,6 +39,7 @@ class OwnerPanelProvider extends PanelProvider
             ])
             ->navigationGroups([
                 'Dashboard',
+                'AI',
                 'Operasional Harian',
                 'Produk',
                 'Inventori',
@@ -48,7 +49,6 @@ class OwnerPanelProvider extends PanelProvider
                 'Logs & Audit',
                 'Toko & Tim',
                 'Langganan & Billing',
-                'AI',
                 'Pengaturan',
             ])
             ->discoverResources(in: app_path('Filament/Owner/Resources'), for: 'App\\Filament\\Owner\\Resources')

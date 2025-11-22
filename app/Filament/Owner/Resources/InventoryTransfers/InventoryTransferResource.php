@@ -348,14 +348,12 @@ class InventoryTransferResource extends Resource
 
         /** @var GlobalFilterService $globalFilter */
         $globalFilter = app(GlobalFilterService::class);
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+        $tenantId = $globalFilter->getCurrentTenantId();
 
-        if (! empty($storeIds)) {
-            $query->where(function (Builder $query) use ($storeIds) {
-                $query
-                    ->whereIn('from_store_id', $storeIds)
-                    ->orWhereIn('to_store_id', $storeIds);
-            });
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
         }
 
         return $query;

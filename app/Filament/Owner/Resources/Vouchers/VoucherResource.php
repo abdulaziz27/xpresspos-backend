@@ -251,12 +251,16 @@ class VoucherResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
+
         $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
             ->with(['promotion', 'redemptions']);
 
-        // Tenant scope sudah otomatis via TenantScope di model
-        // Tapi kita pastikan juga filter promotion sesuai tenant
-        $tenantId = auth()->user()?->currentTenant()?->id;
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
         if ($tenantId) {
             $query->where('tenant_id', $tenantId);
         }

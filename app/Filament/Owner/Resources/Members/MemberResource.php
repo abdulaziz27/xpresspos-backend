@@ -71,23 +71,18 @@ class MemberResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        // Start with base query (TenantScope will be applied automatically)
-        // TenantScope ensures we only see members from current tenant
-        $query = parent::getEloquentQuery();
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
 
-        // Debug logging
-        $user = auth()->user();
-        $tenantId = $user?->currentTenant()?->id;
-        $count = $query->count();
-        
-        \Log::info('MemberResource::getEloquentQuery', [
-            'user_id' => $user?->id,
-            'user_email' => $user?->email,
-            'tenant_id' => $tenantId,
-            'query_count' => $count,
-            'sql' => $query->toSql(),
-            'bindings' => $query->getBindings(),
-        ]);
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes();
+
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        }
 
         return $query;
     }

@@ -9,11 +9,13 @@ use App\Filament\Owner\Resources\MemberTiers\RelationManagers\MembersRelationMan
 use App\Filament\Owner\Resources\MemberTiers\Schemas\MemberTierForm;
 use App\Filament\Owner\Resources\MemberTiers\Tables\MemberTierTable;
 use App\Models\MemberTier;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use UnitEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class MemberTierResource extends Resource
 {
@@ -55,5 +57,23 @@ class MemberTierResource extends Resource
             'create' => CreateMemberTier::route('/create'),
             'edit' => EditMemberTier::route('/{record}/edit'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
+
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes();
+
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        return $query;
     }
 }

@@ -77,9 +77,11 @@ class RoleResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes();
 
-        // Filter by current tenant
+        // Filter by current tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
         $user = auth()->user();
         if ($user) {
             $tenantId = $user->currentTenant()?->id;

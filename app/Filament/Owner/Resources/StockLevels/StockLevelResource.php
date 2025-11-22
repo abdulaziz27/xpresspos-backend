@@ -5,7 +5,7 @@ namespace App\Filament\Owner\Resources\StockLevels;
 use App\Filament\Owner\Resources\StockLevels\Pages;
 use App\Models\StockLevel;
 use App\Models\InventoryItem;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use App\Support\Currency;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -290,40 +290,43 @@ class StockLevelResource extends Resource
             return [];
         }
 
-        return StoreContext::instance()
-            ->accessibleStores($user)
+        $tenantId = $user->currentTenant()?->id;
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        return \App\Models\Store::where('tenant_id', $tenantId)
+            ->where('status', 'active')
+            ->orderBy('name')
             ->pluck('name', 'id')
             ->toArray();
     }
 
     public static function getEloquentQuery(): Builder
     {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(\App\Services\GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
+
         /** @var Builder $query */
-        $query = StockLevel::query()->forAllStores()->with(['inventoryItem.uom', 'store']);
-        $user = auth()->user();
+        $query = StockLevel::withoutGlobalScopes()
+            ->with(['inventoryItem.uom', 'store']);
 
-        if (! $user) {
+        if (! $tenantId) {
             return $query->whereRaw('1 = 0');
         }
 
-        if ($user->hasRole('admin_sistem')) {
-            return $query;
-        }
-
-        $storeIds = StoreContext::instance()
-            ->accessibleStores($user)
-            ->pluck('id');
-
-        if ($storeIds->isEmpty()) {
-            return $query->whereRaw('1 = 0');
-        }
+        // Filter by tenant only - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
+        $query->where('stock_levels.tenant_id', $tenantId);
 
         // Join stores and inventory_items for sorting (will be used in modifyQueryUsing)
         $query->leftJoin('stores', 'stock_levels.store_id', '=', 'stores.id')
               ->leftJoin('inventory_items', 'stock_levels.inventory_item_id', '=', 'inventory_items.id')
               ->select('stock_levels.*');
 
-        return $query->whereIn('stock_levels.store_id', $storeIds);
+        return $query;
     }
 }
 

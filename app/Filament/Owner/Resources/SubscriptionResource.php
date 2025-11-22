@@ -255,9 +255,7 @@ class SubscriptionResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        
-        // Get current tenant ID using GlobalFilterService or fallback to user's current tenant
+        /** @var GlobalFilterService $globalFilter */
         $globalFilter = app(GlobalFilterService::class);
         $tenantId = $globalFilter->getCurrentTenantId();
         
@@ -266,10 +264,15 @@ class SubscriptionResource extends Resource
             $tenantId = auth()->user()?->currentTenant()?->id;
         }
         
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes();
+        
         if (!$tenantId) {
             return $query->whereRaw('1 = 0'); // Return empty query
         }
         
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
         return $query
             ->where('tenant_id', $tenantId)
             ->with(['plan', 'subscriptionPayments', 'invoices', 'usage']);

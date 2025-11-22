@@ -37,7 +37,7 @@ class TopMenuPieWidget extends ChartWidget
 
         $dateRange = $filters['range'];
 
-        $rows = CogsHistory::query()
+        $rows = CogsHistory::withoutGlobalScopes()
             ->join('products', 'products.id', '=', 'cogs_history.product_id')
             ->where('cogs_history.tenant_id', $tenantId)
             ->whereIn('cogs_history.store_id', $storeIds)

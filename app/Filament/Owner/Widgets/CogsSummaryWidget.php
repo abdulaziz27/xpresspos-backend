@@ -42,19 +42,19 @@ class CogsSummaryWidget extends BaseWidget
         $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
         $lastMonthEnd = $thisMonthStart->copy()->subDay()->endOfDay();
 
-        $todayCogs = CogsHistory::query()
+        $todayCogs = CogsHistory::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->whereIn('store_id', $storeIds)
             ->whereBetween('created_at', $todayRange)
             ->sum('total_cogs');
 
-        $monthCogs = CogsHistory::query()
+        $monthCogs = CogsHistory::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->whereIn('store_id', $storeIds)
             ->where('created_at', '>=', $thisMonthStart)
             ->sum('total_cogs');
 
-        $lastMonthCogs = CogsHistory::query()
+        $lastMonthCogs = CogsHistory::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->whereIn('store_id', $storeIds)
             ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
