@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Concerns\BelongsToStore;
+use Illuminate\Support\Facades\DB;
 
 class Order extends Model
 {
@@ -171,15 +172,64 @@ class Order extends Model
     }
 
     /**
-     * Generate unique order number.
+     * Generate unique order number with retry mechanism to prevent race conditions.
+     * 
+     * @param int $maxRetries Maximum number of retry attempts
+     * @return string Unique order number in format ORD{YYYYMMDD}{0001-9999}
      */
-    public static function generateOrderNumber(): string
+    public static function generateOrderNumber(int $maxRetries = 10): string
     {
         $prefix = 'ORD';
         $date = now()->format('Ymd');
-        $sequence = static::whereDate('created_at', now())->count() + 1;
         
-        return $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+        for ($attempt = 0; $attempt < $maxRetries; $attempt++) {
+            // Use database transaction with lock to prevent race condition
+            $orderNumber = DB::transaction(function () use ($prefix, $date) {
+                // Lock the table/rows to prevent concurrent access
+                // Get the maximum sequence number for today
+                $maxOrder = static::lockForUpdate()
+                    ->whereDate('created_at', now())
+                    ->where('order_number', 'like', $prefix . $date . '%')
+                    ->orderByRaw('CAST(SUBSTRING(order_number, -4) AS UNSIGNED) DESC')
+                    ->first();
+                
+                $maxSequence = 0;
+                if ($maxOrder && $maxOrder->order_number) {
+                    $orderNum = $maxOrder->order_number;
+                    if (str_starts_with($orderNum, $prefix . $date)) {
+                        $seqPart = substr($orderNum, -4);
+                        $maxSequence = (int) $seqPart;
+                    }
+                }
+                
+                // Generate next sequence number
+                $sequence = $maxSequence + 1;
+                $orderNumber = $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+                
+                // Verify this order number doesn't exist (double-check)
+                if (!static::where('order_number', $orderNumber)->exists()) {
+                    return $orderNumber;
+                }
+                
+                // If exists, increment and try again
+                $sequence++;
+                return $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+            });
+            
+            // Final check: verify the generated order number doesn't exist
+            if (!static::where('order_number', $orderNumber)->exists()) {
+                return $orderNumber;
+            }
+            
+            // If still exists, wait a bit and retry
+            usleep(rand(10000, 50000)); // Random delay 10-50ms to reduce collision
+        }
+        
+        // Fallback: use timestamp-based unique number if all retries fail
+        // This should rarely happen, but provides a safety net
+        $timestamp = now()->format('His'); // Hours, minutes, seconds
+        $microseconds = substr((string) microtime(true), -3); // Last 3 digits of microseconds
+        return $prefix . $date . substr($timestamp . $microseconds, -4);
     }
 
     /**
@@ -274,7 +324,7 @@ class Order extends Model
      */
     public function getTotalRefunded(): float
     {
-        return $this->refunds()->where('status', 'completed')->sum('amount');
+        return $this->refunds()->where('status', 'processed')->sum('amount');
     }
     
     /**

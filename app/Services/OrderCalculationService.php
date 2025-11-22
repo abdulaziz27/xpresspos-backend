@@ -21,9 +21,19 @@ class OrderCalculationService
         }
         
         // Calculate tax (configurable per store, default 0)
-        $taxSettings = $order->store->settings['tax_settings'] ?? [];
-        $taxRate = $taxSettings['tax_rate'] ?? 0;
-        $taxInclusive = $taxSettings['tax_inclusive'] ?? false;
+        // Support both structures: settings['tax_rate'] and settings['tax_settings']['tax_rate']
+        $settings = $order->store->settings ?? [];
+        $taxSettings = $settings['tax_settings'] ?? [];
+        
+        // Try to get tax_rate from direct settings first, then from tax_settings
+        $taxRate = $settings['tax_rate'] ?? $taxSettings['tax_rate'] ?? 0;
+        $taxInclusive = $settings['tax_inclusive'] ?? $taxSettings['tax_inclusive'] ?? false;
+        
+        // Convert percentage to decimal if needed (e.g., 10% = 0.10)
+        // If taxRate > 1, assume it's a percentage and convert to decimal
+        if ($taxRate > 1) {
+            $taxRate = $taxRate / 100;
+        }
         
         if ($taxRate == 0) {
             $taxAmount = 0;

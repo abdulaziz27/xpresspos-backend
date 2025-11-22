@@ -75,9 +75,87 @@ class PaymentController extends Controller
      */
     public function store(ProcessPaymentRequest $request): JsonResponse
     {
-        // Load order with items and store (needed for calculation)
-        $order = Order::with(['items', 'store'])->findOrFail($request->input('order_id'));
-        $this->authorize('update', $order);
+        try {
+            // Load order with items and store (needed for calculation)
+            // Use withoutGlobalScope temporarily to check if order exists, then verify access
+            $orderId = $request->input('order_id');
+            $user = auth()->user();
+            $storeContext = \App\Services\StoreContext::instance();
+            $currentStoreId = $storeContext->current($user);
+            
+            // First, try to find order with global scope (respects store context)
+            $order = Order::with(['items', 'store'])->find($orderId);
+            
+            // If not found with scope, check if order exists at all (for better error message)
+            if (!$order) {
+                $orderExists = Order::withoutGlobalScope(\App\Models\Scopes\StoreScope::class)
+                    ->where('id', $orderId)
+                    ->exists();
+                
+                if ($orderExists) {
+                    Log::warning('Order found but not accessible due to store scope', [
+                        'order_id' => $orderId,
+                        'user_id' => $user?->id,
+                        'current_store_id' => $currentStoreId,
+                        'order_store_id' => Order::withoutGlobalScope(\App\Models\Scopes\StoreScope::class)
+                            ->where('id', $orderId)
+                            ->value('store_id'),
+                    ]);
+                    
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'ORDER_ACCESS_DENIED',
+                            'message' => 'Order not found or you do not have access to this order.',
+                            'details' => 'The order may belong to a different store. Please check your store context.',
+                        ],
+                        'meta' => [
+                            'timestamp' => now()->toISOString(),
+                            'version' => 'v1'
+                        ]
+                    ], 403);
+                }
+                
+                // Order doesn't exist at all
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'ORDER_NOT_FOUND',
+                        'message' => 'Order not found.',
+                    ],
+                    'meta' => [
+                        'timestamp' => now()->toISOString(),
+                        'version' => 'v1'
+                    ]
+                ], 404);
+            }
+            
+            $this->authorize('update', $order);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHORIZED',
+                    'message' => 'You do not have permission to update this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 403);
+        }
         
         // Ensure order totals are calculated (in case items were added but totals not updated)
         if ($order->items->count() > 0 && (!$order->total_amount || $order->total_amount == 0)) {
@@ -589,6 +667,23 @@ class PaymentController extends Controller
      */
     public function refund(Request $request, string $id): JsonResponse
     {
+        // Get authenticated user
+        $user = $request->user() ?? auth()->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated. Please provide a valid authentication token.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 401);
+        }
+        
         $payment = Payment::findOrFail($id);
         $this->authorize('update', $payment);
 
@@ -619,19 +714,45 @@ class PaymentController extends Controller
         try {
             DB::beginTransaction();
 
-            // Create refund record
+            // Create refund record (auto-approved and processed)
             $refund = $payment->refunds()->create([
                 'store_id' => $payment->store_id,
                 'order_id' => $payment->order_id,
-                'user_id' => auth()->id(),
+                'user_id' => $user->id,
                 'amount' => $request->input('amount'),
                 'reason' => $request->input('reason'),
-                'status' => 'completed', // Auto-approve for now
-                'approved_by' => auth()->id(),
+                'status' => 'processed', // Auto-approved and processed immediately
+                'approved_by' => $user->id,
                 'approved_at' => now(),
                 'processed_at' => now(),
-                'processed_by' => auth()->id(),
             ]);
+
+            // Reload order to get fresh data with refunds
+            $payment->load(['order.refunds', 'order.payments']);
+            $order = $payment->order;
+            if ($order) {
+                // Calculate total refunded amount
+                $totalRefunded = $order->getTotalRefunded();
+                $totalPaid = $order->getTotalPaid();
+                
+                // If all payments are refunded (total refunded >= total paid), cancel the order
+                if ($totalRefunded >= $totalPaid && $totalPaid > 0) {
+                    $order->update([
+                        'status' => 'cancelled',
+                        'notes' => $order->notes ? 
+                            $order->notes . "\n\nOrder cancelled due to full refund on " . now()->format('Y-m-d H:i:s') : 
+                            "Order cancelled due to full refund on " . now()->format('Y-m-d H:i:s')
+                    ]);
+                    
+                    Log::info('Order cancelled due to full refund', [
+                        'order_id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'total_paid' => $totalPaid,
+                        'total_refunded' => $totalRefunded,
+                        'refund_id' => $refund->id,
+                    ]);
+                }
+            }
 
             DB::commit();
 
@@ -653,7 +774,7 @@ class PaymentController extends Controller
                 'payment_id' => $payment->id,
                 'amount' => $request->input('amount'),
                 'error' => $e->getMessage(),
-                'user_id' => auth()->id()
+                'user_id' => $user->id ?? null
             ]);
 
             return response()->json([

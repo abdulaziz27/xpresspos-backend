@@ -69,9 +69,24 @@ class ProductController extends Controller
         $perPage = min($request->input('per_page', 15), 100);
         $products = $query->paginate($perPage);
 
+        // Get store ID for stock calculation
+        $user = $request->user();
+        $storeId = null;
+        if ($user) {
+            $store = $user->store();
+            $storeId = $store?->id;
+        }
+
+        // Add stock quantity to each product
+        $productsData = $products->map(function ($product) use ($storeId) {
+            $productArray = $product->toArray();
+            $productArray['stock'] = $product->getAvailableStock($storeId);
+            return $productArray;
+        });
+
         return response()->json([
             'success' => true,
-            'data' => $products->items(),
+            'data' => $productsData->values()->all(),
             'meta' => [
                 'current_page' => $products->currentPage(),
                 'last_page' => $products->lastPage(),
@@ -106,9 +121,21 @@ class ProductController extends Controller
 
         $product->load(['category:id,name', 'variants']);
 
+        // Get store ID for stock calculation
+        $user = $request->user();
+        $storeId = null;
+        if ($user) {
+            $store = $user->store();
+            $storeId = $store?->id;
+        }
+
+        // Add stock quantity to product data
+        $productData = $product->toArray();
+        $productData['stock'] = $product->getAvailableStock($storeId);
+
         return response()->json([
             'success' => true,
-            'data' => $product,
+            'data' => $productData,
             'message' => 'Product created successfully',
             'meta' => [
                 'timestamp' => now()->toISOString(),
@@ -120,7 +147,7 @@ class ProductController extends Controller
     /**
      * Display the specified product.
      */
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
         $product = Product::with(['category:id,name', 'variants', 'priceHistory' => function ($query) {
             $query->with('changedBy:id,name')->latest()->limit(10);
@@ -128,9 +155,21 @@ class ProductController extends Controller
 
         $this->authorize('view', $product);
 
+        // Get store ID for stock calculation
+        $user = $request->user();
+        $storeId = null;
+        if ($user) {
+            $store = $user->store();
+            $storeId = $store?->id;
+        }
+
+        // Add stock quantity to product data
+        $productData = $product->toArray();
+        $productData['stock'] = $product->getAvailableStock($storeId);
+
         return response()->json([
             'success' => true,
-            'data' => $product,
+            'data' => $productData,
             'meta' => [
                 'timestamp' => now()->toISOString(),
                 'version' => 'v1'
@@ -486,9 +525,24 @@ class ProductController extends Controller
             ->limit(20)
             ->get();
 
+        // Get store ID for stock calculation
+        $user = $request->user();
+        $storeId = null;
+        if ($user) {
+            $store = $user->store();
+            $storeId = $store?->id;
+        }
+
+        // Add stock quantity to each product
+        $productsData = $products->map(function ($product) use ($storeId) {
+            $productArray = $product->toArray();
+            $productArray['stock'] = $product->getAvailableStock($storeId);
+            return $productArray;
+        });
+
         return response()->json([
             'success' => true,
-            'data' => $products,
+            'data' => $productsData->values()->all(),
             'meta' => [
                 'timestamp' => now()->toISOString(),
                 'version' => 'v1'

@@ -45,15 +45,24 @@ class RefundResource extends JsonResource
                 ];
             }),
             
-            'processed_by' => $this->whenLoaded('processedBy', function () {
+            'user' => $this->whenLoaded('user', function () {
                 return [
-                    'id' => $this->processedBy->id,
-                    'name' => $this->processedBy->name,
+                    'id' => $this->user->id,
+                    'name' => $this->user->name,
+                ];
+            }),
+            
+            'approved_by' => $this->whenLoaded('approver', function () {
+                return [
+                    'id' => $this->approver->id,
+                    'name' => $this->approver->name,
                 ];
             }),
             
             // Computed attributes
-            'is_completed' => $this->status === 'completed',
+            'is_completed' => $this->status === 'processed',
+            'is_approved' => $this->status === 'approved',
+            'is_processed' => $this->status === 'processed',
             'can_be_modified' => $this->canBeModified(),
         ];
     }
@@ -73,9 +82,9 @@ class RefundResource extends JsonResource
     {
         return match ($this->status) {
             'pending' => 'Pending',
-            'completed' => 'Completed',
-            'failed' => 'Failed',
-            'cancelled' => 'Cancelled',
+            'approved' => 'Approved',
+            'processed' => 'Processed',
+            'rejected' => 'Rejected',
             default => ucfirst($this->status),
         };
     }

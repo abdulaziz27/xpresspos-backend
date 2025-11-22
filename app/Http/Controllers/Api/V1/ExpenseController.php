@@ -86,9 +86,28 @@ class ExpenseController extends Controller
         try {
             DB::beginTransaction();
 
+            $user = $request->user();
+            $store = $user->store();
+            
+            if (!$store) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User does not have an associated store. Please contact support.',
+                ], 400);
+            }
+
             // Validate cash session if provided
             if ($request->cash_session_id) {
                 $cashSession = CashSession::find($request->cash_session_id);
+                
+                // If not found, try without store scope
+                if (!$cashSession) {
+                    $cashSession = CashSession::withoutGlobalScopes()
+                        ->where('id', $request->cash_session_id)
+                        ->where('store_id', $store->id)
+                        ->first();
+                }
+                
                 if (!$cashSession || $cashSession->status === 'closed') {
                     return response()->json([
                         'success' => false,
@@ -98,8 +117,8 @@ class ExpenseController extends Controller
             }
 
             $expense = Expense::create([
-                'store_id' => request()->user()->store_id,
-                'user_id' => request()->user()->id,
+                'store_id' => $store->id,
+                'user_id' => $user->id,
                 'cash_session_id' => $request->cash_session_id,
                 'category' => $request->category,
                 'description' => $request->description,
@@ -110,9 +129,10 @@ class ExpenseController extends Controller
                 'notes' => $request->notes,
             ]);
 
-            // Update cash session expected balance if expense is linked to a session
+            // Expected balance is automatically recalculated via accessor when accessed
+            // Just refresh if linked to a session
             if ($expense->cash_session_id) {
-                $expense->cashSession->calculateExpectedBalance();
+                $expense->cashSession->refresh();
             }
 
             DB::commit();
@@ -168,17 +188,18 @@ class ExpenseController extends Controller
 
             $expense->update($request->validated());
 
-            // Update cash session expected balance for old session
+            // Expected balance is automatically recalculated via accessor when accessed
+            // Just refresh if linked to a session
             if ($oldCashSessionId && $oldCashSessionId !== $expense->cash_session_id) {
                 $oldCashSession = CashSession::find($oldCashSessionId);
                 if ($oldCashSession && $oldCashSession->status === 'open') {
-                    $oldCashSession->calculateExpectedBalance();
+                    $oldCashSession->refresh();
                 }
             }
 
-            // Update cash session expected balance for new session
+            // Refresh new session if linked
             if ($expense->cash_session_id) {
-                $expense->cashSession->calculateExpectedBalance();
+                $expense->cashSession->refresh();
             }
 
             DB::commit();
@@ -220,11 +241,12 @@ class ExpenseController extends Controller
 
             $expense->delete();
 
-            // Update cash session expected balance
+            // Expected balance is automatically recalculated via accessor when accessed
+            // Just refresh if linked to a session
             if ($cashSessionId) {
                 $cashSession = CashSession::find($cashSessionId);
                 if ($cashSession && $cashSession->status === 'open') {
-                    $cashSession->calculateExpectedBalance();
+                    $cashSession->refresh();
                 }
             }
 
@@ -338,8 +360,33 @@ class ExpenseController extends Controller
         try {
             DB::beginTransaction();
 
-            // Validate cash session exists and is open
-            $cashSession = CashSession::findOrFail($sessionId);
+            $user = $request->user();
+            $store = $user->store();
+            
+            if (!$store) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User does not have an associated store. Please contact support.',
+                ], 400);
+            }
+
+            // Try to find cash session with store scope first
+            $cashSession = CashSession::find($sessionId);
+            
+            // If not found, try without store scope (in case of store context issue)
+            if (!$cashSession) {
+                $cashSession = CashSession::withoutGlobalScopes()
+                    ->where('id', $sessionId)
+                    ->where('store_id', $store->id)
+                    ->first();
+            }
+            
+            if (!$cashSession) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cash session not found'
+                ], 404);
+            }
             
             if ($cashSession->status === 'closed') {
                 return response()->json([
@@ -349,7 +396,7 @@ class ExpenseController extends Controller
             }
 
             // Verify session belongs to user's store
-            if ($cashSession->store_id !== request()->user()->store_id) {
+            if ($cashSession->store_id !== $store->id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized access to this cash session'
@@ -357,8 +404,8 @@ class ExpenseController extends Controller
             }
 
             $expense = Expense::create([
-                'store_id' => request()->user()->store_id,
-                'user_id' => request()->user()->id,
+                'store_id' => $store->id,
+                'user_id' => $user->id,
                 'cash_session_id' => $sessionId,
                 'category' => $request->category,
                 'description' => $request->description,
@@ -369,8 +416,10 @@ class ExpenseController extends Controller
                 'notes' => $request->notes,
             ]);
 
-            // Update cash session expected balance
-            $cashSession->calculateExpectedBalance();
+            // Expected balance is automatically recalculated via accessor when accessed
+            // For open sessions, it recalculates real-time from current data
+            // Just refresh to ensure we have the latest data
+            $cashSession->refresh();
 
             DB::commit();
 

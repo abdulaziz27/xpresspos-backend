@@ -23,7 +23,6 @@ class Refund extends Model
         'approved_by',
         'approved_at',
         'processed_at',
-        'processed_by',
         'notes',
     ];
 
@@ -107,19 +106,11 @@ class Refund extends Model
     }
     
     /**
-     * Get the user who processed this refund.
-     */
-    public function processedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'processed_by');
-    }
-    
-    /**
      * Check if this refund can be modified.
      */
     public function canBeModified(): bool
     {
-        return !in_array($this->status, ['completed', 'processed']);
+        return !in_array($this->status, ['processed', 'rejected']);
     }
     
     /**
@@ -139,11 +130,11 @@ class Refund extends Model
     }
     
     /**
-     * Scope to filter completed refunds.
+     * Scope to filter processed refunds (completed refunds).
      */
     public function scopeCompleted($query)
     {
-        return $query->where('status', 'completed');
+        return $query->where('status', 'processed');
     }
     
     /**
