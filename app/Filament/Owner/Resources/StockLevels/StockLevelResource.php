@@ -60,28 +60,64 @@ class StockLevelResource extends Resource
 
                 Tables\Columns\TextColumn::make('current_stock')
                     ->label('Stok Saat Ini')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        $value = (float) $state;
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->suffix(fn($record) => ' ' . ($record->inventoryItem?->uom?->code ?? '')),
 
                 Tables\Columns\TextColumn::make('reserved_stock')
                     ->label('Stok Dipesan')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        $value = (float) $state;
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('available_stock')
                     ->label('Stok Tersedia')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        $value = (float) $state;
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->color(fn($record) => $record->isOutOfStock() ? 'danger' : ($record->isLowStock() ? 'warning' : 'success')),
 
                 Tables\Columns\TextColumn::make('min_stock_level')
                     ->label('Min Stok')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        $value = (float) $state;
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->toggleable(isToggledHiddenByDefault: true),

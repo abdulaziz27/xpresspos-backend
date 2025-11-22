@@ -9,7 +9,6 @@ use BackedEnum;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -88,18 +87,6 @@ class SupplierResource extends Resource
                             ]),
                     ])
                     ->columns(1),
-
-                Section::make('Metadata Tambahan')
-                    ->description('Data tambahan dalam format key-value (opsional)')
-                    ->schema([
-                        KeyValue::make('metadata')
-                            ->label('Metadata')
-                            ->keyLabel('Key')
-                            ->valueLabel('Value')
-                            ->helperText('Data tambahan dalam format JSON (opsional)'),
-                    ])
-                    ->collapsible()
-                    ->collapsed(),
             ]);
     }
 

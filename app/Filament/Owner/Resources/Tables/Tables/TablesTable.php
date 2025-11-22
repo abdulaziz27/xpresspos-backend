@@ -39,24 +39,37 @@ class TablesTable
                 TextColumn::make('location')
                     ->label('Lokasi')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => match ($state) {
-                        'indoor' => 'Dalam Ruangan',
-                        'outdoor' => 'Luar Ruangan',
-                        'terrace' => 'Teras',
-                        'vip' => 'Area VIP',
-                        'bar' => 'Area Bar',
-                        'other' => 'Lainnya',
-                        default => '-',
+                    ->formatStateUsing(function (?string $state): string {
+                        if (empty($state)) {
+                            return 'Belum Diatur';
+                        }
+                        
+                        return match ($state) {
+                            'indoor' => 'Dalam Ruangan',
+                            'outdoor' => 'Luar Ruangan',
+                            'terrace' => 'Teras',
+                            'vip' => 'Area VIP',
+                            'bar' => 'Area Bar',
+                            'other' => 'Lainnya',
+                            default => ucfirst($state), // Fallback untuk nilai custom
+                        };
                     })
-                    ->color(fn (?string $state): string => match ($state) {
-                        'indoor' => 'info',
-                        'outdoor' => 'success',
-                        'terrace' => 'warning',
-                        'vip' => 'danger',
-                        'bar' => 'gray',
-                        default => 'gray',
+                    ->color(function (?string $state): string {
+                        if (empty($state)) {
+                            return 'gray';
+                        }
+                        
+                        return match ($state) {
+                            'indoor' => 'info',
+                            'outdoor' => 'success',
+                            'terrace' => 'warning',
+                            'vip' => 'danger',
+                            'bar' => 'gray',
+                            default => 'gray',
+                        };
                     })
                     ->sortable()
+                    ->searchable()
                     ->toggleable(),
 
                 TextColumn::make('capacity')
@@ -121,6 +134,19 @@ class TablesTable
                     ->placeholder('Semua')
                     ->trueLabel('Aktif Saja')
                     ->falseLabel('Nonaktif Saja'),
+
+                SelectFilter::make('location')
+                    ->label('Lokasi')
+                    ->options([
+                        'indoor' => 'Dalam Ruangan',
+                        'outdoor' => 'Luar Ruangan',
+                        'terrace' => 'Teras',
+                        'vip' => 'Area VIP',
+                        'bar' => 'Area Bar',
+                        'other' => 'Lainnya',
+                    ])
+                    ->multiple()
+                    ->searchable(),
             ])
             ->actions([
                 EditAction::make()->label('Ubah'),

@@ -92,10 +92,11 @@ class Store extends Model
 
     /**
      * Get the products for the store.
+     * Products are tenant-scoped, so we get products via tenant_id.
      */
     public function products(): HasMany
     {
-        return $this->hasMany(Product::class);
+        return $this->hasMany(Product::class, 'tenant_id', 'tenant_id');
     }
 
     /**

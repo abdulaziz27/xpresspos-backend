@@ -368,5 +368,14 @@ class PaymentMethodResource extends Resource
         // Update harus dilakukan via gateway/payment provider
         return false;
     }
+
+    /**
+     * Hide from navigation menu (commented out, not deleted)
+     * To show again, change return value to true or remove this method
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false; // Hidden from navigation menu
+    }
 }
 

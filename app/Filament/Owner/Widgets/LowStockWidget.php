@@ -58,16 +58,46 @@ class LowStockWidget extends BaseWidget
 
                 Tables\Columns\TextColumn::make('current_stock')
                     ->label('Stok Saat Ini')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        
+                        $value = (float) $state;
+                        
+                        // If it's a whole number, display without decimals
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        
+                        // Otherwise, display with appropriate decimal places (max 3, remove trailing zeros)
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->color('danger')
                     ->weight('medium')
+                    ->alignEnd()
                     ->suffix(fn($record) => ' ' . ($record->inventoryItem?->uom?->code ?? '')),
 
                 Tables\Columns\TextColumn::make('min_stock_level')
                     ->label('Level Min')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        
+                        $value = (float) $state;
+                        
+                        // If it's a whole number, display without decimals
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        
+                        // Otherwise, display with appropriate decimal places (max 3, remove trailing zeros)
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
+                    ->alignEnd()
                     ->suffix(fn($record) => ' ' . ($record->inventoryItem?->uom?->code ?? '')),
 
                 Tables\Columns\TextColumn::make('store.name')
