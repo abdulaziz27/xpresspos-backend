@@ -22,39 +22,41 @@ class VariantsRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    protected static ?string $title = 'Product Variants';
+    protected static ?string $title = 'Varian Produk';
 
-    protected static ?string $modelLabel = 'variant';
+    protected static ?string $modelLabel = 'varian';
 
-    protected static ?string $pluralModelLabel = 'variants';
+    protected static ?string $pluralModelLabel = 'varian';
 
     public function form(Schema $schema): Schema
     {
         return $schema
             ->components([
                 Forms\Components\TextInput::make('name')
-                    ->label('Variant Group')
+                    ->label('Nama Varian')
                     ->required()
-                    ->placeholder('e.g., Size, Milk, Temperature')
+                    ->placeholder('Contoh: Ukuran, Susu, Suhu')
+                    ->helperText('Nama kelompok varian (misal: Size, Milk, Temperature)')
                     ->maxLength(100)
                     ->columnSpan(1),
 
                 Forms\Components\TextInput::make('value')
-                    ->label('Variant Option')
+                    ->label('Nilai Varian')
                     ->required()
-                    ->placeholder('e.g., Large, Oat Milk, Hot')
+                    ->placeholder('Contoh: Besar, Oat Milk, Panas')
+                    ->helperText('Nilai opsi varian (misal: Large, Oat Milk, Hot)')
                     ->maxLength(100)
                     ->columnSpan(1),
 
-                Forms\Components\TextInput::make('price_adjustment')
-                    ->label('Price Adjustment')
-                    ->default(0)
-                    ->prefix('Rp')
-                    ->placeholder('5.000')
-                    ->helperText('Bisa input: 5000 atau 5.000')
-                    ->rule('nullable|numeric')
-                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
-                    ->columnSpan(1),
+                                Forms\Components\TextInput::make('price_adjustment')
+                    ->label('Penyesuaian Harga')
+                                    ->default(0)
+                                    ->prefix('Rp')
+                                    ->placeholder('5.000')
+                    ->helperText('Bisa input: 5000 atau 5.000. Bisa negatif untuk diskon.')
+                    ->rules(['nullable', 'numeric'])
+                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
+                                    ->columnSpan(1),
 
                 Forms\Components\TextInput::make('sort_order')
                     ->label('Urutan Tampil')
@@ -65,7 +67,7 @@ class VariantsRelationManager extends RelationManager
                     ->columnSpan(1),
 
                 Forms\Components\Toggle::make('is_active')
-                    ->label('Active')
+                    ->label('Aktif')
                     ->default(true)
                     ->columnSpan(2),
             ])
@@ -78,27 +80,38 @@ class VariantsRelationManager extends RelationManager
             ->recordTitleAttribute('name')
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Group')
+                    ->label('Nama Varian')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('medium'),
 
                 Tables\Columns\TextColumn::make('value')
-                    ->label('Option')
+                    ->label('Nilai')
                     ->searchable()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('price_adjustment')
-                    ->label('Price Adjustment')
+                    ->label('Penyesuaian Harga')
                     ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->price_adjustment ?? 0)))
-                    ->sortable(),
+                    ->sortable()
+                    ->alignEnd()
+                    ->color(fn($state) => $state > 0 ? 'success' : ($state < 0 ? 'danger' : 'gray')),
+
+                Tables\Columns\TextColumn::make('sort_order')
+                    ->label('Urutan')
+                    ->numeric()
+                    ->sortable()
+                    ->alignCenter()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\IconColumn::make('is_active')
-                    ->label('Active')
-                    ->boolean(),
+                    ->label('Aktif')
+                    ->boolean()
+                    ->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('name')
-                    ->label('Variant Group')
+                    ->label('Nama Varian')
                     ->options(function () {
                         return ProductVariant::query()
                             ->distinct()
@@ -108,7 +121,7 @@ class VariantsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->label('Add Variant')
+                    ->label('Tambah Varian')
                     // ProductVariant is tenant-scoped, tenant_id will be auto-set by model booted()
             ])
             ->actions([

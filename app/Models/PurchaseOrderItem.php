@@ -32,6 +32,15 @@ class PurchaseOrderItem extends Model
     protected static function booted(): void
     {
         static::saving(function (self $item): void {
+            // Enforce uom_id = inventoryItem->uom_id (base UOM)
+            if ($item->inventory_item_id) {
+                $inventoryItem = InventoryItem::find($item->inventory_item_id);
+                if ($inventoryItem && $inventoryItem->uom_id) {
+                    $item->uom_id = $inventoryItem->uom_id;
+                }
+            }
+
+            // Calculate total_cost
             if ($item->unit_cost !== null && $item->quantity_ordered !== null) {
                 $item->total_cost = $item->quantity_ordered * $item->unit_cost;
             }

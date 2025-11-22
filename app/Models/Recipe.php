@@ -92,18 +92,26 @@ class Recipe extends Model
     public function calculateUnitCost(): float
     {
         $totalCost = $this->total_cost ?: $this->calculateTotalCost();
-        $unitCost = $this->yield_quantity > 0 ? $totalCost / $this->yield_quantity : 0;
+        // Handle division by zero: treat yield_quantity 0 as 1
+        $yieldQty = $this->yield_quantity > 0 ? $this->yield_quantity : 1;
+        $unitCost = $totalCost / $yieldQty;
         $this->update(['cost_per_unit' => $unitCost]);
         return $unitCost;
     }
 
     /**
      * Recalculate all costs when recipe items change.
+     * This is called automatically when recipe_items are saved/deleted.
      */
     public function recalculateCosts(): void
     {
         $this->calculateTotalCost();
         $this->calculateUnitCost();
+        
+        // If this recipe is active and belongs to a product, update product cost_price
+        if ($this->is_active && $this->product_id) {
+            $this->product->recalculateCostPriceFromRecipe();
+        }
     }
 
     /**

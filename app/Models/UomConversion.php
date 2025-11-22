@@ -6,6 +6,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * UOM Conversion Model
+ * 
+ * @deprecated UOM conversions are not used in runtime for Wave UOM Simplification.
+ * All quantities are stored in base UOM from inventory_items.uom_id.
+ * This model and table are kept for future use, but conversion logic is disabled.
+ */
 class UomConversion extends Model
 {
     use HasFactory;

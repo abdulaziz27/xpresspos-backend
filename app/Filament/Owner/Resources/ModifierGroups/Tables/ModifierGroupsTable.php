@@ -2,6 +2,9 @@
 
 namespace App\Filament\Owner\Resources\ModifierGroups\Tables;
 
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Tables;
 use Filament\Tables\Table;
 
@@ -33,10 +36,11 @@ class ModifierGroupsTable
                     ->label('Urutan')
                     ->alignCenter()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->label('Diperbarui')
-                    ->since()
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Dibuat')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('is_active')
@@ -47,14 +51,17 @@ class ModifierGroupsTable
                     ]),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('sort_order');
+            ->modifyQueryUsing(function ($query) {
+                return $query->orderBy('sort_order', 'asc')
+                            ->orderBy('name', 'asc');
+            });
     }
 }
 

@@ -19,11 +19,22 @@ class InventoryMovementsTable
     {
         return $table
             ->columns([
-                TextColumn::make('product.name')
-                    ->label('Produk')
+                TextColumn::make('store.name')
+                    ->label('Toko')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                    
+                TextColumn::make('inventoryItem.name')
+                    ->label('Item Inventori')
                     ->searchable()
                     ->sortable()
                     ->weight('medium'),
+                    
+                TextColumn::make('inventoryItem.sku')
+                    ->label('SKU')
+                    ->searchable()
+                    ->toggleable(),
 
                 TextColumn::make('type')
                     ->label('Jenis')
@@ -54,11 +65,12 @@ class InventoryMovementsTable
 
                 TextColumn::make('quantity')
                     ->label('Jumlah')
-                    ->numeric()
+                    ->numeric(decimalPlaces: 3)
                     ->sortable()
                     ->alignCenter()
                     ->badge()
-                    ->color(fn($record) => $record->isStockIncrease() ? 'success' : 'danger'),
+                    ->color(fn($record) => $record->isStockIncrease() ? 'success' : 'danger')
+                    ->description(fn($record) => $record->inventoryItem?->uom?->name ?? ''),
 
                 TextColumn::make('unit_cost')
                     ->label('Biaya per Unit')
@@ -109,9 +121,9 @@ class InventoryMovementsTable
                     ])
                     ->multiple(),
 
-                SelectFilter::make('product_id')
-                    ->label('Produk')
-                    ->relationship('product', 'name')
+                SelectFilter::make('inventory_item_id')
+                    ->label('Item Inventori')
+                    ->relationship('inventoryItem', 'name')
                     ->searchable()
                     ->preload(),
 

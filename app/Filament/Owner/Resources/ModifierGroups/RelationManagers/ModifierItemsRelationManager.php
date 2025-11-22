@@ -4,6 +4,11 @@ namespace App\Filament\Owner\Resources\ModifierGroups\RelationManagers;
 
 use App\Support\Currency;
 use App\Support\Money;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -70,18 +75,21 @@ class ModifierItemsRelationManager extends RelationManager
                     ->alignCenter()
                     ->sortable(),
             ])
-            ->defaultSort('sort_order')
+            ->modifyQueryUsing(function ($query) {
+                return $query->orderBy('sort_order', 'asc')
+                            ->orderBy('name', 'asc');
+            })
             ->headerActions([
-                Tables\Actions\CreateAction::make()
+                CreateAction::make()
                     ->label('Tambah Pilihan'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                EditAction::make(),
+                DeleteAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

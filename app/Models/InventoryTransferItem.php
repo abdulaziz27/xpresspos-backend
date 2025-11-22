@@ -27,6 +27,19 @@ class InventoryTransferItem extends Model
         'unit_cost' => 'decimal:4',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $item): void {
+            // Enforce uom_id = inventoryItem->uom_id (base UOM)
+            if ($item->inventory_item_id) {
+                $inventoryItem = InventoryItem::find($item->inventory_item_id);
+                if ($inventoryItem && $inventoryItem->uom_id) {
+                    $item->uom_id = $inventoryItem->uom_id;
+                }
+            }
+        });
+    }
+
     public function transfer(): BelongsTo
     {
         return $this->belongsTo(InventoryTransfer::class, 'inventory_transfer_id');

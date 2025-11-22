@@ -84,8 +84,8 @@ class TableResource extends Resource
 
         if (! empty($storeIds)) {
             $query->whereIn('store_id', $storeIds);
-        }
+                }
 
-        return $query;
+                return $query;
     }
 }

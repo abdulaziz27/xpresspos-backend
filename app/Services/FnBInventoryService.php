@@ -5,6 +5,11 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\InventoryMovement;
 
+/**
+ * @deprecated This service uses product_id for inventory operations which is no longer valid.
+ * Stock is now tracked per inventory_item, not per product.
+ * Use InventoryService instead for inventory-item-based operations.
+ */
 class FnBInventoryService
 {
     /**
@@ -115,46 +120,29 @@ class FnBInventoryService
 
     /**
      * F&B Daily inventory report
+     * 
+     * @deprecated This method uses product_id for inventory_movements which is no longer valid.
+     * Use InventoryService::getMovementSummary() instead.
      */
     public function getDailyReport(): array
     {
-        $today = now()->startOfDay();
-        
-        $movements = InventoryMovement::where('created_at', '>=', $today)
-            ->with('product')
-            ->get()
-            ->groupBy('product_id');
-
-        $report = [];
-        foreach ($movements as $productId => $productMovements) {
-            $product = $productMovements->first()->product;
-            $totalSold = $productMovements->where('quantity', '<', 0)->sum('quantity') * -1;
-            $totalReceived = $productMovements->where('quantity', '>', 0)->sum('quantity');
-
-            $report[] = [
-                'product_name' => $product->name,
-                'opening_stock' => $product->stock + $totalSold - $totalReceived,
-                'received' => $totalReceived,
-                'sold' => $totalSold,
-                'closing_stock' => $product->stock,
-                'revenue' => $totalSold * $product->price,
-            ];
-        }
-
-        return $report;
+        throw new \Exception(
+            'FnBInventoryService::getDailyReport() is deprecated. ' .
+            'Product-based inventory reports are deprecated due to inventory refactor. ' .
+            'Use InventoryService::getMovementSummary() for inventory-item-based reports.'
+        );
     }
 
+    /**
+     * @deprecated This method uses product_id for inventory_movements which is no longer valid.
+     */
     private function recordMovement(Product $product, int $quantity, string $reason): void
     {
-        InventoryMovement::create([
-            'store_id' => $product->store_id,
-            'product_id' => $product->id,
-            'quantity' => $quantity,
-            'type' => $quantity > 0 ? 'in' : 'out',
-            'reason' => $reason,
-            'user_id' => auth()->id(),
-            'reference_type' => 'manual',
-        ]);
+        throw new \Exception(
+            'FnBInventoryService::recordMovement() is deprecated. ' .
+            'Product-based inventory movements are deprecated. ' .
+            'Use InventoryService for inventory-item-based operations.'
+        );
     }
 
     private function triggerLowStockAlert(Product $product): void
@@ -179,13 +167,15 @@ class FnBInventoryService
         return max($avgDailyUsage * $daysToStock, $product->min_stock_level * 2);
     }
 
+    /**
+     * @deprecated This method uses product_id for inventory_movements which is no longer valid.
+     */
     private function getAverageDailyUsage(Product $product): int
     {
-        $last7Days = InventoryMovement::where('product_id', $product->id)
-            ->where('quantity', '<', 0) // Only outgoing
-            ->where('created_at', '>=', now()->subDays(7))
-            ->sum('quantity') * -1;
-
-        return (int) ceil($last7Days / 7);
+        throw new \Exception(
+            'FnBInventoryService::getAverageDailyUsage() is deprecated. ' .
+            'Product-based inventory calculations are deprecated. ' .
+            'Use InventoryService for inventory-item-based operations.'
+        );
     }
 }

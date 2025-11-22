@@ -112,18 +112,32 @@ class Product extends Model
 
     /**
      * Get the inventory movements for the product.
+     * 
+     * @deprecated Product-based inventory relations are deprecated. Stock is now tracked per inventory_item, not per product.
+     * Use InventoryItem::inventoryMovements() instead.
      */
     public function inventoryMovements(): HasMany
     {
-        return $this->hasMany(InventoryMovement::class);
+        throw new \Exception(
+            'Product::inventoryMovements() is deprecated. ' .
+            'Product-based inventory relations are deprecated due to inventory refactor. ' .
+            'Use InventoryItem::inventoryMovements() instead.'
+        );
     }
 
     /**
      * Get the stock level for the product.
+     * 
+     * @deprecated Product-based inventory relations are deprecated. Stock is now tracked per inventory_item, not per product.
+     * Use InventoryItem::stockLevels() instead.
      */
     public function stockLevel()
     {
-        return $this->hasOne(StockLevel::class);
+        throw new \Exception(
+            'Product::stockLevel() is deprecated. ' .
+            'Product-based inventory relations are deprecated due to inventory refactor. ' .
+            'Use InventoryItem::stockLevels() instead.'
+        );
     }
 
     /**
@@ -140,6 +154,32 @@ class Product extends Model
     public function recipes(): HasMany
     {
         return $this->hasMany(Recipe::class);
+    }
+
+    /**
+     * Get the active recipe for the product.
+     * Returns the first active recipe, or null if none exists.
+     */
+    public function getActiveRecipe(): ?Recipe
+    {
+        return $this->recipes()
+            ->where('is_active', true)
+            ->orderBy('created_at', 'desc')
+            ->first();
+    }
+
+    /**
+     * Recalculate cost_price from active recipe.
+     * Sets cost_price to the cost_per_unit of the active recipe.
+     */
+    public function recalculateCostPriceFromRecipe(): void
+    {
+        $activeRecipe = $this->getActiveRecipe();
+        
+        if ($activeRecipe && $activeRecipe->cost_per_unit > 0) {
+            $this->cost_price = $activeRecipe->cost_per_unit;
+            $this->save();
+        }
     }
 
     /**

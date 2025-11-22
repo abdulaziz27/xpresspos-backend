@@ -3,7 +3,7 @@
 namespace App\Filament\Owner\Resources\InventoryMovements\Schemas;
 
 use App\Filament\Owner\Resources\Concerns\ResolvesGlobalFilters;
-use App\Models\Product;
+use App\Models\InventoryItem;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -26,9 +26,9 @@ class InventoryMovementForm
                     ->schema([
                         Grid::make(2)
                             ->schema([
-                                Select::make('product_id')
-                                    ->label('Produk')
-                                    ->options(fn () => static::productOptions())
+                                Select::make('inventory_item_id')
+                                    ->label('Item Inventori')
+                                    ->options(fn () => static::inventoryItemOptions())
                                     ->searchable()
                                     ->preload()
                                     ->required()
@@ -39,14 +39,16 @@ class InventoryMovementForm
                                     ->options([
                                         // Hanya tipe manual yang diizinkan dibuat dari UI:
                                         // Pembelian, Penyesuaian, dan Transfer.
-                                        'purchase' => 'Pembelian',
-                                        'adjustment_in' => 'Penyesuaian Masuk',
-                                        'adjustment_out' => 'Penyesuaian Keluar',
-                                        'transfer_in' => 'Transfer Masuk',
-                                        'transfer_out' => 'Transfer Keluar',
+                                        // NOTE: Quantity selalu positif, arah (tambah/kurang) ditentukan oleh type
+                                        'purchase' => 'Pembelian (Tambah Stok)',
+                                        'adjustment_in' => 'Penyesuaian Masuk (Tambah Stok)',
+                                        'adjustment_out' => 'Penyesuaian Keluar (Kurangi Stok)',
+                                        'transfer_in' => 'Transfer Masuk (Tambah Stok)',
+                                        'transfer_out' => 'Transfer Keluar (Kurangi Stok)',
                                     ])
                                     ->required()
-                                    ->live(),
+                                    ->live()
+                                    ->helperText('Arah pergerakan (tambah/kurang) ditentukan oleh jenis, bukan oleh nilai quantity'),
                             ]),
 
                         Grid::make(2)
@@ -55,7 +57,8 @@ class InventoryMovementForm
                                     ->label('Jumlah')
                                     ->numeric()
                                     ->required()
-                                    ->minValue(1)
+                                    ->minValue(0.001)
+                                    ->step(0.001)
                                     ->live()
                                     ->afterStateUpdated(function (callable $get, callable $set) {
                                         $quantity = $get('quantity');
@@ -70,7 +73,7 @@ class InventoryMovementForm
                                     ->prefix('Rp')
                                     ->placeholder('8.000')
                                     ->helperText('Bisa input: 8000 atau 8.000')
-                                    ->rule('nullable|numeric|min:0')
+                                    ->rules(['nullable', 'numeric', 'min:0'])
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->live()
                                     ->afterStateUpdated(function (callable $get, callable $set) {
@@ -144,9 +147,9 @@ class InventoryMovementForm
     }
 
     /**
-     * @return array<int, string>
+     * @return array<string, string>
      */
-    protected static function productOptions(): array
+    protected static function inventoryItemOptions(): array
     {
         $tenantId = static::currentTenantId();
 
@@ -154,9 +157,10 @@ class InventoryMovementForm
             return [];
         }
 
-        return Product::query()
+        return InventoryItem::query()
             ->where('tenant_id', $tenantId)
-            ->where('track_inventory', true)
+            ->where('status', 'active')
+            ->where('track_stock', true)
             ->orderBy('name')
             ->pluck('name', 'id')
             ->toArray();

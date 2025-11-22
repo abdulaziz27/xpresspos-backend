@@ -31,34 +31,53 @@ class StockLevelResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('store.name')
                     ->label('Toko')
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('product.name')
-                    ->label('Produk')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('inventoryItem.name')
+                    ->label('Item Inventori')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('medium'),
+                Tables\Columns\TextColumn::make('inventoryItem.sku')
+                    ->label('SKU')
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('current_stock')
                     ->label('Stok Saat Ini')
-                    ->numeric()
-                    ->sortable(),
+                    ->numeric(decimalPlaces: 3)
+                    ->sortable()
+                    ->description(fn($record) => $record->inventoryItem?->uom?->name ?? ''),
                 Tables\Columns\TextColumn::make('reserved_stock')
-                    ->label('Tersedia')
-                    ->numeric()
+                    ->label('Stok Terpesan')
+                    ->numeric(decimalPlaces: 3)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('available_stock')
-                    ->label('Dapat Dijual')
-                    ->numeric()
+                    ->label('Stok Tersedia')
+                    ->numeric(decimalPlaces: 3)
                     ->sortable(),
+                Tables\Columns\TextColumn::make('min_stock_level')
+                    ->label('Min Stok')
+                    ->numeric(decimalPlaces: 3)
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('average_cost')
                     ->label('Biaya Rata-rata')
-                    ->money('IDR', true),
+                    ->money('IDR', true)
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('total_value')
                     ->label('Nilai Stok')
                     ->money('IDR', true)
                     ->sortable(),
+                Tables\Columns\TextColumn::make('last_movement_at')
+                    ->label('Pergerakan Terakhir')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
                     ->label('Diperbarui')
                     ->since()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('updated_at', 'desc')
             ->filters([
@@ -67,22 +86,26 @@ class StockLevelResource extends Resource
                     ->relationship('store', 'name')
                     ->options(self::storeOptions())
                     ->searchable(),
+                Tables\Filters\SelectFilter::make('inventory_item_id')
+                    ->label('Item Inventori')
+                    ->relationship('inventoryItem', 'name')
+                    ->searchable()
+                    ->preload(),
                 Tables\Filters\TernaryFilter::make('is_low_stock')
                     ->label('Stok Rendah')
                     ->placeholder('Semua')
                     ->trueLabel('Hanya stok rendah')
                     ->falseLabel('Tanpa stok rendah')
                     ->queries(
-                        true: fn (Builder $query) => $query->whereHas('product', function (Builder $productQuery) {
-                            $productQuery->where('track_inventory', true)
-                                ->whereColumn('stock_levels.current_stock', '<=', 'products.min_stock_level');
-                        }),
+                        true: fn (Builder $query) => $query->whereHas('inventoryItem', function (Builder $itemQuery) {
+                            $itemQuery->where('track_stock', true);
+                        })->whereColumn('stock_levels.current_stock', '<=', 'stock_levels.min_stock_level'),
                         false: fn (Builder $query) => $query->where(function (Builder $inner) {
-                            $inner->whereDoesntHave('product')
-                                ->orWhereHas('product', function (Builder $productQuery) {
-                                    $productQuery->where('track_inventory', false)
-                                        ->orWhereColumn('stock_levels.current_stock', '>', 'products.min_stock_level');
-                                });
+                            $inner->whereDoesntHave('inventoryItem')
+                                ->orWhereHas('inventoryItem', function (Builder $itemQuery) {
+                                    $itemQuery->where('track_stock', false);
+                                })
+                                ->orWhereColumn('stock_levels.current_stock', '>', 'stock_levels.min_stock_level');
                         })
                     ),
             ])
@@ -149,7 +172,7 @@ class StockLevelResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         /** @var Builder $query */
-        $query = StockLevel::query()->forAllStores()->with(['product', 'store']);
+        $query = StockLevel::query()->forAllStores()->with(['inventoryItem.uom', 'store']);
         $user = auth()->user();
 
         if (! $user) {

@@ -27,7 +27,7 @@ class ProductResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Produk';
 
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 11;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Produk';
 
@@ -51,6 +51,7 @@ class ProductResource extends Resource
     {
         return [
             RelationManagers\VariantsRelationManager::class,
+            RelationManagers\ModifierGroupsRelationManager::class,
         ];
     }
 
@@ -66,7 +67,9 @@ class ProductResource extends Resource
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         // Tenant scope is automatically applied via TenantScope global scope
-        return parent::getEloquentQuery();
+        // Eager load category for better performance
+        return parent::getEloquentQuery()
+            ->with(['category']);
     }
 
     public static function canViewAny(): bool

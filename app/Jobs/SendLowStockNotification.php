@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Models\Product;
+use App\Models\InventoryItem;
 use App\Models\StockLevel;
 use App\Models\User;
 use App\Notifications\LowStockAlert;
@@ -14,15 +14,17 @@ class SendLowStockNotification implements ShouldQueue
 {
     use Queueable;
 
-    protected Product $product;
+    protected InventoryItem $inventoryItem;
     protected StockLevel $stockLevel;
 
     /**
      * Create a new job instance.
+     * 
+     * NOTE: Now accepts InventoryItem (not Product). Stock is tracked per inventory_item.
      */
-    public function __construct(Product $product, StockLevel $stockLevel)
+    public function __construct(InventoryItem $inventoryItem, StockLevel $stockLevel)
     {
-        $this->product = $product;
+        $this->inventoryItem = $inventoryItem;
         $this->stockLevel = $stockLevel;
     }
 
@@ -32,13 +34,13 @@ class SendLowStockNotification implements ShouldQueue
     public function handle(): void
     {
         // Get store owners and managers who should be notified
-        $usersToNotify = User::where('store_id', $this->product->store_id)
+        $usersToNotify = User::where('store_id', $this->stockLevel->store_id)
             ->whereHas('roles', function ($query) {
                 $query->whereIn('name', ['owner', 'manager']);
             })
             ->get();
 
         // Send notification to each user
-        Notification::send($usersToNotify, new LowStockAlert($this->product, $this->stockLevel));
+        Notification::send($usersToNotify, new LowStockAlert($this->inventoryItem, $this->stockLevel));
     }
 }

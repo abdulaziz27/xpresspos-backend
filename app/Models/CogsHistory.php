@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Concerns\BelongsToStore;
 
 class CogsHistory extends Model
@@ -78,7 +79,22 @@ class CogsHistory extends Model
     }
 
     /**
+     * Get the COGS details for this history record.
+     */
+    public function cogsDetails(): HasMany
+    {
+        return $this->hasMany(CogsDetail::class);
+    }
+
+    /**
      * Calculate COGS for a product sale.
+     * 
+     * NOTE: COGS is still per product, but stock calculations now use inventory_item.
+     * For recipe-based products, COGS is calculated from recipe ingredients (inventory_items).
+     * For non-recipe products, this method is deprecated and will throw exception.
+     * 
+     * @deprecated For non-recipe products, use recipe-based COGS calculation instead.
+     * This method will be redesigned in Wave 3 for full inventory-item-based COGS.
      */
     public static function calculateCogs(
         string $productId,
@@ -87,20 +103,22 @@ class CogsHistory extends Model
         ?string $orderId = null
     ): self {
         $product = Product::findOrFail($productId);
-        $stockLevel = StockLevel::getOrCreateForProduct($productId);
         
-        switch ($method) {
-            case self::METHOD_FIFO:
-                return self::calculateFifoCogs($product, $quantitySold, $orderId);
-            case self::METHOD_LIFO:
-                return self::calculateLifoCogs($product, $quantitySold, $orderId);
-            default:
-                return self::calculateWeightedAverageCogs($product, $stockLevel, $quantitySold, $orderId);
-        }
+        // Check if product has a recipe - if yes, COGS should be calculated from recipe
+        // This method is deprecated for direct product COGS calculation
+        throw new \Exception(
+            'CogsHistory::calculateCogs() is deprecated for direct product COGS. ' .
+            'COGS per product via stock_levels/product_id is deprecated due to inventory refactor. ' .
+            'Use recipe-based COGS calculations (via CogsService) or redesign for inventory-item-based COGS in Wave 3.'
+        );
     }
 
     /**
      * Calculate COGS using weighted average method.
+     * 
+     * @deprecated This method uses StockLevel with product_id which is no longer valid.
+     * For recipe-based products, COGS should be calculated from recipe ingredients.
+     * Will be redesigned in Wave 3 for inventory-item-based COGS.
      */
     protected static function calculateWeightedAverageCogs(
         Product $product,
@@ -108,132 +126,47 @@ class CogsHistory extends Model
         int $quantitySold,
         ?string $orderId = null
     ): self {
-        $unitCost = $stockLevel->average_cost;
-        $totalCogs = $unitCost * $quantitySold;
-
-        $storeId = self::resolveStoreId($product);
-        $store = $storeId ? Store::find($storeId) : null;
-        
-        return self::create([
-            'tenant_id' => $store?->tenant_id,
-            'store_id' => $storeId,
-            'product_id' => $product->id,
-            'order_id' => $orderId,
-            'quantity_sold' => $quantitySold,
-            'unit_cost' => $unitCost,
-            'total_cogs' => $totalCogs,
-            'calculation_method' => self::METHOD_WEIGHTED_AVERAGE,
-        ]);
+        throw new \Exception(
+            'calculateWeightedAverageCogs() is deprecated. ' .
+            'COGS per product via stock_levels/product_id is deprecated due to inventory refactor. ' .
+            'Use recipe-based COGS calculations (via CogsService) or redesign for inventory-item-based COGS in Wave 3.'
+        );
     }
 
     /**
      * Calculate COGS using FIFO method.
+     * 
+     * @deprecated This method uses product_id for inventory_movements which is no longer valid.
+     * Will be redesigned in Wave 3 for inventory-item-based COGS.
      */
     protected static function calculateFifoCogs(
         Product $product,
         int $quantitySold,
         ?string $orderId = null
     ): self {
-        // Get stock movements in chronological order (oldest first)
-        $stockInMovements = InventoryMovement::where('product_id', $product->id)
-            ->stockIn()
-            ->where('unit_cost', '>', 0)
-            ->orderBy('created_at')
-            ->get();
-
-        $remainingQuantity = $quantitySold;
-        $totalCogs = 0;
-        $costBreakdown = [];
-
-        foreach ($stockInMovements as $movement) {
-            if ($remainingQuantity <= 0) break;
-
-            $quantityFromThisBatch = min($remainingQuantity, $movement->quantity);
-            $costFromThisBatch = $quantityFromThisBatch * $movement->unit_cost;
-            
-            $totalCogs += $costFromThisBatch;
-            $remainingQuantity -= $quantityFromThisBatch;
-            
-            $costBreakdown[] = [
-                'movement_id' => $movement->id,
-                'quantity' => $quantityFromThisBatch,
-                'unit_cost' => $movement->unit_cost,
-                'total_cost' => $costFromThisBatch,
-                'movement_date' => $movement->created_at,
-            ];
-        }
-
-        $averageUnitCost = $quantitySold > 0 ? $totalCogs / $quantitySold : 0;
-
-        $storeId = self::resolveStoreId($product);
-        $store = $storeId ? Store::find($storeId) : null;
-        
-        return self::create([
-            'tenant_id' => $store?->tenant_id,
-            'store_id' => $storeId,
-            'product_id' => $product->id,
-            'order_id' => $orderId,
-            'quantity_sold' => $quantitySold,
-            'unit_cost' => $averageUnitCost,
-            'total_cogs' => $totalCogs,
-            'calculation_method' => self::METHOD_FIFO,
-            'cost_breakdown' => $costBreakdown,
-        ]);
+        throw new \Exception(
+            'calculateFifoCogs() is deprecated. ' .
+            'COGS per product via inventory_movements/product_id is deprecated due to inventory refactor. ' .
+            'Use recipe-based COGS calculations or redesign for inventory-item-based COGS in Wave 3.'
+        );
     }
 
     /**
      * Calculate COGS using LIFO method.
+     * 
+     * @deprecated This method uses product_id for inventory_movements which is no longer valid.
+     * Will be redesigned in Wave 3 for inventory-item-based COGS.
      */
     protected static function calculateLifoCogs(
         Product $product,
         int $quantitySold,
         ?string $orderId = null
     ): self {
-        // Get stock movements in reverse chronological order (newest first)
-        $stockInMovements = InventoryMovement::where('product_id', $product->id)
-            ->stockIn()
-            ->where('unit_cost', '>', 0)
-            ->orderByDesc('created_at')
-            ->get();
-
-        $remainingQuantity = $quantitySold;
-        $totalCogs = 0;
-        $costBreakdown = [];
-
-        foreach ($stockInMovements as $movement) {
-            if ($remainingQuantity <= 0) break;
-
-            $quantityFromThisBatch = min($remainingQuantity, $movement->quantity);
-            $costFromThisBatch = $quantityFromThisBatch * $movement->unit_cost;
-            
-            $totalCogs += $costFromThisBatch;
-            $remainingQuantity -= $quantityFromThisBatch;
-            
-            $costBreakdown[] = [
-                'movement_id' => $movement->id,
-                'quantity' => $quantityFromThisBatch,
-                'unit_cost' => $movement->unit_cost,
-                'total_cost' => $costFromThisBatch,
-                'movement_date' => $movement->created_at,
-            ];
-        }
-
-        $averageUnitCost = $quantitySold > 0 ? $totalCogs / $quantitySold : 0;
-
-        $storeId = self::resolveStoreId($product);
-        $store = $storeId ? Store::find($storeId) : null;
-        
-        return self::create([
-            'tenant_id' => $store?->tenant_id,
-            'store_id' => $storeId,
-            'product_id' => $product->id,
-            'order_id' => $orderId,
-            'quantity_sold' => $quantitySold,
-            'unit_cost' => $averageUnitCost,
-            'total_cogs' => $totalCogs,
-            'calculation_method' => self::METHOD_LIFO,
-            'cost_breakdown' => $costBreakdown,
-        ]);
+        throw new \Exception(
+            'calculateLifoCogs() is deprecated. ' .
+            'COGS per product via inventory_movements/product_id is deprecated due to inventory refactor. ' .
+            'Use recipe-based COGS calculations or redesign for inventory-item-based COGS in Wave 3.'
+        );
     }
 
     protected static function resolveStoreId(Product $product): ?string

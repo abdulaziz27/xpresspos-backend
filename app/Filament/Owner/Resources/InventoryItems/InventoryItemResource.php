@@ -24,9 +24,9 @@ class InventoryItemResource extends Resource
 {
     protected static ?string $model = InventoryItem::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBox;
 
-    protected static ?string $navigationLabel = 'Item Inventori';
+    protected static ?string $navigationLabel = 'Bahan';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Inventori';
 
@@ -36,58 +36,92 @@ class InventoryItemResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Detail Item')
+                Section::make('Informasi Bahan')
+                    ->description('Detail dasar bahan / item inventory')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('name')
-                                    ->label('Nama')
+                                    ->label('Nama Bahan')
                                     ->required()
-                                    ->maxLength(255),
+                                    ->maxLength(255)
+                                    ->placeholder('Contoh: Gula Pasir, Tepung Terigu'),
                                 TextInput::make('sku')
                                     ->label('SKU')
-                                    ->maxLength(100),
+                                    ->maxLength(100)
+                                    ->unique(ignoreRecord: true)
+                                    ->helperText('Kode unik bahan (opsional, unique per tenant)'),
                             ]),
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('category')
                                     ->label('Kategori')
-                                    ->maxLength(100),
+                                    ->maxLength(100)
+                                    ->placeholder('Contoh: Bahan Baku, Bumbu, Kemasan')
+                                    ->helperText('Kategori untuk pengelompokan bahan'),
                                 Select::make('uom_id')
-                                    ->label('Satuan')
+                                    ->label('Satuan (UOM)')
                                     ->options(fn () => Uom::query()->pluck('name', 'id'))
                                     ->searchable()
-                                    ->required(),
+                                    ->preload()
+                                    ->required()
+                                    ->helperText('Satuan dasar untuk bahan ini (kg, liter, pcs, dll)'),
                             ]),
+                    ])
+                    ->columns(1),
+
+                Section::make('Pengaturan Stok')
+                    ->description('Konfigurasi pelacakan stok')
+                    ->schema([
                         Grid::make(2)
                             ->schema([
-                                TextInput::make('min_stock_level')
-                                    ->label('Min Stok')
-                                    ->numeric()
-                                    ->default(0),
-                                TextInput::make('default_cost')
-                                    ->label('Biaya Default')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->default(0),
-                            ]),
-                        Grid::make(3)
-                            ->schema([
-                                Toggle::make('track_lot')
-                                    ->label('Pantau Lot')
-                                    ->default(false),
                                 Toggle::make('track_stock')
                                     ->label('Pantau Stok')
-                                    ->default(true),
-                                Select::make('status')
-                                    ->label('Status')
-                                    ->options([
-                                        'active' => 'Aktif',
-                                        'inactive' => 'Tidak Aktif',
-                                    ])
-                                    ->default('active'),
+                                    ->default(true)
+                                    ->helperText('Aktifkan untuk melacak stok bahan ini per store'),
+                                Toggle::make('track_lot')
+                                    ->label('Pantau Lot')
+                                    ->default(false)
+                                    ->helperText('Aktifkan untuk melacak lot/batch (exp date, mfg date)'),
                             ]),
-                    ]),
+                        TextInput::make('min_stock_level')
+                            ->label('Min Stok Level (Global)')
+                            ->numeric()
+                            ->default(0)
+                            ->minValue(0)
+                            ->step(0.001)
+                            ->helperText('Level minimum stok global (dapat di-override per store di Stock Levels)'),
+                    ])
+                    ->columns(1),
+
+                Section::make('Cost Default')
+                    ->description('Biaya default per satuan')
+                    ->schema([
+                        TextInput::make('default_cost')
+                            ->label('Default Cost (per unit)')
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->default(0)
+                            ->minValue(0)
+                            ->step(0.0001)
+                            ->helperText('Biaya default per satuan. Dipakai sebagai unit_cost default di recipe.'),
+                    ])
+                    ->columns(1),
+
+                Section::make('Status')
+                    ->description('Status aktif/nonaktif bahan')
+                    ->schema([
+                        Select::make('status')
+                            ->label('Status')
+                            ->options([
+                                'active' => 'Aktif',
+                                'inactive' => 'Tidak Aktif',
+                            ])
+                            ->default('active')
+                            ->required()
+                            ->helperText('Bahan aktif dapat digunakan di resep dan transaksi'),
+                    ])
+                    ->columns(1),
             ]);
     }
 
@@ -96,42 +130,105 @@ class InventoryItemResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Nama')
+                    ->label('Nama Bahan')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('medium'),
+
                 Tables\Columns\TextColumn::make('sku')
                     ->label('SKU')
                     ->searchable()
-                    ->toggleable(),
+                    ->sortable()
+                    ->placeholder('-')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\TextColumn::make('category')
                     ->label('Kategori')
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('-')
                     ->toggleable(),
+
                 Tables\Columns\TextColumn::make('uom.name')
-                    ->label('Satuan'),
+                    ->label('Satuan')
+                    ->sortable()
+                    ->badge()
+                    ->color('info'),
+
+                Tables\Columns\TextColumn::make('default_cost')
+                    ->label('Default Cost')
+                    ->numeric(decimalPlaces: 4)
+                    ->prefix('Rp ')
+                    ->sortable()
+                    ->alignEnd()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('min_stock_level')
+                    ->label('Min Stok')
+                    ->numeric(decimalPlaces: 3)
+                    ->sortable()
+                    ->alignEnd()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\IconColumn::make('track_stock')
                     ->label('Pantau Stok')
-                    ->boolean(),
+                    ->boolean()
+                    ->sortable(),
+
+                Tables\Columns\IconColumn::make('track_lot')
+                    ->label('Pantau Lot')
+                    ->boolean()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
                     ->badge()
-                    ->colors([
-                        'success' => 'active',
-                        'gray' => 'inactive',
-                    ]),
+                    ->color(fn($state) => $state === 'active' ? 'success' : 'gray')
+                    ->formatStateUsing(fn($state) => $state === 'active' ? 'Aktif' : 'Tidak Aktif')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Diperbarui')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('name')
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
+                    ->label('Status')
                     ->options([
                         'active' => 'Aktif',
                         'inactive' => 'Tidak Aktif',
                     ]),
+
+                Tables\Filters\TernaryFilter::make('track_stock')
+                    ->label('Pantau Stok')
+                    ->placeholder('Semua')
+                    ->trueLabel('Hanya yang dipantau')
+                    ->falseLabel('Hanya yang tidak dipantau'),
+
+                Tables\Filters\SelectFilter::make('category')
+                    ->label('Kategori')
+                    ->options(function () {
+                        return InventoryItem::query()
+                            ->whereNotNull('category')
+                            ->distinct()
+                            ->pluck('category', 'category');
+                    })
+                    ->searchable(),
             ])
             ->actions([
                 EditAction::make(),
             ])
             ->bulkActions([
                 DeleteBulkAction::make(),
-            ]);
+            ])
+            ->modifyQueryUsing(function ($query) {
+                return $query->orderBy('name', 'asc');
+            })
+            ->striped()
+            ->paginated([10, 25, 50, 100]);
     }
 
     public static function getPages(): array

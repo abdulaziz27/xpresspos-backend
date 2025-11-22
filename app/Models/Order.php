@@ -62,6 +62,16 @@ class Order extends Model
                 }
             }
         });
+
+        // Trigger COGS processing when order status changes to completed
+        static::saved(function (Order $order) {
+            if ($order->wasChanged('status') && $order->status === 'completed') {
+                // Check if COGS already processed (idempotency)
+                if (!\App\Models\CogsHistory::where('order_id', $order->id)->exists()) {
+                    \App\Jobs\ProcessOrderCogsJob::dispatch($order->id);
+                }
+            }
+        });
     }
 
     /**

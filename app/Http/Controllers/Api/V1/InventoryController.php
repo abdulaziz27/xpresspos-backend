@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\Product;
+use App\Models\InventoryItem;
 use App\Models\StockLevel;
 use App\Models\InventoryMovement;
 use App\Services\InventoryService;
@@ -25,19 +25,19 @@ class InventoryController extends Controller
 
     /**
      * Display current stock levels.
+     * 
+     * NOTE: Now returns stock levels per inventory_item (not per product).
+     * Stock is tracked per inventory_item per store.
      */
     public function index(Request $request): JsonResponse
     {
-        $query = StockLevel::with(['product:id,name,sku,track_inventory,min_stock_level'])
-            ->whereHas('product', function ($q) {
-                $q->where('track_inventory', true);
-            });
+        $query = StockLevel::with(['inventoryItem:id,name,sku,track_stock,min_stock_level']);
 
         // Filter by low stock
         if ($request->boolean('low_stock')) {
-            $query->whereHas('product', function ($q) use ($query) {
-                $q->whereColumn('stock_levels.current_stock', '<=', 'products.min_stock_level');
-            });
+            $query->whereHas('inventoryItem', function ($q) {
+                $q->where('track_stock', true);
+            })->whereColumn('stock_levels.current_stock', '<=', 'stock_levels.min_stock_level');
         }
 
         // Filter by out of stock
@@ -45,13 +45,18 @@ class InventoryController extends Controller
             $query->where('available_stock', '<=', 0);
         }
 
-        // Search by product name or SKU
+        // Search by inventory item name or SKU
         if ($request->filled('search')) {
             $search = $request->input('search');
-            $query->whereHas('product', function ($q) use ($search) {
+            $query->whereHas('inventoryItem', function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('sku', 'like', "%{$search}%");
             });
+        }
+
+        // Filter by inventory_item_id
+        if ($request->filled('inventory_item_id')) {
+            $query->where('inventory_item_id', $request->inventory_item_id);
         }
 
         $stockLevels = $query->paginate($request->input('per_page', 15));
@@ -64,9 +69,14 @@ class InventoryController extends Controller
     }
 
     /**
-     * Display stock level for specific product.
+     * Display stock level for specific inventory item.
+     * 
+     * NOTE: Now accepts inventory_item_id (not product_id).
+     * Stock is tracked per inventory_item per store.
+     * 
+     * @param string $inventoryItemId The inventory item ID (UUID)
      */
-    public function show(string $productId): JsonResponse
+    public function show(string $inventoryItemId): JsonResponse
     {
         $user = auth()->user() ?? request()->user();
 
@@ -94,13 +104,12 @@ class InventoryController extends Controller
             ], 400);
         }
 
-        // Product is tenant-scoped, no need to filter by store_id
-        $product = Product::where('track_inventory', true)
-            ->findOrFail($productId);
-        $stockLevel = StockLevel::getOrCreateForProduct($productId, $storeId);
+        $inventoryItem = InventoryItem::where('track_stock', true)
+            ->findOrFail($inventoryItemId);
+        $stockLevel = StockLevel::getOrCreateForInventoryItem($inventoryItemId, $storeId);
 
         // Get recent movements (InventoryMovement is store-scoped)
-        $recentMovements = InventoryMovement::where('product_id', $productId)
+        $recentMovements = InventoryMovement::where('inventory_item_id', $inventoryItemId)
             ->where('store_id', $storeId)
             ->with('user:id,name')
             ->orderByDesc('created_at')
@@ -110,7 +119,7 @@ class InventoryController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'product' => $product,
+                'inventory_item' => $inventoryItem,
                 'stock_level' => $stockLevel,
                 'recent_movements' => $recentMovements,
                 'is_low_stock' => $stockLevel->isLowStock(),
@@ -122,6 +131,9 @@ class InventoryController extends Controller
 
     /**
      * Create manual stock adjustment.
+     * 
+     * NOTE: Now accepts inventory_item_id (not product_id).
+     * Stock adjustments are per inventory_item per store.
      */
     public function adjust(Request $request): JsonResponse
     {
@@ -149,19 +161,18 @@ class InventoryController extends Controller
         }
 
         $request->validate([
-            'product_id' => 'required|integer|exists:products,id',
-            'quantity' => 'required|integer|not_in:0',
+            'inventory_item_id' => 'required|string|exists:inventory_items,id',
+            'quantity' => 'required|numeric|min:0.001',
             'unit_cost' => 'nullable|numeric|min:0',
             'reason' => 'required|string|max:255',
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        // Product is tenant-scoped, no need to filter by store_id
-        $product = Product::where('track_inventory', true)
-            ->findOrFail($request->product_id);
+        $inventoryItem = InventoryItem::where('track_stock', true)
+            ->findOrFail($request->inventory_item_id);
 
         $result = $this->inventoryService->adjustStock(
-            $product->id,
+            $inventoryItem->id,
             $request->quantity,
             $request->reason,
             $request->unit_cost,
@@ -177,14 +188,17 @@ class InventoryController extends Controller
 
     /**
      * Get inventory movements with filters.
+     * 
+     * NOTE: Now filters by inventory_item_id (not product_id).
+     * Movements are tracked per inventory_item per store.
      */
     public function movements(Request $request): JsonResponse
     {
-        $query = InventoryMovement::with(['product:id,name,sku', 'user:id,name']);
+        $query = InventoryMovement::with(['inventoryItem:id,name,sku', 'user:id,name']);
 
-        // Filter by product
-        if ($request->filled('product_id')) {
-            $query->where('product_id', $request->product_id);
+        // Filter by inventory item
+        if ($request->filled('inventory_item_id')) {
+            $query->where('inventory_item_id', $request->inventory_item_id);
         }
 
         // Filter by movement type
@@ -222,15 +236,17 @@ class InventoryController extends Controller
 
     /**
      * Transfer stock between outlets (Enterprise feature).
+     * 
+     * NOTE: Now accepts inventory_item_id (not product_id).
      */
     public function transfer(Request $request): JsonResponse
     {
         // This would be implemented for multi-outlet transfers in Enterprise plan
         $request->validate([
-            'product_id' => 'required|uuid|exists:products,id',
+            'inventory_item_id' => 'required|string|exists:inventory_items,id',
             'from_outlet_id' => 'required|uuid|exists:outlets,id',
             'to_outlet_id' => 'required|uuid|exists:outlets,id|different:from_outlet_id',
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|numeric|min:0.001',
             'notes' => 'nullable|string|max:1000',
         ]);
 
@@ -243,22 +259,22 @@ class InventoryController extends Controller
 
     /**
      * Get inventory levels summary.
+     * 
+     * NOTE: Now returns summary per inventory_item (not per product).
      */
     public function levels(Request $request): JsonResponse
     {
-        $stockLevels = StockLevel::with(['product:id,name,sku,track_inventory,min_stock_level'])
-            ->whereHas('product', function ($q) {
-                $q->where('track_inventory', true);
+        $stockLevels = StockLevel::with(['inventoryItem:id,name,sku,track_stock,min_stock_level'])
+            ->whereHas('inventoryItem', function ($q) {
+                $q->where('track_stock', true);
             })
             ->get();
 
         $summary = [
-            'total_products' => $stockLevels->count(),
-            'total_stock_value' => $stockLevels->sum(function ($level) {
-                return $level->current_stock * ($level->product->cost ?? 0);
-            }),
+            'total_items' => $stockLevels->count(),
+            'total_stock_value' => $stockLevels->sum('total_value'),
             'low_stock_count' => $stockLevels->filter(function ($level) {
-                return $level->current_stock <= ($level->product->min_stock_level ?? 0);
+                return $level->isLowStock();
             })->count(),
             'out_of_stock_count' => $stockLevels->where('current_stock', '<=', 0)->count(),
             'available_stock_count' => $stockLevels->where('available_stock', '>', 0)->count(),
@@ -276,21 +292,25 @@ class InventoryController extends Controller
 
     /**
      * Get low stock alerts.
+     * 
+     * NOTE: Now returns low stock alerts per inventory_item (not per product).
      */
     public function lowStockAlerts(): JsonResponse
     {
-        $lowStockProducts = StockLevel::with(['product:id,name,sku,min_stock_level'])
-            ->whereHas('product', function ($q) {
-                $q->where('track_inventory', true)
-                    ->whereColumn('stock_levels.current_stock', '<=', 'products.min_stock_level');
+        $lowStockItems = StockLevel::with(['inventoryItem:id,name,sku,min_stock_level'])
+            ->whereHas('inventoryItem', function ($q) {
+                $q->where('track_stock', true);
             })
-            ->get();
+            ->get()
+            ->filter(function ($level) {
+                return $level->isLowStock();
+            });
 
         return response()->json([
             'success' => true,
             'data' => [
-                'low_stock_count' => $lowStockProducts->count(),
-                'products' => $lowStockProducts,
+                'low_stock_count' => $lowStockItems->count(),
+                'inventory_items' => $lowStockItems->values(),
             ],
             'message' => 'Low stock alerts retrieved successfully'
         ]);
@@ -298,6 +318,9 @@ class InventoryController extends Controller
 
     /**
      * Create a new inventory movement.
+     * 
+     * NOTE: Now accepts inventory_item_id (not product_id).
+     * Movements are tracked per inventory_item per store.
      */
     public function createMovement(Request $request): JsonResponse
     {
@@ -325,23 +348,22 @@ class InventoryController extends Controller
         }
 
         $request->validate([
-            'product_id' => 'required|integer|exists:products,id',
+            'inventory_item_id' => 'required|string|exists:inventory_items,id',
             'type' => 'required|string|in:sale,purchase,adjustment_in,adjustment_out,transfer_in,transfer_out,waste,return',
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|numeric|min:0.001',
             'unit_cost' => 'nullable|numeric|min:0',
             'reason' => 'required|string|max:255',
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        // Product is tenant-scoped, no need to filter by store_id
-        $product = Product::where('track_inventory', true)
-            ->findOrFail($request->product_id);
+        $inventoryItem = InventoryItem::where('track_stock', true)
+            ->findOrFail($request->inventory_item_id);
 
         try {
             $movement = InventoryMovement::createMovement(
-                $product->id,
+                $inventoryItem->id,
                 $request->type,
-                $request->quantity,
+                (float) $request->quantity,
                 $request->unit_cost,
                 $request->reason,
                 null,
@@ -350,7 +372,7 @@ class InventoryController extends Controller
             );
 
             // Update stock level (StockLevel is store-scoped)
-            $stockLevel = StockLevel::getOrCreateForProduct($product->id, $storeId);
+            $stockLevel = StockLevel::getOrCreateForInventoryItem($inventoryItem->id, $storeId);
             $stockLevel->updateFromMovement($movement);
 
             return response()->json([

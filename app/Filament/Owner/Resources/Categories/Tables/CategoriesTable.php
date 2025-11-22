@@ -59,6 +59,12 @@ class CategoriesTable
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('updated_at')
+                    ->label('Diperbarui')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 TernaryFilter::make('status')
@@ -76,7 +82,10 @@ class CategoriesTable
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('sort_order')
+            ->modifyQueryUsing(function ($query) {
+                return $query->orderBy('sort_order', 'asc')
+                            ->orderBy('name', 'asc');
+            })
             ->striped()
             ->paginated([10, 25, 50, 100]);
     }

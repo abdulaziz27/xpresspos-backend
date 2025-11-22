@@ -103,7 +103,7 @@ class PaymentForm
                                     ->prefix('Rp')
                                     ->placeholder('5.000')
                                     ->helperText('Bisa input: 5000 atau 5.000')
-                                    ->rule('nullable|numeric|min:0')
+                                    ->rules(['nullable', 'numeric', 'min:0'])
                                     ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
                                     ->default(0),
 

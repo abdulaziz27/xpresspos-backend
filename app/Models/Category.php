@@ -18,6 +18,20 @@ class Category extends Model
     protected static function booted(): void
     {
         static::addGlobalScope(new TenantScope);
+
+        // Automatically set tenant_id when creating
+        static::creating(function ($model) {
+            if (!$model->tenant_id && auth()->check()) {
+                $user = auth()->user();
+                $tenantId = $user->currentTenant()?->id;
+
+                if (!$tenantId) {
+                    throw new \Exception('Tidak dapat menentukan tenant aktif untuk pengguna.');
+                }
+
+                $model->tenant_id = $tenantId;
+            }
+        });
     }
 
     protected $fillable = [

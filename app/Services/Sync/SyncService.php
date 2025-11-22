@@ -310,19 +310,24 @@ class SyncService
 
     /**
      * Create inventory movement from sync data.
+     * 
+     * @deprecated This method uses product_id for inventory_movements which is no longer valid.
+     * Sync data should now include inventory_item_id instead of product_id.
      */
     protected function createInventoryMovement(array $data, ?string $timestamp): array
     {
+        // Check if data has inventory_item_id (new format)
+        if (isset($data['inventory_item_id'])) {
         $storeId = $this->storeId($data);
 
         // Check for duplicate movement
         $existingMovement = InventoryMovement::where('store_id', $storeId)
-            ->where('product_id', $data['product_id'])
+                ->where('inventory_item_id', $data['inventory_item_id'])
             ->where('type', $data['type'])
             ->where('quantity', $data['quantity'])
             ->where('reference_type', $data['reference_type'] ?? null)
             ->where('reference_id', $data['reference_id'] ?? null)
-            ->where('created_at', '>=', now()->subMinutes(5)) // Within 5 minutes
+                ->where('created_at', '>=', now()->subMinutes(5))
             ->first();
 
         if ($existingMovement) {
@@ -331,7 +336,7 @@ class SyncService
 
         $movement = InventoryMovement::create([
             'store_id' => $storeId,
-            'product_id' => $data['product_id'],
+                'inventory_item_id' => $data['inventory_item_id'],
             'user_id' => $data['user_id'] ?? Auth::id(),
             'type' => $data['type'],
             'quantity' => $data['quantity'],
@@ -343,14 +348,19 @@ class SyncService
             'notes' => $data['notes'] ?? null,
         ]);
 
-        // Update product stock level
-        $product = Product::find($data['product_id']);
-        if ($product && $product->track_inventory) {
-            $signedQuantity = $movement->getSignedQuantity();
-            $product->increment('stock_quantity', $signedQuantity);
+            // Update stock level
+            $stockLevel = StockLevel::getOrCreateForInventoryItem($data['inventory_item_id'], $storeId);
+            $stockLevel->updateFromMovement($movement);
+
+            return ['entity_id' => $movement->id];
         }
 
-        return ['entity_id' => $movement->id];
+        // Legacy format with product_id - deprecated
+        throw new \Exception(
+            'SyncService::createInventoryMovement() with product_id is deprecated. ' .
+            'Sync data must now include inventory_item_id instead of product_id. ' .
+            'Product-based inventory sync is deprecated due to inventory refactor.'
+        );
     }
 
     /**
