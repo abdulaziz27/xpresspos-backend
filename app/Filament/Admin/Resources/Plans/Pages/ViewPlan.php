@@ -10,3 +10,4 @@ class ViewPlan extends ViewRecord
     protected static string $resource = PlanResource::class;
 }
 
+

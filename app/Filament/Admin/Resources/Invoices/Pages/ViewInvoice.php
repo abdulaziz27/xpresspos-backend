@@ -10,3 +10,4 @@ class ViewInvoice extends ViewRecord
     protected static string $resource = InvoiceResource::class;
 }
 
+

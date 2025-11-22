@@ -10,3 +10,4 @@ class ViewSubscriptionPayment extends ViewRecord
     protected static string $resource = SubscriptionPaymentResource::class;
 }
 
+

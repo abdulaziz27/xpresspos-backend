@@ -10,3 +10,4 @@ class ListInvoices extends ListRecords
     protected static string $resource = InvoiceResource::class;
 }
 
+

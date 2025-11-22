@@ -10,3 +10,4 @@ class CreatePlan extends CreateRecord
     protected static string $resource = PlanResource::class;
 }
 
+

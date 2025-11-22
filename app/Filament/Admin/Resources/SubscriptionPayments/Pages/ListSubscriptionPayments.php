@@ -10,3 +10,4 @@ class ListSubscriptionPayments extends ListRecords
     protected static string $resource = SubscriptionPaymentResource::class;
 }
 
+

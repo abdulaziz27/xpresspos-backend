@@ -8,6 +8,7 @@ use App\Services\PlanLimitService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class CreateStore extends CreateRecord
 {
@@ -62,6 +63,30 @@ class CreateStore extends CreateRecord
         // Set settings if any
         if (!empty($settings)) {
             $data['settings'] = $settings;
+        }
+
+        // Auto-generate code if not provided
+        if (empty($data['code']) && !empty($data['name'])) {
+            $baseCode = Str::slug($data['name']);
+            if (strlen($baseCode) > 50) {
+                $baseCode = substr($baseCode, 0, 50);
+            }
+            
+            // Ensure uniqueness per tenant
+            $tenantId = $data['tenant_id'] ?? null;
+            $code = $baseCode;
+            $counter = 1;
+            
+            while (Store::where('code', $code)
+                ->when($tenantId, fn($q) => $q->where('tenant_id', $tenantId))
+                ->exists()) {
+                $suffix = '-' . $counter;
+                $maxLength = 50 - strlen($suffix);
+                $code = substr($baseCode, 0, $maxLength) . $suffix;
+                $counter++;
+            }
+            
+            $data['code'] = $code;
         }
         
         return $data;
