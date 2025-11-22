@@ -53,7 +53,7 @@
                             </div>
                             @endif
 
-                            <form id="business-info-form" method="POST" class="space-y-6">
+                            <form id="business-info-form" method="POST" action="{{ route('landing.checkout.step2.process') }}" class="space-y-6">
                                 @csrf
                                 <input type="hidden" name="plan_id" value="{{ $planId }}">
                                 <input type="hidden" name="billing_cycle" value="{{ $billing }}">
@@ -252,27 +252,13 @@
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle form submission
-    const form = document.getElementById('business-info-form');
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Set form action to local URL
-            const url = new URL('/checkout/business-info', window.location.origin);
-            form.action = url.toString();
-            
-            // Submit the form
-            form.submit();
-        });
-    }
-});
+// Form submission is handled by the form's action attribute
+// No need for JavaScript override
 
 function goBackToCheckout(planId, billing) {
     // Build checkout URL using current domain
     const url = new URL('/checkout', window.location.origin);
-    url.searchParams.set('plan', planId);
+    url.searchParams.set('plan_id', planId);
     url.searchParams.set('billing', billing);
     
     // Navigate back to checkout

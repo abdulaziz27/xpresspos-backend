@@ -522,14 +522,21 @@ class LandingController extends Controller
     public function showCheckoutStep2(Request $request)
     {
         $request->validate([
-            'plan' => 'required|in:basic,pro,enterprise',
+            'plan_id' => 'nullable|exists:plans,id', // Primary: plan_id (integer)
+            'plan' => 'nullable|string', // Secondary: slug (for backward compatibility)
             'billing' => 'required|in:monthly,yearly'
         ]);
 
-        // Get plans from database instead of hardcoded values
-        $plans = Plan::active()->ordered()->get()->keyBy('slug');
+        // Prioritize plan_id over slug
+        if ($request->has('plan_id')) {
+            $selectedPlan = Plan::findOrFail($request->plan_id);
+        } elseif ($request->has('plan')) {
+            $selectedPlan = Plan::where('slug', $request->plan)->firstOrFail();
+        } else {
+            return redirect()->route('landing.checkout')
+                ->with('error', 'Silakan pilih plan terlebih dahulu.');
+        }
 
-        $selectedPlan = $plans[$request->plan];
         $billing = $request->billing;
         $price = $billing === 'yearly' ? $selectedPlan->annual_price : $selectedPlan->price;
         // No tax calculation
@@ -537,7 +544,7 @@ class LandingController extends Controller
 
         return view('landing.business-information', [
             'plan' => $selectedPlan,
-            'planId' => $request->plan,
+            'planId' => $selectedPlan->id, // Use plan_id (integer) instead of slug
             'billing' => $billing,
             'price' => $price,
             'tax' => 0, // No tax

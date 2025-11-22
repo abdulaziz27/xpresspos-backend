@@ -117,7 +117,7 @@
                                 </a>
                                 
                                 <!-- Continue Button -->
-                                <a href="{{ route('landing.checkout.step2') }}?plan={{ $planId }}&billing={{ $billing }}" 
+                                <a href="{{ route('landing.checkout.step2') }}?plan_id={{ $planId }}&billing={{ $billing }}" 
                                    class="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 px-6 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-xl text-center">
                                     <span class="flex items-center justify-center">
                                         Lanjutkan ke Informasi Bisnis
