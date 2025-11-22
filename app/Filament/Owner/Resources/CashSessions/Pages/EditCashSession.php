@@ -13,7 +13,23 @@ class EditCashSession extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make()->label('Hapus'),
+            // Delete action removed - cash sessions should not be deleted to maintain audit trail
         ];
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Automatically set closed_at when status changes to 'closed'
+        if (isset($data['status']) && $data['status'] === 'closed' && empty($data['closed_at'])) {
+            $data['closed_at'] = now();
+        }
+
+        return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        // Refresh the record to get updated calculated values
+        $this->record->refresh();
     }
 }

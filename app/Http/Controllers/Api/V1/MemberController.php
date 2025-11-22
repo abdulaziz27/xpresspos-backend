@@ -560,7 +560,20 @@ class MemberController extends Controller
     {
         $this->authorize('viewAny', Member::class);
 
-        $tiers = MemberTier::where('store_id', request()->user()->store_id)
+        $user = request()->user();
+        $tenantId = $user->currentTenant()?->id;
+        
+        if (!$tenantId) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'TENANT_CONTEXT_MISSING',
+                    'message' => 'User missing tenant context'
+                ]
+            ], 400);
+        }
+        
+        $tiers = MemberTier::where('tenant_id', $tenantId)
             ->active()
             ->ordered()
             ->get();

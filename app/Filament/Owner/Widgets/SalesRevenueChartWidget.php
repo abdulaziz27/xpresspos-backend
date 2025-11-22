@@ -2,24 +2,29 @@
 
 namespace App\Filament\Owner\Widgets;
 
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Models\Payment;
 use Filament\Widgets\ChartWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class SalesRevenueChartWidget extends ChartWidget
 {
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
+
     protected ?string $heading = 'Grafik Total Pendapatan';
 
     protected int | string | array $columnSpan = 'full';
 
-    public ?string $filter = 'today';
-
-    protected function getFilters(): ?array
+    public function updatedPageFilters(): void
     {
-        return [
-            'today' => 'Hari ini',
-            'this_week' => 'Minggu ini',
-            'this_month' => 'Bulan ini',
-        ];
+        $this->cachedData = null;
+        $this->updateChartData();
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->dashboardFilterContextLabel();
     }
 
     protected function getType(): string
@@ -29,54 +34,45 @@ class SalesRevenueChartWidget extends ChartWidget
 
     protected function getData(): array
     {
-        $storeId = auth()->user()?->store_id;
-
-        if (!$storeId) {
+        $filters = $this->dashboardFilters();
+        $storeIds = $this->dashboardStoreIds();
+        $summary = $this->dashboardFilterSummary();
+        
+        if (empty($storeIds)) {
             return [
                 'datasets' => [[ 'label' => 'Pendapatan', 'data' => [] ]],
                 'labels' => [],
             ];
         }
 
-        $start = now();
-        $end = now();
-
-        if ($this->filter === 'this_week') {
-            $start = now()->startOfWeek();
-            $end = now()->endOfWeek();
-        } elseif ($this->filter === 'this_month') {
-            $start = now()->startOfMonth();
-            $end = now()->endOfMonth();
-        } else {
-            $start = now()->startOfDay();
-            $end = now()->endOfDay();
-        }
+        $start = $filters['range']['start'];
+        $end = $filters['range']['end'];
 
         $labels = [];
         $data = [];
 
-        if ($this->filter === 'today') {
-            // Per jam untuk hari ini
+        $diffInDays = $start->diffInDays($end);
+
+        if ($diffInDays <= 1) {
             for ($h = 0; $h < 24; $h++) {
                 $hourStart = $start->copy()->setTime($h, 0, 0);
                 $hourEnd = $start->copy()->setTime($h, 59, 59);
 
-                $sum = Payment::where('store_id', $storeId)
+                $sum = Payment::whereIn('store_id', $storeIds)
                     ->where('status', 'completed')
                     ->whereBetween('created_at', [$hourStart, $hourEnd])
                     ->sum('amount');
 
-                $labels[] = str_pad((string)$h, 2, '0', STR_PAD_LEFT) . ':00';
+                $labels[] = str_pad((string) $h, 2, '0', STR_PAD_LEFT) . ':00';
                 $data[] = (float) $sum;
             }
         } else {
-            // Per hari untuk minggu/bulan ini
             $period = \Carbon\CarbonPeriod::create($start, '1 day', $end);
             foreach ($period as $date) {
                 $dayStart = $date->copy()->startOfDay();
                 $dayEnd = $date->copy()->endOfDay();
 
-                $sum = Payment::where('store_id', $storeId)
+                $sum = Payment::whereIn('store_id', $storeIds)
                     ->where('status', 'completed')
                     ->whereBetween('created_at', [$dayStart, $dayEnd])
                     ->sum('amount');
@@ -85,6 +81,9 @@ class SalesRevenueChartWidget extends ChartWidget
                 $data[] = (float) $sum;
             }
         }
+
+        $storeLabel = $summary['store'] ?? 'Semua Cabang';
+        $this->heading = 'Grafik Total Pendapatan - ' . $storeLabel;
 
         return [
             'datasets' => [
@@ -99,5 +98,3 @@ class SalesRevenueChartWidget extends ChartWidget
         ];
     }
 }
-
-

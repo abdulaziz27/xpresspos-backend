@@ -82,9 +82,45 @@
                                 @endforeach
                             </ul>
                             
-                            <!-- CTA Button -->
-                            <button onclick="selectPlan('{{ $plan->slug }}')" class="w-full bg-gradient-to-r {{ $index === 1 ? 'from-blue-600 to-blue-700' : 'from-gray-600 to-gray-700' }} text-white py-4 px-6 rounded-xl font-semibold hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5">
-                                Pilih Paket {{ $plan->name }}
+                            <!-- CTA Button (Dynamic based on auth & current plan) -->
+                            @php
+                                // Default values
+                                $buttonLabel = 'Pilih Paket ' . $plan->name;
+                                $buttonDisabled = false;
+                                $buttonAction = true; // Can click
+                                
+                                // Default color: gray untuk basic, blue untuk popular (Pro)
+                                if ($index === 1) {
+                                    $buttonClass = 'from-blue-600 to-blue-700'; // Popular plan
+                                } else {
+                                    $buttonClass = 'from-gray-600 to-gray-700'; // Default
+                                }
+                                
+                                // Dynamic button ONLY for authenticated users with active plan
+                                if (isset($currentPlan) && $currentPlan) {
+                                    if ($plan->id === $currentPlan->id) {
+                                        // Current plan - TETAP GUNAKAN WARNA ASLI (blue/gray)
+                                        $buttonLabel = 'Paket Saat Ini ✓';
+                                        $buttonDisabled = true;
+                                        $buttonAction = false;
+                                        // Warna tetap sama, hanya tambah opacity
+                                    } elseif ($plan->sort_order > $currentPlan->sort_order) {
+                                        // Upgrade - TETAP GUNAKAN WARNA ASLI
+                                        $buttonLabel = 'Upgrade ke ' . $plan->name;
+                                        // Warna tetap dari default (blue/gray)
+                                    } elseif ($plan->sort_order < $currentPlan->sort_order) {
+                                        // Downgrade - TETAP GUNAKAN WARNA ASLI
+                                        $buttonLabel = 'Downgrade ke ' . $plan->name;
+                                        // Warna tetap dari default (blue/gray)
+                                    }
+                                }
+                            @endphp
+                            
+                            <button 
+                                @if($buttonAction) onclick="selectPlan({{ $plan->id }}, '{{ $plan->slug }}')" @endif
+                                @if($buttonDisabled) disabled @endif
+                                class="w-full bg-gradient-to-r {{ $buttonClass }} text-white py-4 px-6 rounded-xl font-semibold transition-all duration-300 {{ $buttonDisabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-xl transform hover:-translate-y-0.5 hover:scale-105' }}">
+                                {{ $buttonLabel }}
                             </button>
                         </div>
                     </div>
@@ -215,11 +251,12 @@ function switchBilling(billing) {
     });
 }
 
-function selectPlan(planId) {
+function selectPlan(planId, planSlug) {
     // Use relative URL for local development, absolute URL for production
     const baseUrl = '{{ app()->environment("local") ? "/checkout" : route("landing.checkout") }}';
     const url = new URL(baseUrl, window.location.origin);
-    url.searchParams.set('plan', planId);
+    url.searchParams.set('plan_id', planId); // Primary: plan_id (integer)
+    url.searchParams.set('plan', planSlug); // Secondary: slug (for backward compatibility)
     url.searchParams.set('billing', currentBilling);
     window.location.href = url.toString();
 }

@@ -9,10 +9,12 @@ use App\Filament\Owner\Resources\Tables\Schemas\TableForm;
 use App\Filament\Owner\Resources\Tables\Tables\TablesTable;
 use App\Models\Table;
 use BackedEnum;
+use App\Services\GlobalFilterService;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table as FilamentTable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 
 class TableResource extends Resource
@@ -27,7 +29,7 @@ class TableResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Meja';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 20;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Operasional Harian';
 
@@ -47,7 +49,7 @@ class TableResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            \App\Filament\Owner\Resources\Tables\RelationManagers\TableOccupancyHistoriesRelationManager::class,
         ];
     }
 
@@ -71,35 +73,19 @@ class TableResource extends Resource
         return (bool) $user && Gate::forUser($user)->allows('create', static::$model);
     }
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
-        $user = auth()->user();
+        $query = parent::getEloquentQuery()
+            ->with(['store', 'currentOrder']);
 
-        if ($user && $user->store_id) {
-            // Set store context secara eksplisit agar konsisten dengan resource lain
-            $storeContext = \App\Services\StoreContext::instance();
-            $storeContext->set($user->store_id);
-            setPermissionsTeamId($user->store_id);
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
 
-            $query = parent::getEloquentQuery()
-                ->withoutGlobalScopes()
-                ->where('store_id', $user->store_id);
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+                }
 
-            try {
-                \Log::info('[Filament][Tables] TableResource::getEloquentQuery', [
-                    'user_id' => $user->id,
-                    'user_email' => $user->email,
-                    'store_id' => $user->store_id,
-                    'sql' => $query->toSql(),
-                    'bindings' => $query->getBindings(),
-                ]);
-            } catch (\Throwable $e) {
-                // ignore logging error
-            }
-
-            return $query;
-        }
-
-        return parent::getEloquentQuery();
+                return $query;
     }
 }

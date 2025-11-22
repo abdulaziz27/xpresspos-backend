@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\SubscriptionPayment;
 use App\Models\Payment;
+use App\Models\Store;
+use App\Models\Subscription;
 use Carbon\Carbon;
 
 class PaymentAuditService
@@ -28,7 +30,21 @@ class PaymentAuditService
             $request = $request ?? request();
             $user = $user ?? auth()->user();
 
+            // Resolve tenant_id from entity or user
+            $tenantId = null;
+            if ($entityType === 'store_payment' && isset($newData['store_id'])) {
+                $store = Store::find($newData['store_id']);
+                $tenantId = $store?->tenant_id;
+            } elseif ($entityType === 'subscription_payment' && isset($newData['subscription_id'])) {
+                $subscription = Subscription::find($newData['subscription_id']);
+                $tenantId = $subscription?->tenant_id;
+            }
+            
+            // Fallback to user tenant
+            $tenantId = $tenantId ?? $user?->currentTenant()?->id;
+
             $auditData = [
+                'tenant_id' => $tenantId,
                 'operation' => $operation,
                 'entity_type' => $entityType,
                 'entity_id' => $entityId,
@@ -151,7 +167,18 @@ class PaymentAuditService
         try {
             $request = $request ?? request();
 
+            // Try to resolve tenant_id from webhook payload if available
+            $tenantId = null;
+            if (isset($payload['subscription_id'])) {
+                $subscription = Subscription::find($payload['subscription_id']);
+                $tenantId = $subscription?->tenant_id;
+            } elseif (isset($payload['store_id'])) {
+                $store = Store::find($payload['store_id']);
+                $tenantId = $store?->tenant_id;
+            }
+
             $auditData = [
+                'tenant_id' => $tenantId,
                 'operation' => 'webhook_processed',
                 'entity_type' => 'webhook',
                 'entity_id' => 0, // No specific entity ID for webhooks

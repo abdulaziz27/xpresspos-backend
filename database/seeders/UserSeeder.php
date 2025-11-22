@@ -14,31 +14,14 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create Super Admin
-        $superAdmin = User::firstOrCreate(
-            ['email' => 'admin@xpresspos.id'],
-            [
-                'name' => 'Super Admin',
-                'password' => Hash::make('admin123'),
-                'email_verified_at' => now(),
-            ]
-        );
-        $superAdmin->assignRole('super_admin');
+        // NOTE: Super Admin dan Admin Sistem hanya untuk tim developer XpressPos
+        // Tidak dibuat di seeder demo untuk calon subscribers
 
-        // Create Admin Sistem
-        $adminSistem = User::firstOrCreate(
-            ['email' => 'admin.sistem@xpresspos.id'],
-            [
-                'name' => 'Admin Sistem',
-                'password' => Hash::make('admin123'),
-                'email_verified_at' => now(),
-            ]
-        );
-        $adminSistem->assignRole('admin_sistem');
-
-        // Get first store for owner assignment
+        // Get first store and tenant for owner assignment
         $firstStore = \App\Models\Store::first();
         $storeId = $firstStore?->id;
+        $firstTenant = \App\Models\Tenant::first();
+        $tenantId = $firstTenant?->id;
 
         // Create Owner
         $owner = User::firstOrCreate(
@@ -47,35 +30,75 @@ class UserSeeder extends Seeder
                 'name' => 'Store Owner',
                 'password' => Hash::make('owner123'),
                 'email_verified_at' => now(),
-                'store_id' => $storeId, // Set store_id if store exists
             ]
         );
 
-        // CRITICAL: Always ensure store_id is set, even for existing users
-        if (!$owner->store_id && $storeId) {
-            $owner->store_id = $storeId;
-            $owner->save();
+        // CRITICAL: Create store_user_assignment for owner to ALL stores
+        $stores = \App\Models\Store::where('tenant_id', $tenantId)->get();
+        if ($stores->isNotEmpty()) {
+            foreach ($stores as $index => $store) {
+            \App\Models\StoreUserAssignment::updateOrCreate(
+                [
+                        'store_id' => $store->id,
+                    'user_id' => $owner->id,
+                ],
+                [
+                    'assignment_role' => 'owner',
+                        'is_primary' => $index === 0, // First store is primary
+                ]
+            );
+            }
+            $this->command->info("✅ Owner assigned to " . $stores->count() . " stores");
+        }
+
+        // CRITICAL: Create user_tenant_access for owner
+        if ($tenantId) {
+            $exists = \DB::table('user_tenant_access')
+                ->where('user_id', $owner->id)
+                ->where('tenant_id', $tenantId)
+                ->exists();
+
+            if (!$exists) {
+                \DB::table('user_tenant_access')->insert([
+                    'id' => \Illuminate\Support\Str::uuid()->toString(),
+                    'user_id' => $owner->id,
+                    'tenant_id' => $tenantId,
+                    'role' => 'owner',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $this->command->info("✅ Created user_tenant_access for owner@xpresspos.id → tenant {$tenantId}");
+            } else {
+                \DB::table('user_tenant_access')
+                    ->where('user_id', $owner->id)
+                    ->where('tenant_id', $tenantId)
+                    ->update([
+                        'role' => 'owner',
+                        'updated_at' => now(),
+                    ]);
+                $this->command->info("✅ Updated user_tenant_access for owner@xpresspos.id → tenant {$tenantId}");
+            }
         }
 
         // CRITICAL: Set team context BEFORE assigning role
-        if ($storeId) {
-            // Find owner role for this specific store
+        if ($storeId && $tenantId) {
+            // Find owner role for this specific tenant
             $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
-                ->where('store_id', $storeId)
+                ->where('tenant_id', $tenantId)
                 ->first();
             
             if ($ownerRole) {
-                setPermissionsTeamId($storeId);
+                setPermissionsTeamId($tenantId);
                 
-                // Force remove any existing role assignments for this user in this store
-                $owner->roles()->wherePivot('store_id', $storeId)->detach();
+                // Force remove any existing role assignments for this user in this tenant
+                $owner->roles()->wherePivot('tenant_id', $tenantId)->detach();
                 
                 // Assign role fresh
                 $owner->assignRole($ownerRole);
                 
                 // Verify assignment
                 $owner->refresh();
-                setPermissionsTeamId($storeId);
+                setPermissionsTeamId($tenantId);
                 
                 if ($owner->hasRole('owner')) {
                     $this->command->info("✅ Owner role successfully assigned to {$owner->email}");
@@ -83,69 +106,119 @@ class UserSeeder extends Seeder
                     $this->command->error("❌ Failed to assign owner role to {$owner->email}");
                 }
             } else {
-                $this->command->warn("⚠️ Owner role not found for store ID: {$storeId}. Role will be assigned after PermissionsAndRolesSeeder runs.");
+                $this->command->warn("⚠️ Owner role not found for tenant ID: {$tenantId}. Role will be assigned after PermissionsAndRolesSeeder runs.");
                 // Fallback: assign role without team context (will be fixed by PermissionsAndRolesSeeder)
                 $owner->assignRole('owner');
             }
         } else {
-            $this->command->warn("⚠️ No store found. Owner role assignment skipped. Run StoreSeeder first.");
+            $this->command->warn("⚠️ No store or tenant found. Owner role assignment skipped. Run StoreSeeder first.");
         }
 
-        // Create Cashier
+        // Create Cashiers - dibagi ke beberapa stores (tidak semua)
+        $stores = \App\Models\Store::where('tenant_id', $tenantId)->get();
+        
+        if ($stores->isNotEmpty()) {
+            // Buat beberapa cashier dan distribusikan ke stores
+            $cashiers = [
+                [
+                    'email' => 'cashier1@xpresspos.id',
+                    'name' => 'Cashier Jakarta',
+                    'password' => 'cashier123',
+                ],
+                [
+                    'email' => 'cashier2@xpresspos.id',
+                    'name' => 'Cashier Bandung',
+                    'password' => 'cashier123',
+                ],
+                [
+                    'email' => 'cashier3@xpresspos.id',
+                    'name' => 'Cashier Purwokerto',
+                    'password' => 'cashier123',
+                ],
+            ];
+            
+            foreach ($cashiers as $index => $cashierData) {
+                if ($index >= $stores->count()) {
+                    break; // Jangan buat lebih banyak cashier daripada stores
+                }
+                
         $cashier = User::firstOrCreate(
-            ['email' => 'cashier@xpresspos.id'],
+                    ['email' => $cashierData['email']],
             [
-                'name' => 'Cashier',
-                'password' => Hash::make('cashier123'),
+                        'name' => $cashierData['name'],
+                        'password' => Hash::make($cashierData['password']),
                 'email_verified_at' => now(),
-                'store_id' => $storeId, // Set store_id if store exists
             ]
         );
 
-        // CRITICAL: Always ensure store_id is set, even for existing users
-        if (!$cashier->store_id && $storeId) {
-            $cashier->store_id = $storeId;
-            $cashier->save();
+                // Assign cashier ke store yang sesuai (1 cashier per store)
+                $store = $stores[$index];
+                
+            \App\Models\StoreUserAssignment::updateOrCreate(
+                [
+                        'store_id' => $store->id,
+                    'user_id' => $cashier->id,
+                ],
+                [
+                    'assignment_role' => 'staff',
+                    'is_primary' => false,
+                ]
+            );
+
+        // CRITICAL: Create user_tenant_access for cashier (staff role)
+        if ($tenantId) {
+            $exists = \DB::table('user_tenant_access')
+                ->where('user_id', $cashier->id)
+                ->where('tenant_id', $tenantId)
+                ->exists();
+
+            if (!$exists) {
+                \DB::table('user_tenant_access')->insert([
+                    'id' => \Illuminate\Support\Str::uuid()->toString(),
+                    'user_id' => $cashier->id,
+                    'tenant_id' => $tenantId,
+                    'role' => 'staff',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                        $this->command->info("✅ Created user_tenant_access for {$cashierData['email']} → tenant {$tenantId}");
+            }
         }
 
         // CRITICAL: Set team context BEFORE assigning role
-        if ($storeId) {
-            // Find cashier role for this specific store
+                if ($tenantId) {
             $cashierRole = \Spatie\Permission\Models\Role::where('name', 'cashier')
-                ->where('store_id', $storeId)
+                ->where('tenant_id', $tenantId)
                 ->first();
             
             if ($cashierRole) {
-                setPermissionsTeamId($storeId);
+                setPermissionsTeamId($tenantId);
                 
-                // Force remove any existing role assignments for this user in this store
-                $cashier->roles()->wherePivot('store_id', $storeId)->detach();
+                // Force remove any existing role assignments for this user in this tenant
+                $cashier->roles()->wherePivot('tenant_id', $tenantId)->detach();
                 
                 // Assign role fresh
                 $cashier->assignRole($cashierRole);
                 
                 // Verify assignment
                 $cashier->refresh();
-                setPermissionsTeamId($storeId);
+                setPermissionsTeamId($tenantId);
                 
                 if ($cashier->hasRole('cashier')) {
-                    $this->command->info("✅ Cashier role successfully assigned to {$cashier->email}");
+                            $this->command->info("✅ Cashier role successfully assigned to {$cashierData['email']}");
+                        }
                 } else {
-                    $this->command->error("❌ Failed to assign cashier role to {$cashier->email}");
+                        $this->command->warn("⚠️ Cashier role not found for tenant ID: {$tenantId}.");
+                        $cashier->assignRole('cashier');
+                    }
                 }
-            } else {
-                $this->command->warn("⚠️ Cashier role not found for store ID: {$storeId}. Role will be assigned after PermissionsAndRolesSeeder runs.");
-                // Fallback: assign role without team context (will be fixed by PermissionsAndRolesSeeder)
-                $cashier->assignRole('cashier');
             }
-        } else {
-            $this->command->warn("⚠️ No store found. Cashier role assignment skipped. Run StoreSeeder first.");
         }
 
         $this->command->info('Users created successfully!');
-        $this->command->info('Super Admin: admin@xpresspos.id / admin123');
-        $this->command->info('Admin Sistem: admin.sistem@xpresspos.id / admin123');
         $this->command->info('Owner: owner@xpresspos.id / owner123');
-        $this->command->info('Cashier: cashier@xpresspos.id / cashier123');
+        $this->command->info('Cashier Jakarta: cashier1@xpresspos.id / cashier123');
+        $this->command->info('Cashier Bandung: cashier2@xpresspos.id / cashier123');
+        $this->command->info('Cashier Purwokerto: cashier3@xpresspos.id / cashier123');
     }
 }

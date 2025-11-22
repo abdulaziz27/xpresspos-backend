@@ -2,6 +2,8 @@
 
 namespace App\Filament\Owner\Resources\Discounts\Schemas;
 
+use App\Filament\Owner\Resources\Discounts\DiscountResource;
+use App\Support\Money;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -10,29 +12,31 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use App\Support\Money;
 
 class DiscountForm
 {
     public static function configure(Schema $schema): Schema
     {
+        $storeOptions = DiscountResource::storeOptions();
+
         return $schema
             ->components([
-                Section::make('Discount Information')
-                    ->description('Basic discount details and configuration')
+                Section::make('Informasi Diskon')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('name')
+                                    ->label('Nama Diskon')
                                     ->required()
                                     ->maxLength(255)
-                                    ->placeholder('e.g., Weekend Special, Happy Hour'),
-
+                                    ->placeholder('Contoh: Diskon Karyawan, Diskon Owner, Komplain'),
+                                
                                 Select::make('type')
+                                    ->label('Tipe Diskon')
                                     ->required()
                                     ->options([
-                                        'percentage' => 'Percentage (%)',
-                                        'fixed' => 'Fixed Amount (Rp)',
+                                        'percentage' => 'Persentase (%)',
+                                        'fixed' => 'Nominal (Rp)',
                                     ])
                                     ->default('percentage')
                                     ->live()
@@ -40,23 +44,36 @@ class DiscountForm
                                         $set('value', null);
                                     }),
                             ]),
-
+                        
                         Textarea::make('description')
-                            ->rows(3)
+                            ->label('Deskripsi')
+                            ->rows(2)
                             ->maxLength(500)
-                            ->placeholder('Describe when and how this discount applies'),
+                            ->placeholder('Deskripsi singkat (opsional)')
+                            ->helperText('Keterangan kapan dan bagaimana diskon ini berlaku'),
 
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('value')
+                                    ->label('Nilai Diskon')
                                     ->required()
+                                    ->numeric()
                                     ->prefix(fn (callable $get) => $get('type') === 'fixed' ? 'Rp' : null)
                                     ->suffix(fn (callable $get) => $get('type') === 'percentage' ? '%' : null)
-                                    ->placeholder(fn (callable $get) => $get('type') === 'percentage' ? '10' : '50.000')
+                                    ->placeholder(fn (callable $get) => $get('type') === 'percentage' ? '10' : '50000')
                                     ->helperText(fn (callable $get) => $get('type') === 'percentage' 
-                                        ? 'Enter percentage (e.g., 10 for 10%)' 
-                                        : 'Bisa input: 50000 atau 50.000')
-                                    ->rule('required|numeric|min:0')
+                                        ? 'Masukkan persentase (contoh: 10 untuk 10%)' 
+                                        : 'Masukkan nominal (contoh: 50000 atau 50.000)')
+                                    ->rules([
+                                        'required',
+                                        'numeric',
+                                        'min:0',
+                                        fn (callable $get) => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                            if ($get('type') === 'percentage' && $value > 100) {
+                                                $fail('Persentase tidak boleh lebih dari 100%.');
+                                            }
+                                        },
+                                    ])
                                     ->dehydrateStateUsing(function ($state, callable $get) {
                                         // Only parse if it's fixed amount (Rp), not percentage
                                         if ($get('type') === 'fixed') {
@@ -66,23 +83,35 @@ class DiscountForm
                                     }),
 
                                 DatePicker::make('expired_date')
-                                    ->label('Expiry Date')
-                                    ->placeholder('Leave empty for no expiry')
+                                    ->label('Tanggal Kadaluarsa')
+                                    ->placeholder('Kosongkan jika tanpa batas waktu')
                                     ->minDate(now())
-                                    ->helperText('Optional: Set when this discount expires'),
+                                    ->helperText('Opsional: Atur kapan diskon ini berakhir'),
                             ]),
-                    ])
-                    ->columns(1),
+                        
+                        Grid::make(2)
+                            ->schema([
+                                Select::make('store_id')
+                                    ->label('Berlaku untuk Toko')
+                                    ->options($storeOptions)
+                                    ->searchable()
+                                    ->placeholder('Semua Toko')
+                                    ->helperText('Pilih toko tertentu atau kosongkan untuk semua toko.')
+                                    ->native(false),
 
-                Section::make('Status & Activation')
-                    ->description('Control when this discount is available')
-                    ->schema([
-                        Toggle::make('status')
-                            ->label('Active')
-                            ->default(true)
-                            ->helperText('Only active discounts can be applied to orders'),
-                    ])
-                    ->columns(1),
+                                Toggle::make('status')
+                                    ->label('Status Aktif')
+                                    ->helperText('Hanya diskon aktif yang bisa digunakan di POS')
+                                    ->default(true)
+                                    ->afterStateHydrated(function ($component, $state, $record) {
+                                        // Convert enum to boolean for toggle
+                                        if ($record && is_string($state)) {
+                                            $component->state($state === 'active');
+                                        }
+                                    })
+                                    ->dehydrateStateUsing(fn ($state) => $state ? 'active' : 'inactive'),
+                            ]),
+                    ]),
             ]);
     }
 }

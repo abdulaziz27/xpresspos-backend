@@ -2,18 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\TenantScope;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\Concerns\BelongsToStore;
+use App\Models\Store;
 
 class Member extends Model
 {
-    use HasFactory, HasUuids, BelongsToStore;
+    use HasFactory, HasUuids;
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
         'member_number',
         'name',
@@ -47,22 +49,61 @@ class Member extends Model
         parent::boot();
 
         static::creating(function ($member) {
+            // Auto-set tenant_id from context or store
+            if (!$member->tenant_id) {
+                if ($member->store_id) {
+                    $store = Store::find($member->store_id);
+                    if ($store) {
+                        $member->tenant_id = $store->tenant_id;
+                    }
+                } else {
+                    $user = auth()->user();
+                    if ($user) {
+                        $tenant = $user->currentTenant();
+                        if ($tenant) {
+                            $member->tenant_id = $tenant->id;
+                        }
+                    }
+                }
+            }
+            
             if (empty($member->member_number)) {
-                $member->member_number = static::generateMemberNumber($member->store_id);
+                $member->member_number = static::generateMemberNumber($member->tenant_id);
             }
         });
     }
 
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new TenantScope);
+    }
+
     /**
-     * Generate unique member number for the store.
+     * Get the tenant that owns the member.
      */
-    protected static function generateMemberNumber(string $storeId): string
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
+    /**
+     * Get the store where the member was registered.
+     */
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class)->withDefault();
+    }
+
+    /**
+     * Generate unique member number for the tenant.
+     */
+    protected static function generateMemberNumber(string $tenantId): string
     {
         $prefix = 'MBR';
         $date = now()->format('Ymd');
         
-        // Get last member number for today
-        $lastMember = static::where('store_id', $storeId)
+        // Get last member number for today in this tenant
+        $lastMember = static::where('tenant_id', $tenantId)
             ->where('member_number', 'like', $prefix . $date . '%')
             ->orderBy('member_number', 'desc')
             ->first();
@@ -91,7 +132,7 @@ class Member extends Model
      */
     public function tier(): BelongsTo
     {
-        return $this->belongsTo(MemberTier::class);
+        return $this->belongsTo(MemberTier::class)->withDefault();
     }
 
     /**
@@ -116,8 +157,16 @@ class Member extends Model
             $this->updateTier();
         }
 
+        // Get store_id from metadata or use member's store_id or get from order
+        $storeId = $metadata['store_id'] ?? $this->store_id;
+        if (!$storeId && isset($metadata['order_id'])) {
+            $order = Order::find($metadata['order_id']);
+            $storeId = $order?->store_id;
+        }
+        
         return $this->loyaltyTransactions()->create([
-            'store_id' => $this->store_id,
+            'tenant_id' => $this->tenant_id,
+            'store_id' => $storeId,
             'order_id' => $metadata['order_id'] ?? null,
             'user_id' => $metadata['user_id'] ?? auth()->id(), // Use order's user_id as fallback when auth() is null (Observer context)
             'type' => 'earned',
@@ -147,8 +196,16 @@ class Member extends Model
             $this->updateTier();
         }
 
+        // Get store_id from metadata or use member's store_id or get from order
+        $storeId = $metadata['store_id'] ?? $this->store_id;
+        if (!$storeId && isset($metadata['order_id'])) {
+            $order = Order::find($metadata['order_id']);
+            $storeId = $order?->store_id;
+        }
+        
         $this->loyaltyTransactions()->create([
-            'store_id' => $this->store_id,
+            'tenant_id' => $this->tenant_id,
+            'store_id' => $storeId,
             'order_id' => $metadata['order_id'] ?? null,
             'user_id' => $metadata['user_id'] ?? auth()->id(), // Use order's user_id as fallback when auth() is null (Observer context)
             'type' => 'redeemed',
@@ -176,8 +233,16 @@ class Member extends Model
             $this->updateTier();
         }
 
+        // Get store_id from metadata or use member's store_id or get from order
+        $storeId = $metadata['store_id'] ?? $this->store_id;
+        if (!$storeId && isset($metadata['order_id'])) {
+            $order = Order::find($metadata['order_id']);
+            $storeId = $order?->store_id;
+        }
+        
         return $this->loyaltyTransactions()->create([
-            'store_id' => $this->store_id,
+            'tenant_id' => $this->tenant_id,
+            'store_id' => $storeId,
             'order_id' => $metadata['order_id'] ?? null,
             'user_id' => $metadata['user_id'] ?? auth()->id(), // Use order's user_id as fallback when auth() is null (Observer context)
             'type' => 'adjusted',
@@ -228,7 +293,7 @@ class Member extends Model
      */
     public function getCurrentTier(): ?MemberTier
     {
-        return MemberTier::where('store_id', $this->store_id)
+        return MemberTier::where('tenant_id', $this->tenant_id)
             ->where('min_points', '<=', $this->loyalty_points)
             ->where(function ($query) {
                 $query->whereNull('max_points')
@@ -280,10 +345,10 @@ class Member extends Model
      */
     protected function getTierBoundaries(): array
     {
-        $cacheKey = 'tier_boundaries_' . $this->store_id;
+        $cacheKey = 'tier_boundaries_' . $this->tenant_id;
         
         return cache()->remember($cacheKey, 3600, function() {
-            return MemberTier::where('store_id', $this->store_id)
+            return MemberTier::where('tenant_id', $this->tenant_id)
                 ->active()
                 ->orderBy('min_points')
                 ->pluck('min_points')
@@ -298,7 +363,7 @@ class Member extends Model
     {
         $currentTier = $this->getCurrentTier();
         if (!$currentTier) {
-            $firstTier = MemberTier::where('store_id', $this->store_id)
+            $firstTier = MemberTier::where('tenant_id', $this->tenant_id)
                 ->active()
                 ->ordered()
                 ->first();

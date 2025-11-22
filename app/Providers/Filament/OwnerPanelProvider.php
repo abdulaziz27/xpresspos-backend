@@ -38,14 +38,17 @@ class OwnerPanelProvider extends PanelProvider
                 'primary' => Color::Green,
             ])
             ->navigationGroups([
-                // Order from most important (top) to least (bottom)
+                'Dashboard',
                 'Operasional Harian',
-                'Produk & Inventori',
-                'Pelanggan & Loyalti',
-                'Promo & Retur',
+                'Produk',
+                'Inventori',
+                'Promo & Kampanye',
+                'Member & Loyalty',
                 'Keuangan & Laporan',
+                'Logs & Audit',
                 'Toko & Tim',
                 'Langganan & Billing',
+                'Pengaturan',
             ])
             ->discoverResources(in: app_path('Filament/Owner/Resources'), for: 'App\\Filament\\Owner\\Resources')
             ->discoverPages(in: app_path('Filament/Owner/Pages'), for: 'App\\Filament\\Owner\\Pages')
@@ -53,14 +56,14 @@ class OwnerPanelProvider extends PanelProvider
                 \App\Filament\Owner\Pages\OwnerDashboard::class,
             ])
             ->widgets([
+                // Dashboard Widgets
                 // \App\Filament\Owner\Widgets\UpgradeBannerWidget::class, // DISABLED - upgrade banner
                 \App\Filament\Owner\Widgets\SubscriptionDashboardWidget::class, // status subscription ringkas (v4 simplified)
                 \App\Filament\Owner\Widgets\OwnerStatsWidget::class, // ringkasan transaksi & pendapatan (dengan filter)
-                \App\Filament\Owner\Widgets\ProfitAnalysisWidget::class, // laba kotor & bersih (dengan filter)
                 \App\Filament\Owner\Widgets\SalesRevenueChartWidget::class, // grafik total pendapatan (bar)
+                \App\Filament\Owner\Widgets\LowStockWidget::class, // stok bahan baku menipis
                 \App\Filament\Owner\Widgets\TopMenuTableWidget::class, // menu terlaris (tabel)
                 \App\Filament\Owner\Widgets\BestBranchesWidget::class, // cabang dengan penjualan terbaik (tabel)
-                \App\Filament\Owner\Widgets\LowStockWidget::class, // stok bahan baku menipis
             ])
             ->middleware([
                 EncryptCookies::class,

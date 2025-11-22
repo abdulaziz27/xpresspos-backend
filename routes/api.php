@@ -10,7 +10,6 @@ use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\InventoryReportController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MemberController;
-use App\Http\Controllers\Api\V1\MidtransWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionPaymentController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentController;
@@ -85,7 +84,11 @@ Route::prefix('v1')
     });
 
     // Protected auth routes
-    Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureStoreContext::class])->prefix('auth')->group(function (): void {
+    Route::middleware([
+        'auth:sanctum',
+        \App\Http\Middleware\EnsureTenantContext::class,
+        \App\Http\Middleware\EnsureStoreContext::class
+    ])->prefix('auth')->group(function (): void {
         Route::post('logout', [AuthController::class, 'logout'])->name('api.v1.auth.logout');
         Route::get('me', [AuthController::class, 'me'])->name('api.v1.auth.me');
         Route::get('sessions', [AuthController::class, 'sessions'])->name('api.v1.auth.sessions');
@@ -93,7 +96,11 @@ Route::prefix('v1')
     });
 
     // Protected routes
-    Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureStoreContext::class])->group(function (): void {
+    Route::middleware([
+        'auth:sanctum',
+        \App\Http\Middleware\EnsureTenantContext::class,
+        \App\Http\Middleware\EnsureStoreContext::class
+    ])->group(function (): void {
 
         // Subscription management
         Route::prefix('subscription')->group(function (): void {
@@ -218,6 +225,13 @@ Route::prefix('v1')
 
         // Orders summary endpoint (moved to orders prefix)
         // Route::get('orders-summary', [OrderController::class, 'summary'])->name('api.v1.orders.summary'); // REMOVED - use orders/summary instead
+
+        // Vouchers
+        Route::prefix('vouchers')->group(function (): void {
+            Route::get('/', [\App\Http\Controllers\Api\V1\VoucherController::class, 'index'])->name('api.v1.vouchers.index');
+            Route::post('validate', [\App\Http\Controllers\Api\V1\VoucherController::class, 'validate'])->name('api.v1.vouchers.validate');
+            Route::post('redeem', [\App\Http\Controllers\Api\V1\VoucherController::class, 'redeem'])->name('api.v1.vouchers.redeem');
+        });
 
         // Tables
         Route::prefix('tables')->group(function (): void {
@@ -487,10 +501,6 @@ Route::middleware(['auth:sanctum'])->prefix('v1/subscription-payments')->group(f
 
 // Public webhooks (outside protected middleware)
 Route::prefix('v1/webhooks')->group(function (): void {
-    Route::post('midtrans', [MidtransWebhookController::class, 'handle'])
-        ->middleware('throttle:60,1')
-        ->name('api.v1.webhooks.midtrans');
-    
     // Xendit webhooks with enhanced security
     Route::middleware(['xendit.webhook.security', 'throttle:xendit-webhook'])->group(function () {
         Route::post('xendit/invoice', [\App\Http\Controllers\XenditWebhookController::class, 'handleInvoiceCallback'])->name('api.v1.webhooks.xendit.invoice');

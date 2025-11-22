@@ -2,18 +2,21 @@
 
 namespace App\Filament\Owner\Resources\CogsHistory\Schemas;
 
+use App\Filament\Owner\Resources\Concerns\ResolvesGlobalFilters;
 use App\Models\Order;
 use App\Models\Product;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use App\Support\Money;
 
 class CogsHistoryForm
 {
+    use ResolvesGlobalFilters;
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -25,13 +28,7 @@ class CogsHistoryForm
                             ->schema([
                                 Select::make('product_id')
                                     ->label('Produk')
-                                    ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
-                                        return Product::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                            ->pluck('name', 'id');
-                                    })
+                                    ->options(fn () => static::productOptions())
                                     ->searchable()
                                     ->preload()
                                     ->required()
@@ -47,14 +44,7 @@ class CogsHistoryForm
 
                                 Select::make('order_id')
                                     ->label('Order (Opsional)')
-                                    ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
-                                        return Order::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                            ->where('status', 'completed')
-                                            ->pluck('order_number', 'id');
-                                    })
+                                    ->options(fn () => static::orderOptions())
                                     ->searchable()
                                     ->preload(),
                             ]),
@@ -120,5 +110,50 @@ class CogsHistoryForm
                     ])
                     ->columns(1),
             ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected static function productOptions(): array
+    {
+        $tenantId = static::currentTenantId();
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        return Product::query()
+            ->where('tenant_id', $tenantId)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected static function orderOptions(): array
+    {
+        $tenantId = static::currentTenantId();
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        $query = Order::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'completed');
+
+        $storeIds = static::currentStoreIds();
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
+
+        return $query
+            ->latest('created_at')
+            ->limit(200)
+            ->pluck('order_number', 'id')
+            ->toArray();
     }
 }

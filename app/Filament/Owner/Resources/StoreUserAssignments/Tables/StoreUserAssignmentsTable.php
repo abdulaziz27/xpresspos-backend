@@ -45,6 +45,12 @@ class StoreUserAssignmentsTable
                         return $record->assignment_role->getDisplayName() . ' permissions';
                     })
                     ->color('gray'),
+                TextColumn::make('store.name')
+                    ->label('Cabang')
+                    ->badge()
+                    ->color('info')
+                    ->sortable()
+                    ->toggleable(),
                 IconColumn::make('is_primary')
                     ->label('Toko Utama')
                     ->boolean()
@@ -59,6 +65,9 @@ class StoreUserAssignmentsTable
                 SelectFilter::make('assignment_role')
                     ->label('Peran')
                     ->options(AssignmentRoleEnum::options()),
+                SelectFilter::make('store_id')
+                    ->label('Cabang')
+                    ->options(fn () => static::storeOptions()),
             ])
             ->actions([
                 \Filament\Actions\Action::make('preview_permissions')
@@ -147,5 +156,20 @@ class StoreUserAssignmentsTable
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    protected static function storeOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return $user->stores()
+            ->select(['stores.id', 'stores.name'])
+            ->orderBy('stores.name')
+            ->pluck('stores.name', 'stores.id')
+            ->toArray();
     }
 }

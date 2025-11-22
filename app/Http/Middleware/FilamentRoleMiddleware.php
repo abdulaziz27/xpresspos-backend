@@ -39,27 +39,21 @@ class FilamentRoleMiddleware
 
         $user = auth()->user();
         
-        // For owner panel, check if user has owner role in any store or has store assignment as owner
+        // For owner panel, check if user has owner role in any tenant or has store assignment as owner
         if ($role === 'owner') {
             // CRITICAL: Set team context first before any role/permission checks
-            // This ensures Spatie Permission queries use the correct team context
-            $storeId = $user->store_id;
+            // This ensures Spatie Permission queries use the correct team context (tenant_id)
+            $tenantId = $user->currentTenantId();
             
-            // Try to get store_id from primary store assignment if user doesn't have direct store_id
-            if (!$storeId) {
-                $primaryStore = $user->primaryStore();
-                $storeId = $primaryStore?->id;
-            }
-            
-            // Set team context if we have a store_id
-            if ($storeId) {
-                setPermissionsTeamId($storeId);
+            // Set team context if we have a tenant_id
+            if ($tenantId) {
+                setPermissionsTeamId($tenantId);
             }
             
             // Use hasRole() method which properly respects team context
             // This is more reliable than direct query because Spatie Permission
             // automatically filters by team context when using hasRole()
-            $hasOwnerRole = $storeId ? $user->hasRole('owner') : false;
+            $hasOwnerRole = $tenantId ? $user->hasRole('owner') : false;
             
             // Also check store assignments as fallback
             // Use enum value to ensure proper matching (database stores as string 'owner')
@@ -71,8 +65,7 @@ class FilamentRoleMiddleware
             \Log::info('FilamentRoleMiddleware owner check', [
                 'user_id' => $user->id,
                 'user_email' => $user->email,
-                'store_id' => $storeId,
-                'user_store_id' => $user->store_id,
+                'tenant_id' => $tenantId,
                 'has_owner_role' => $hasOwnerRole,
                 'has_owner_assignment' => $hasOwnerAssignment,
                 'current_team_id' => getPermissionsTeamId(),
@@ -88,7 +81,7 @@ class FilamentRoleMiddleware
                 \Log::warning('FilamentRoleMiddleware: Access denied', [
                     'user_id' => $user->id,
                     'user_email' => $user->email,
-                    'store_id' => $storeId,
+                    'tenant_id' => $tenantId,
                     'url' => $request->fullUrl(),
                 ]);
                 abort(403, 'Unauthorized access to this panel.');

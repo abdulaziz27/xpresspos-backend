@@ -10,13 +10,12 @@ use App\Filament\Owner\Resources\StoreUserAssignments\Schemas\StoreUserAssignmen
 use App\Filament\Owner\Resources\StoreUserAssignments\Schemas\StoreUserAssignmentInfolist;
 use App\Filament\Owner\Resources\StoreUserAssignments\Tables\StoreUserAssignmentsTable;
 use App\Models\StoreUserAssignment;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use App\Services\StoreContext;
 
 class StoreUserAssignmentResource extends Resource
 {
@@ -24,15 +23,26 @@ class StoreUserAssignmentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
 
-    protected static ?string $navigationLabel = 'Pengguna & Izin';
+    protected static ?string $navigationLabel = null;
 
     protected static ?string $modelLabel = 'Karyawan';
 
     protected static ?string $pluralModelLabel = 'Karyawan';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Toko & Tim';
+    protected static string|\UnitEnum|null $navigationGroup = null;
 
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = null;
+
+    /**
+     * Hide from navigation - functionality is available via:
+     * - StoreResource (RelationManager: Staff di Toko)
+     * - StaffResource (RelationManager: Tugas Toko)
+     * - RoleResource (Role & Hak Akses)
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -58,16 +68,22 @@ class StoreUserAssignmentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $storeContext = app(StoreContext::class);
-        $currentStoreId = $storeContext->current(auth()->user());
-        
-        return parent::getEloquentQuery()
-            ->where('store_id', $currentStoreId)
+        $query = parent::getEloquentQuery()
             ->with(['user', 'store'])
             ->select([
                 'id', 'store_id', 'user_id', 'assignment_role', 
-                'is_primary', 'created_at', 'updated_at'
+                'is_primary', 'created_at', 'updated_at',
             ]);
+
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
+
+        return $query;
     }
 
     public static function canViewAny(): bool

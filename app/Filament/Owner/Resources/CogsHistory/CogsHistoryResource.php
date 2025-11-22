@@ -26,9 +26,14 @@ class CogsHistoryResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Riwayat COGS';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 20;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
+    protected static string|\UnitEnum|null $navigationGroup = 'Keuangan & Laporan';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false; // Hidden: cogs_history hanya diakses via COGS report page, bukan sebagai resource sidebar
+    }
 
     public static function form(Schema $schema): Schema
     {

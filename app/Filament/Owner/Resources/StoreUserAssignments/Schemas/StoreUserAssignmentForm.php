@@ -10,8 +10,8 @@ use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
+use App\Services\GlobalFilterService;
 use App\Services\StorePermissionService;
-use App\Services\StoreContext;
 
 class StoreUserAssignmentForm
 {
@@ -21,6 +21,13 @@ class StoreUserAssignmentForm
             ->components([
                 Section::make('Informasi Karyawan')
                     ->schema([
+                        Select::make('store_id')
+                            ->label('Cabang')
+                            ->options(fn () => static::getStoreOptions())
+                            ->default(fn () => static::getDefaultStoreId())
+                            ->searchable()
+                            ->preload()
+                            ->required(),
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('user.name')
@@ -174,5 +181,29 @@ class StoreUserAssignmentForm
             
             $set("permissions.{$category}", array_values($categoryDefaults));
         }
+    }
+
+    protected static function getStoreOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return $user->stores()
+            ->select(['stores.id', 'stores.name'])
+            ->orderBy('stores.name')
+            ->pluck('stores.name', 'stores.id')
+            ->toArray();
+    }
+
+    protected static function getDefaultStoreId(): ?string
+    {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+
+        return $globalFilter->getCurrentStoreId()
+            ?? ($globalFilter->getStoreIdsForCurrentTenant()[0] ?? null);
     }
 }

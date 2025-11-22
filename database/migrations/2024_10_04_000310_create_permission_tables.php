@@ -29,19 +29,17 @@ return new class extends Migration
         Schema::create($tableNames['roles'], static function (Blueprint $table) use ($teams, $columnNames) {
             $table->bigIncrements('id');
             if ($teams || config('permission.testing')) {
-                // Use char(36) for UUID store_id instead of unsignedBigInteger
-                $table->char('store_id', 36)->nullable();
-                $table->index('store_id', 'roles_store_id_index');
+                // Use string(36) for UUID tenant_id instead of store_id
+                $table->string('tenant_id', 36)->nullable();
+                $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
+                $table->index(['tenant_id', 'name'], 'roles_tenant_name_index');
+                $table->unique(['tenant_id', 'name', 'guard_name']);
+            } else {
+                $table->unique(['name', 'guard_name']);
             }
             $table->string('name');
             $table->string('guard_name');
             $table->timestamps();
-            if ($teams || config('permission.testing')) {
-                $table->unique(['store_id', 'name', 'guard_name']);
-                $table->foreign('store_id')->references('id')->on('stores')->onDelete('cascade');
-            } else {
-                $table->unique(['name', 'guard_name']);
-            }
         });
 
         Schema::create($tableNames['model_has_permissions'], static function (Blueprint $table) use ($tableNames, $columnNames, $pivotPermission, $teams) {
@@ -56,21 +54,17 @@ return new class extends Migration
                 ->onDelete('cascade');
 
             if ($teams) {
-                // Use char(36) for UUID store_id instead of unsignedBigInteger
-                $table->char('store_id', 36)->nullable();
-                $table->index('store_id', 'model_has_permissions_store_id_index');
-                $table->foreign('store_id')->references('id')->on('stores')->onDelete('cascade');
-
-                // Add performance index for permission lookup
-                $table->index(['model_id', 'model_type', 'store_id'], 'idx_model_permissions_lookup');
-
-                // Create unique index instead of primary key since store_id is nullable
-                $table->unique([
+                // Use string(36) for UUID tenant_id instead of store_id
+                $table->string('tenant_id', 36)->nullable();
+                $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
+                $table->index('tenant_id', 'model_has_permissions_tenant_id_index');
+                
+                // Use primary key with tenant_id
+                $table->primary([
                     $pivotPermission,
                     $columnNames['model_morph_key'],
                     'model_type',
-                    'store_id',
-                ], 'model_has_permissions_permission_model_type_unique');
+                ], 'model_has_permissions_permission_model_type_primary');
             } else {
                 $table->primary([
                     $pivotPermission,
@@ -92,21 +86,17 @@ return new class extends Migration
                 ->onDelete('cascade');
 
             if ($teams) {
-                // Use char(36) for UUID store_id instead of unsignedBigInteger
-                $table->char('store_id', 36)->nullable();
-                $table->index('store_id', 'model_has_roles_store_id_index');
-                $table->foreign('store_id')->references('id')->on('stores')->onDelete('cascade');
-
-                // Add performance index for role lookup
-                $table->index(['model_id', 'model_type', 'store_id'], 'idx_model_roles_lookup');
-
-                // Create unique index instead of primary key since store_id is nullable
-                $table->unique([
+                // Use string(36) for UUID tenant_id instead of store_id
+                $table->string('tenant_id', 36)->nullable();
+                $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
+                $table->index('tenant_id', 'model_has_roles_tenant_id_index');
+                
+                // Use primary key with tenant_id
+                $table->primary([
                     $pivotRole,
                     $columnNames['model_morph_key'],
                     'model_type',
-                    'store_id',
-                ], 'model_has_roles_role_model_type_unique');
+                ], 'model_has_roles_role_model_type_primary');
             } else {
                 $table->primary([
                     $pivotRole,
@@ -136,7 +126,8 @@ return new class extends Migration
         // Create permission audit logs table
         Schema::create('permission_audit_logs', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->char('store_id', 36);
+            $table->string('tenant_id', 36)->nullable();
+            $table->char('store_id', 36)->nullable(); // Keep for backward compatibility
             $table->unsignedBigInteger('user_id'); // User yang permissions-nya diubah
             $table->unsignedBigInteger('changed_by'); // User yang melakukan perubahan
             $table->string('action'); // 'granted', 'revoked', 'role_changed', 'reset_to_default'
@@ -146,10 +137,13 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
+            $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
             $table->foreign('store_id')->references('id')->on('stores')->onDelete('cascade');
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('changed_by')->references('id')->on('users')->onDelete('cascade');
             
+            $table->index(['tenant_id', 'user_id']);
+            $table->index(['tenant_id', 'created_at']);
             $table->index(['store_id', 'user_id']);
             $table->index(['changed_by']);
             $table->index('created_at');

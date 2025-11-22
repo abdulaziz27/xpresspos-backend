@@ -6,13 +6,16 @@ use App\Filament\Owner\Resources\CashSessions\Pages\CreateCashSession;
 use App\Filament\Owner\Resources\CashSessions\Pages\EditCashSession;
 use App\Filament\Owner\Resources\CashSessions\Pages\ListCashSessions;
 use App\Filament\Owner\Resources\CashSessions\Schemas\CashSessionForm;
+use App\Filament\Owner\Resources\CashSessions\RelationManagers\ExpensesRelationManager;
 use App\Filament\Owner\Resources\CashSessions\Tables\CashSessionsTable;
 use App\Models\CashSession;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class CashSessionResource extends Resource
 {
@@ -26,7 +29,7 @@ class CashSessionResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Sesi Kas';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 12;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Operasional Harian';
 
@@ -44,7 +47,7 @@ class CashSessionResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            ExpensesRelationManager::class,
         ];
     }
 
@@ -60,5 +63,33 @@ class CashSessionResource extends Resource
     public static function canViewAny(): bool
     {
         return true;
+    }
+
+    public static function canDelete($record): bool
+    {
+        // Protect cash session history - prevent deletion to maintain audit trail
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        // Protect cash session history - prevent bulk deletion
+        return false;
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()
+            ->with(['store', 'user']);
+
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
+
+        return $query;
     }
 }

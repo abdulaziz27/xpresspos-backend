@@ -10,28 +10,27 @@ return new class extends Migration
     {
         Schema::create('products', function (Blueprint $table) {
             $table->id();
-            $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignId('category_id')->constrained('categories');
             $table->string('name');
-            $table->string('sku')->nullable()->index();
+            $table->string('sku')->nullable();
             $table->text('description')->nullable();
             $table->string('image')->nullable();
             $table->decimal('price', 10, 2);
             $table->decimal('cost_price', 10, 2)->nullable();
             $table->boolean('track_inventory')->default(false);
-            $table->integer('stock')->default(0);
-            $table->integer('min_stock_level')->default(0);
-            // Variants handled by product_options table
+            // Variants handled by product_variants table
             $table->boolean('status')->default(true);
             $table->boolean('is_favorite')->default(false);
             $table->integer('sort_order')->default(0);
             $table->timestamps();
 
-            $table->index(['store_id', 'status']);
-            $table->index(['store_id', 'category_id']);
+            $table->index(['tenant_id', 'status']);
+            $table->index(['tenant_id', 'category_id']);
             $table->index('track_inventory');
             $table->index('sort_order');
-            $table->index(['track_inventory', 'stock', 'min_stock_level']);
+            $table->unique(['tenant_id', 'sku'], 'uk_products_tenant_sku');
         });
     }
 

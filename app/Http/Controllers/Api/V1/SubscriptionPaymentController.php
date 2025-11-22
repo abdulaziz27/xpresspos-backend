@@ -8,7 +8,6 @@ use App\Models\PaymentMethod;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Services\InvoiceService;
-use App\Services\PaymentService;
 use App\Services\SubscriptionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,8 +18,10 @@ use Illuminate\Validation\ValidationException;
 
 class SubscriptionPaymentController extends Controller
 {
+    // NOTE: PaymentService (Midtrans) telah dihapus karena tidak digunakan.
+    // Invoice payment perlu di-refactor untuk Xendit jika diperlukan.
+    
     public function __construct(
-        protected PaymentService $paymentService,
         protected InvoiceService $invoiceService,
         protected SubscriptionService $subscriptionService
     ) {}
@@ -74,8 +75,30 @@ class SubscriptionPaymentController extends Controller
 
         try {
             return DB::transaction(function () use ($request) {
-                $user = Auth::user() ?? request()->user();
-                $store = $user?->store;
+                $user = Auth::user();
+                
+                if (!$user) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'UNAUTHENTICATED',
+                            'message' => 'User not authenticated',
+                        ],
+                    ], 401);
+                }
+                
+                $store = $user->store();
+                
+                if (!$store) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'STORE_NOT_FOUND',
+                            'message' => 'User does not have an associated store',
+                        ],
+                    ], 404);
+                }
+                
                 $plan = Plan::findOrFail($request->plan_id);
                 $billingCycle = $request->billing_cycle;
                 $paymentMethod = $request->payment_method_id
@@ -90,16 +113,13 @@ class SubscriptionPaymentController extends Controller
                 // Create initial invoice
                 $invoice = $this->invoiceService->createInitialInvoice($subscription);
 
-                // Process payment
-                $payment = $this->paymentService->processPayment($invoice, $paymentMethod);
+                // NOTE: PaymentService (Midtrans) telah dihapus.
+                // Invoice payment perlu di-refactor untuk Xendit jika diperlukan.
+                // Untuk sekarang, invoice dibuat tapi payment belum diproses.
 
-                // Get payment transaction details
-                $transaction = $this->paymentService->createPaymentTransaction($invoice, $paymentMethod);
-
-                Log::info('Subscription created with payment', [
+                Log::info('Subscription created with invoice (payment processing disabled)', [
                     'subscription_id' => $subscription->id,
                     'invoice_id' => $invoice->id,
-                    'payment_id' => $payment->id,
                     'plan_id' => $plan->id,
                     'billing_cycle' => $billingCycle,
                 ]);
@@ -126,13 +146,6 @@ class SubscriptionPaymentController extends Controller
                             'total_amount' => $invoice->total_amount,
                             'due_date' => $invoice->due_date->toISOString(),
                         ],
-                        'payment' => [
-                            'id' => $payment->id,
-                            'status' => $payment->status,
-                            'gateway_transaction_id' => $payment->gateway_transaction_id,
-                        ],
-                        'payment_url' => $transaction['redirect_url'],
-                        'snap_token' => $transaction['snap_token'],
                     ],
                     'message' => 'Subscription created successfully. Please complete payment.',
                     'meta' => [
@@ -143,8 +156,9 @@ class SubscriptionPaymentController extends Controller
                 ]);
             });
         } catch (\Exception $e) {
+            $userId = Auth::check() ? Auth::id() : null;
             Log::error('Subscription creation failed', [
-                'user_id' => Auth::id(),
+                'user_id' => $userId,
                 'plan_id' => $request->plan_id,
                 'error' => $e->getMessage(),
             ]);
@@ -178,8 +192,22 @@ class SubscriptionPaymentController extends Controller
                 $invoice = Invoice::with('subscription.store')->findOrFail($invoiceId);
 
                 // Check if user has access to this invoice
-                $user = Auth::user() ?? request()->user();
-                if ($invoice->subscription->store_id !== $user?->store_id) {
+                $user = Auth::user();
+                
+                if (!$user) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'UNAUTHENTICATED',
+                            'message' => 'User not authenticated',
+                        ],
+                    ], 401);
+                }
+                
+                $userStore = $user->store();
+                $invoiceTenant = $invoice->subscription->tenant;
+                
+                if (!$userStore || !$invoiceTenant || $userStore->tenant_id !== $invoiceTenant->id) {
                     return response()->json([
                         'success' => false,
                         'error' => [
@@ -210,24 +238,20 @@ class SubscriptionPaymentController extends Controller
                     ], 422);
                 }
 
-                $paymentMethod = $request->payment_method_id
-                    ? PaymentMethod::findOrFail($request->payment_method_id)
-                    : null;
+                // NOTE: PaymentService (Midtrans) telah dihapus.
+                // Invoice payment perlu di-refactor untuk Xendit jika diperlukan.
 
-                // Process payment
-                $payment = $this->paymentService->processPayment($invoice, $paymentMethod);
-
-                // Get payment transaction details
-                $transaction = $this->paymentService->createPaymentTransaction($invoice, $paymentMethod);
-
-                Log::info('Invoice payment initiated', [
+                Log::info('Invoice payment requested (payment processing disabled)', [
                     'invoice_id' => $invoice->id,
-                    'payment_id' => $payment->id,
                     'amount' => $invoice->total_amount,
                 ]);
 
                 return response()->json([
-                    'success' => true,
+                    'success' => false,
+                    'error' => [
+                        'code' => 'FEATURE_NOT_AVAILABLE',
+                        'message' => 'Invoice payment feature is not available. This feature used Midtrans which has been removed. Please use Xendit for subscription payments.',
+                    ],
                     'data' => [
                         'invoice' => [
                             'id' => $invoice->id,
@@ -237,15 +261,8 @@ class SubscriptionPaymentController extends Controller
                             'total_amount' => $invoice->total_amount,
                             'due_date' => $invoice->due_date->toISOString(),
                         ],
-                        'payment' => [
-                            'id' => $payment->id,
-                            'status' => $payment->status,
-                            'gateway_transaction_id' => $payment->gateway_transaction_id,
-                        ],
-                        'payment_url' => $transaction['redirect_url'],
-                        'snap_token' => $transaction['snap_token'],
                     ],
-                    'message' => 'Payment initiated successfully. Please complete payment.',
+                    'message' => 'Invoice created but payment processing is not available.',
                     'meta' => [
                         'timestamp' => now()->toISOString(),
                         'version' => 'v1',
@@ -254,9 +271,10 @@ class SubscriptionPaymentController extends Controller
                 ]);
             });
         } catch (\Exception $e) {
+            $userId = Auth::check() ? Auth::id() : null;
             Log::error('Invoice payment failed', [
                 'invoice_id' => $invoiceId,
-                'user_id' => Auth::id(),
+                'user_id' => $userId,
                 'error' => $e->getMessage(),
             ]);
 
@@ -280,7 +298,7 @@ class SubscriptionPaymentController extends Controller
      */
     public function paymentMethods(Request $request): JsonResponse
     {
-        $user = Auth::user() ?? request()->user();
+        $user = Auth::user();
 
         if (!$user) {
             return response()->json([
@@ -330,7 +348,7 @@ class SubscriptionPaymentController extends Controller
      */
     public function invoices(Request $request): JsonResponse
     {
-        $user = Auth::user() ?? request()->user();
+        $user = Auth::user();
 
         if (!$user) {
             return response()->json([
@@ -347,7 +365,7 @@ class SubscriptionPaymentController extends Controller
             ], 401);
         }
 
-        $store = $user->store;
+        $store = $user->store();
 
         if (!$store) {
             return response()->json([
@@ -430,7 +448,21 @@ class SubscriptionPaymentController extends Controller
         $invoice = Invoice::with(['payments', 'subscription.store'])->findOrFail($invoiceId);
 
         // Check if user has access to this invoice
-        if ($invoice->subscription->store_id !== Auth::user()->store_id) {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated',
+                ],
+            ], 401);
+        }
+        $userStore = $user->store();
+        $invoiceTenant = $invoice->subscription->tenant;
+        
+        if (!$userStore || !$invoiceTenant || $userStore->tenant_id !== $invoiceTenant->id) {
             return response()->json([
                 'success' => false,
                 'error' => [

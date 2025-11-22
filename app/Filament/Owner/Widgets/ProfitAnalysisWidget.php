@@ -2,46 +2,53 @@
 
 namespace App\Filament\Owner\Widgets;
 
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Services\FnBAnalyticsService;
+use App\Services\GlobalFilterService;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class ProfitAnalysisWidget extends BaseWidget
 {
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
+
     protected static ?int $sort = 3;
 
     protected int | string | array $columnSpan = 'full';
 
-    public ?string $filter = 'today';
-
-    protected function getFilters(): ?array
+    protected function getDescription(): ?string
     {
-        return [
-            'today' => 'Hari ini',
-            'this_week' => 'Minggu ini',
-            'this_month' => 'Bulan ini',
-        ];
+        return $this->dashboardFilterContextLabel();
+    }
+
+    public function updatedPageFilters(): void
+    {
+        $this->cachedStats = null;
     }
 
     protected function getStats(): array
     {
-        $storeId = auth()->user()?->store_id;
-
-        if (!$storeId) {
+        $filters = $this->dashboardFilters();
+        $storeIds = $this->dashboardStoreIds();
+        $summary = $this->dashboardFilterSummary();
+        
+        if (empty($storeIds)) {
             return [];
         }
 
         try {
             $analyticsService = app(FnBAnalyticsService::class);
-            $range = match ($this->filter) {
-                'this_week' => 'this_week',
-                'this_month' => 'this_month',
-                default => 'today',
-            };
-            $profitAnalysis = $analyticsService->getProfitAnalysis($range);
+            
+            $preset = $filters['date_preset'] ?? 'this_month';
+            $customRange = $preset === 'custom'
+                ? [$filters['range']['start'], $filters['range']['end']]
+                : null;
+
+            $profitAnalysis = $analyticsService->getProfitAnalysisForStores($storeIds, $preset, $customRange);
 
             if (empty($profitAnalysis)) {
-                // Kosongkan agar widget tidak ditampilkan saat tidak ada penjualan
                 return [];
             }
 
@@ -49,21 +56,25 @@ class ProfitAnalysisWidget extends BaseWidget
             $totalProfit = collect($profitAnalysis)->sum('profit');
             $avgMargin = collect($profitAnalysis)->avg('margin_percent') ?? 0;
 
+            $storeLabel = $summary['store'] ?? 'Semua Cabang';
+            $tenantLabel = $summary['tenant'] ?? 'Tenant';
+
             return [
                 Stat::make('Produk Teratas', $topProduct['product_name'] ?? 'N/A')
                     ->description($topProduct ? 'Profit: Rp ' . number_format($topProduct['profit'], 0, ',', '.') : 'Tidak ada data')
                     ->color('success'),
 
-                Stat::make('Total Profit Hari Ini', 'Rp ' . number_format($totalProfit, 0, ',', '.'))
-                    ->description('Dari ' . count($profitAnalysis) . ' produk')
+                Stat::make('Total Profit', 'Rp ' . number_format($totalProfit, 0, ',', '.'))
+                    ->description("{$tenantLabel} • {$storeLabel}")
                     ->color($totalProfit > 0 ? 'success' : 'gray'),
 
                 Stat::make('Rata-rata Margin', number_format($avgMargin, 1) . '%')
-                    ->description('Di seluruh produk')
+                    ->description('Dari ' . count($profitAnalysis) . ' produk')
                     ->color($avgMargin >= 30 ? 'success' : ($avgMargin >= 20 ? 'warning' : 'danger')),
             ];
-
         } catch (\Exception $e) {
+            report($e);
+
             return [
                 Stat::make('Error', 'Tidak dapat memuat data')
                     ->description('Silakan coba lagi nanti')
@@ -74,17 +85,17 @@ class ProfitAnalysisWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        $storeId = auth()->user()?->store_id;
-        if (!$storeId) {
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+        
+        if (empty($storeIds)) {
             return false;
         }
 
-        // Tampilkan hanya jika ada penjualan (mengacu hari ini sebagai default)
-        $start = now()->startOfDay();
-        $end = now()->endOfDay();
+        $dateRange = $globalFilter->getCurrentDateRange();
 
-        return \App\Models\CogsHistory::where('store_id', $storeId)
-            ->whereBetween('created_at', [$start, $end])
+        return \App\Models\CogsHistory::whereIn('store_id', $storeIds)
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->where('quantity_sold', '>', 0)
             ->exists();
     }

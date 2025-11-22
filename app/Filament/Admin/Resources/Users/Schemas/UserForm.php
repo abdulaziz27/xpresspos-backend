@@ -75,11 +75,6 @@ class UserForm
                                     ->preload()
                                     ->required(),
                             ]),
-
-                        TextInput::make('midtrans_customer_id')
-                            ->label('Midtrans Customer ID')
-                            ->maxLength(255)
-                            ->placeholder('Auto-generated'),
                     ])
                     ->columns(1),
             ]);

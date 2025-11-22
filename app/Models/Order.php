@@ -14,6 +14,7 @@ class Order extends Model
     use HasFactory, HasUuids, BelongsToStore;
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
         'user_id',           // Staff who created the order
         'member_id',         // Customer (can be member or guest)
@@ -52,7 +53,33 @@ class Order extends Model
             if (!$order->order_number) {
                 $order->order_number = static::generateOrderNumber();
             }
+            
+            // Auto-set tenant_id from store
+            if (!$order->tenant_id && $order->store_id) {
+                $store = Store::find($order->store_id);
+                if ($store) {
+                    $order->tenant_id = $store->tenant_id;
+                }
+            }
         });
+
+        // Trigger COGS processing when order status changes to completed
+        static::saved(function (Order $order) {
+            if ($order->wasChanged('status') && $order->status === 'completed') {
+                // Check if COGS already processed (idempotency)
+                if (!\App\Models\CogsHistory::where('order_id', $order->id)->exists()) {
+                    \App\Jobs\ProcessOrderCogsJob::dispatch($order->id);
+                }
+            }
+        });
+    }
+
+    /**
+     * Get the tenant that owns the order.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
     }
 
     /**
@@ -93,6 +120,14 @@ class Order extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Get the order-level discounts applied to this order.
+     */
+    public function discounts(): HasMany
+    {
+        return $this->hasMany(OrderDiscount::class);
     }
 
     /**

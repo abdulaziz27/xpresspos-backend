@@ -13,6 +13,7 @@ class TableOccupancyHistory extends Model
     use HasFactory, HasUuids, BelongsToStore;
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
         'table_id',
         'order_id',
@@ -35,6 +36,29 @@ class TableOccupancyHistory extends Model
         'order_total' => 'decimal:2',
         'metadata' => 'array',
     ];
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (!$model->tenant_id && $model->store_id) {
+                $store = Store::find($model->store_id);
+                if ($store) {
+                    $model->tenant_id = $store->tenant_id;
+                }
+            }
+        });
+    }
+
+    /**
+     * Get the tenant that owns the table occupancy history.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     /**
      * Get the table that owns the occupancy history.

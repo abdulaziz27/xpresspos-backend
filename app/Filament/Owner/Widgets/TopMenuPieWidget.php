@@ -2,25 +2,20 @@
 
 namespace App\Filament\Owner\Widgets;
 
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Models\CogsHistory;
 use Filament\Widgets\ChartWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use Illuminate\Support\Facades\DB;
 
 class TopMenuPieWidget extends ChartWidget
 {
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
+
     protected ?string $heading = 'Menu Terlaris';
 
     protected int | string | array $columnSpan = 'full';
-
-    public ?string $filter = 'today';
-
-    protected function getFilters(): ?array
-    {
-        return [
-            'today' => 'Hari ini',
-            'this_week' => 'Minggu ini',
-            'this_month' => 'Bulan ini',
-        ];
-    }
 
     protected function getType(): string
     {
@@ -29,31 +24,29 @@ class TopMenuPieWidget extends ChartWidget
 
     protected function getData(): array
     {
-        $storeId = auth()->user()?->store_id;
+        $filters = $this->dashboardFilters();
+        $storeIds = $this->dashboardStoreIds();
+        $tenantId = $filters['tenant_id'] ?? null;
 
-        if (!$storeId) {
-            return [ 'datasets' => [[ 'data' => [] ]], 'labels' => [] ];
+        if (! $tenantId || empty($storeIds)) {
+            return [
+                'datasets' => [[ 'data' => [] ]],
+                'labels' => [],
+            ];
         }
 
-        $start = now();
-        $end = now();
-
-        if ($this->filter === 'this_week') {
-            $start = now()->startOfWeek();
-            $end = now()->endOfWeek();
-        } elseif ($this->filter === 'this_month') {
-            $start = now()->startOfMonth();
-            $end = now()->endOfMonth();
-        } else {
-            $start = now()->startOfDay();
-            $end = now()->endOfDay();
-        }
+        $dateRange = $filters['range'];
 
         $rows = CogsHistory::query()
-            ->where('store_id', $storeId)
-            ->whereBetween('created_at', [$start, $end])
-            ->selectRaw('product_id, SUM(quantity_sold) as qty')
-            ->groupBy('product_id')
+            ->join('products', 'products.id', '=', 'cogs_history.product_id')
+            ->where('cogs_history.tenant_id', $tenantId)
+            ->whereIn('cogs_history.store_id', $storeIds)
+            ->whereBetween('cogs_history.created_at', [$dateRange['start'], $dateRange['end']])
+            ->select([
+                DB::raw('products.name as product_name'),
+                DB::raw('SUM(cogs_history.quantity_sold) as qty'),
+            ])
+            ->groupBy('products.name')
             ->orderByDesc('qty')
             ->limit(10)
             ->get();
@@ -62,7 +55,7 @@ class TopMenuPieWidget extends ChartWidget
         $data = [];
 
         foreach ($rows as $row) {
-            $labels[] = optional($row->product)->name ?? ('Product #' . $row->product_id);
+            $labels[] = $row->product_name ?? 'Produk';
             $data[] = (int) ($row->qty ?? 0);
         }
 

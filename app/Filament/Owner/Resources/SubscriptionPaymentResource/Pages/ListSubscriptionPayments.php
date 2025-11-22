@@ -3,7 +3,9 @@
 namespace App\Filament\Owner\Resources\SubscriptionPaymentResource\Pages;
 
 use App\Filament\Owner\Resources\SubscriptionPaymentResource;
+use App\Models\Store;
 use App\Models\SubscriptionPayment;
+use App\Models\Tenant;
 use App\Services\StoreContext;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
@@ -37,32 +39,25 @@ class ListSubscriptionPayments extends ListRecords
 
     public function getTabs(): array
     {
-        $storeContext = app(StoreContext::class);
-        $baseQuery = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($storeContext) {
-            $query->where('store_id', $storeContext->current(auth()->user()));
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($storeContext) {
-            $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeContext) {
-                $subQuery->where('id', $storeContext->current(auth()->user()));
-            });
-        });
+        $baseQuery = $this->baseTenantQuery();
 
         return [
             'all' => Tab::make('All Payments')
-                ->badge($baseQuery->count()),
+                ->badge((clone $baseQuery)->count()),
             
             'paid' => Tab::make('Paid')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'paid'))
-                ->badge($baseQuery->where('status', 'paid')->count())
+                ->badge((clone $baseQuery)->where('status', 'paid')->count())
                 ->badgeColor('success'),
             
             'pending' => Tab::make('Pending')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'pending'))
-                ->badge($baseQuery->where('status', 'pending')->count())
+                ->badge((clone $baseQuery)->where('status', 'pending')->count())
                 ->badgeColor('warning'),
             
             'failed' => Tab::make('Failed')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'failed'))
-                ->badge($baseQuery->where('status', 'failed')->count())
+                ->badge((clone $baseQuery)->where('status', 'failed')->count())
                 ->badgeColor('danger'),
             
             'this_month' => Tab::make('This Month')
@@ -70,7 +65,7 @@ class ListSubscriptionPayments extends ListRecords
                     $query->where('created_at', '>=', now()->startOfMonth())
                           ->where('created_at', '<=', now()->endOfMonth())
                 )
-                ->badge($baseQuery->where('created_at', '>=', now()->startOfMonth())
+                ->badge((clone $baseQuery)->where('created_at', '>=', now()->startOfMonth())
                     ->where('created_at', '<=', now()->endOfMonth())
                     ->count())
                 ->badgeColor('primary'),
@@ -86,16 +81,10 @@ class ListSubscriptionPayments extends ListRecords
 
     public function exportPayments(): void
     {
-        $storeContext = app(StoreContext::class);
-        $payments = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($storeContext) {
-            $query->where('store_id', $storeContext->current(auth()->user()));
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($storeContext) {
-            $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeContext) {
-                $subQuery->where('id', $storeContext->current(auth()->user()));
-            });
-        })->with(['subscription.plan', 'landingSubscription'])
-        ->orderBy('created_at', 'desc')
-        ->get();
+        $payments = $this->baseTenantQuery()
+            ->with(['subscription.plan', 'landingSubscription'])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         $csvData = [];
         $csvData[] = [
@@ -135,5 +124,36 @@ class ListSubscriptionPayments extends ListRecords
             ->header('Content-Type', 'text/csv')
             ->header('Content-Disposition', "attachment; filename=\"{$filename}\"")
             ->send();
+    }
+    protected function baseTenantQuery(): Builder
+    {
+        $tenant = $this->resolveTenant();
+
+        if (!$tenant) {
+            return SubscriptionPayment::query()->whereRaw('1 = 0');
+        }
+
+        return SubscriptionPayment::query()
+            ->where(function (Builder $query) use ($tenant) {
+                $query->whereHas('subscription', function (Builder $subQuery) use ($tenant) {
+                    $subQuery->where('tenant_id', $tenant->id);
+                })->orWhereHas('landingSubscription', function (Builder $subQuery) use ($tenant) {
+                    $subQuery->where('tenant_id', $tenant->id);
+                });
+            });
+    }
+
+    protected function resolveTenant(): ?Tenant
+    {
+        $storeContext = app(StoreContext::class);
+        $storeId = $storeContext->current(auth()->user());
+
+        if (!$storeId) {
+            return null;
+        }
+
+        $store = Store::find($storeId);
+
+        return $store?->tenant;
     }
 }

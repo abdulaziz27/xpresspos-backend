@@ -37,10 +37,9 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Color::Blue,
             ])
             ->navigationGroups([
-                'Manajemen Sistem' => 'heroicon-o-cog-6-tooth',
-                'Manajemen Toko' => 'heroicon-o-building-storefront',
-                'Manajemen Pengguna' => 'heroicon-o-users',
-                'Manajemen Langganan' => 'heroicon-o-currency-dollar',
+                'Customers',
+                'Plans & Subscriptions',
+                'Monitoring & Support',
             ])
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')

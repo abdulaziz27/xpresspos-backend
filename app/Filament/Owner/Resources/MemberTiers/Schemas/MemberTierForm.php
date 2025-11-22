@@ -2,8 +2,10 @@
 
 namespace App\Filament\Owner\Resources\MemberTiers\Schemas;
 
+use App\Services\StoreContext;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -33,6 +35,13 @@ class MemberTierForm
                                     ->required()
                                     ->maxLength(255),
                             ]),
+
+                        Select::make('store_id')
+                            ->label('Cabang Khusus')
+                            ->options(self::storeOptions())
+                            ->searchable()
+                            ->placeholder('Semua cabang')
+                            ->helperText('Opsional: batasi tier hanya untuk cabang tertentu.'),
 
                         Grid::make(3)
                             ->schema([
@@ -105,5 +114,19 @@ class MemberTierForm
                     ])
                     ->columns(1),
             ]);
+    }
+
+    protected static function storeOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return StoreContext::instance()
+            ->accessibleStores($user)
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

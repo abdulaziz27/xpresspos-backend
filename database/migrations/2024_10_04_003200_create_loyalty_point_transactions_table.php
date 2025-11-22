@@ -10,6 +10,8 @@ return new class extends Migration
     {
         Schema::create('loyalty_point_transactions', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
             $table->foreignUuid('member_id')->constrained('members')->cascadeOnDelete();
             $table->foreignUuid('order_id')->nullable()->constrained('orders')->nullOnDelete();
@@ -24,6 +26,8 @@ return new class extends Migration
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
 
+            $table->index(['tenant_id', 'store_id']);
+            $table->index(['tenant_id', 'created_at']);
             $table->index(['member_id', 'type']);
             $table->index(['store_id', 'created_at']);
             $table->index('expires_at');

@@ -3,266 +3,648 @@
 namespace App\Services;
 
 use App\Models\LandingSubscription;
+use App\Models\SubscriptionPayment;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Models\Store;
 use App\Models\Subscription;
+use App\Models\Plan;
+use App\Models\PlanFeature;
+use App\Models\SubscriptionUsage;
+use App\Models\StoreUserAssignment;
+use App\Enums\AssignmentRoleEnum;
 use App\Mail\WelcomeNewOwner;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
+/**
+ * Service untuk provisioning tenant, store, user, dan subscription dari landing subscription yang sudah dibayar.
+ * 
+ * Model Bisnis:
+ * - Subscription per Tenant (bukan per Store)
+ * - Satu tenant bisa punya banyak store, semua dilindungi oleh satu subscription yang sama
+ */
 class SubscriptionProvisioningService
 {
     /**
-     * Provision a new user account and store after successful payment.
+     * Provision tenant, store, user, dan subscription dari landing subscription yang sudah dibayar.
+     * 
+     * @param LandingSubscription $landingSubscription
+     * @param SubscriptionPayment $payment
+     * @return array{success: bool, tenant?: Tenant, user?: User, store?: Store, subscription?: Subscription, temporary_password?: string, error?: string}
      */
-    public function provisionSubscription(LandingSubscription $landingSubscription): array
-    {
+    public function provisionFromPaidLandingSubscription(
+        LandingSubscription $landingSubscription,
+        SubscriptionPayment $payment
+    ): array {
         try {
-            DB::beginTransaction();
+            return DB::transaction(function () use ($landingSubscription, $payment) {
+                // 0. Idempotent guard - cek apakah sudah pernah di-provision
+                if ($landingSubscription->subscription_id) {
+                    Log::info('Landing subscription already provisioned', [
+                        'landing_subscription_id' => $landingSubscription->id,
+                        'subscription_id' => $landingSubscription->subscription_id,
+                    ]);
 
-            // 1. Create User Account
-            $user = $this->createUserAccount($landingSubscription);
-            
-            // 2. Create Store
-            $store = $this->createStore($landingSubscription, $user);
-            
-            // 3. Create Subscription Record
-            $subscription = $this->createSubscription($landingSubscription, $user, $store);
-            
-            // 4. Update Landing Subscription
-            $this->updateLandingSubscription($landingSubscription, $user, $store, $subscription);
-            
-            // 5. Send Welcome Email
-            $this->sendWelcomeEmail($user, $landingSubscription);
+                    $subscription = Subscription::find($landingSubscription->subscription_id);
+                    if ($subscription) {
+                        return [
+                            'success' => true,
+                            'tenant' => $subscription->tenant,
+                            'user' => $landingSubscription->provisionedUser,
+                            'store' => $landingSubscription->provisionedStore,
+                            'subscription' => $subscription,
+                            'message' => 'Already provisioned',
+                        ];
+                    }
+                }
 
-            DB::commit();
+                // Validasi payment status
+                // isPaid() requires both status === 'paid' AND paid_at !== null
+                // But we should proceed if status === 'paid' even if paid_at is null
+                if ($payment->status !== 'paid') {
+                    throw new \RuntimeException("Payment is not paid. Current status: {$payment->status}");
+                }
+                
+                // Ensure paid_at is set if status is paid
+                if (!$payment->paid_at) {
+                    $payment->update(['paid_at' => now()]);
+                    $payment->refresh();
+                }
+
+                // Validasi plan
+                $plan = Plan::find($landingSubscription->plan_id);
+                if (!$plan) {
+                    throw new \RuntimeException("Plan not found. Plan ID: {$landingSubscription->plan_id}");
+                }
+
+                // Cek apakah ini authenticated flow (user_id & tenant_id sudah ada)
+                $isAuthenticatedFlow = $landingSubscription->user_id && $landingSubscription->tenant_id;
+
+                if ($isAuthenticatedFlow) {
+                    // Authenticated flow: tenant & user sudah ada, skip create
+                    $tenant = Tenant::findOrFail($landingSubscription->tenant_id);
+                    $user = User::findOrFail($landingSubscription->user_id);
+                    $isNewUser = false;
+                    $temporaryPassword = null;
+
+                    Log::info('Provisioning for authenticated user', [
+                        'landing_subscription_id' => $landingSubscription->id,
+                        'user_id' => $user->id,
+                        'tenant_id' => $tenant->id,
+                    ]);
+                } else {
+                    // Anonymous flow (legacy): create tenant & user
+                    // 1. Buat atau dapatkan Tenant
+                    $tenant = $this->createOrGetTenant($landingSubscription);
+
+                    // 2. Buat atau dapatkan User (owner)
+                    $userData = $this->createOrGetUser($landingSubscription, $tenant);
+                    $user = $userData['user'];
+                    $isNewUser = $userData['isNewUser'];
+                    $temporaryPassword = $userData['temporaryPassword'];
+
+                    // Update landing_subscription dengan user_id & tenant_id (untuk konsistensi)
+                    $landingSubscription->update([
+                        'user_id' => $user->id,
+                        'tenant_id' => $tenant->id,
+                    ]);
+                }
+
+                // 3. Buat user_tenant_access (owner role)
+                $this->ensureUserTenantAccess($user, $tenant);
+
+                // 4. Buat Store pertama (link ke tenant_id) - hanya jika belum ada
+                $store = $this->createStoreIfNeeded($landingSubscription, $tenant, $user);
+
+                // 5. Buat store_user_assignments (owner, is_primary = true)
+                $this->createStoreUserAssignment($store, $user);
+
+                // 6. Buat Subscription (PER TENANT, pakai tenant_id)
+                $subscription = $this->createSubscription($landingSubscription, $tenant, $plan, $payment);
+
+                // 7. Buat SubscriptionUsage dari plan_features (optional tapi bagus)
+                $this->createSubscriptionUsageFromPlan($subscription, $plan);
+
+                // 8. Update landing_subscriptions & subscription_payments
+                $this->updateLandingSubscription($landingSubscription, $tenant, $user, $store, $subscription);
+                $this->updateSubscriptionPayment($payment, $subscription);
+
+                // 9. Kirim email welcome + temp password (jika user baru)
+                if ($isNewUser && $temporaryPassword) {
+                    // Set temporary password di user object untuk email (non-persistent)
+                    $user->temporary_password = $temporaryPassword;
+                    $this->sendWelcomeEmail($user, $landingSubscription, $subscription);
+                }
+
+                Log::info('Provisioning completed successfully', [
+                    'landing_subscription_id' => $landingSubscription->id,
+                    'tenant_id' => $tenant->id,
+                    'user_id' => $user->id,
+                    'store_id' => $store->id,
+                    'subscription_id' => $subscription->id,
+                ]);
 
             return [
                 'success' => true,
+                'tenant' => $tenant,
                 'user' => $user,
                 'store' => $store,
                 'subscription' => $subscription,
+                'temporary_password' => $temporaryPassword,
                 'login_url' => $this->generateLoginUrl(),
-                'temporary_password' => $user->temporary_password ?? null
             ];
-
+            });
         } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Subscription provisioning failed', [
+            Log::error('Provisioning failed', [
                 'landing_subscription_id' => $landingSubscription->id,
-                'error' => $e->getMessage()
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
 
     /**
-     * Create or find existing user account from landing subscription data.
+     * Buat atau dapatkan Tenant dari landing subscription.
      */
-    private function createUserAccount(LandingSubscription $landingSubscription): User
+    protected function createOrGetTenant(LandingSubscription $landingSubscription): Tenant
     {
-        // Check if user already exists
+        // Cek apakah email sudah punya tenant (untuk existing customer)
         $existingUser = User::where('email', $landingSubscription->email)->first();
         
         if ($existingUser) {
-            // User exists - update their information and reactivate if needed
-            $existingUser->update([
-                'name' => $landingSubscription->name,
-                'phone' => $landingSubscription->phone,
-                'is_active' => true,
-                'email_verified_at' => $existingUser->email_verified_at ?? now(),
-            ]);
+            // Ambil tenant dari user_tenant_access
+            $tenantAccess = DB::table('user_tenant_access')
+                ->where('user_id', $existingUser->id)
+                ->where('role', 'owner')
+                ->first();
 
-            // Ensure they have owner role
-            if (!$existingUser->hasRole('owner')) {
-                $existingUser->assignRole('owner');
+            if ($tenantAccess) {
+                $tenant = Tenant::find($tenantAccess->tenant_id);
+                if ($tenant) {
+                    Log::info('Using existing tenant for existing user', [
+                        'tenant_id' => $tenant->id,
+                        'user_id' => $existingUser->id,
+                    ]);
+                    return $tenant;
+                }
             }
-
-            // No temporary password for existing users
-            $existingUser->temporary_password = null;
-            
-            \Log::info('Existing user reactivated for subscription', [
-                'user_id' => $existingUser->id,
-                'email' => $existingUser->email,
-                'landing_subscription_id' => $landingSubscription->id
-            ]);
-
-            return $existingUser;
         }
 
-        // Create new user
+        // Buat tenant baru
+        $tenantName = $landingSubscription->business_name 
+            ?? $landingSubscription->company 
+            ?? $landingSubscription->name . ' Business';
+
+        $tenant = Tenant::create([
+            'id' => Str::uuid()->toString(),
+            'name' => $tenantName,
+            'email' => $landingSubscription->email,
+            'phone' => $landingSubscription->phone,
+            'status' => 'active',
+            'settings' => [
+                'source' => 'landing_page',
+                'landing_subscription_id' => $landingSubscription->id,
+                'provisioned_at' => now()->toISOString(),
+            ],
+        ]);
+
+        Log::info('Tenant created', [
+            'tenant_id' => $tenant->id,
+            'name' => $tenant->name,
+            'landing_subscription_id' => $landingSubscription->id,
+        ]);
+
+        return $tenant;
+    }
+
+    /**
+     * Buat atau dapatkan User dari landing subscription.
+     * 
+     * @return array{user: User, isNewUser: bool, temporaryPassword: string|null}
+     */
+    protected function createOrGetUser(LandingSubscription $landingSubscription, Tenant $tenant): array
+    {
+        // Cek apakah user sudah ada
+        $existingUser = User::where('email', $landingSubscription->email)->first();
+
+        if ($existingUser) {
+            // Update user info
+            $existingUser->update([
+                'name' => $landingSubscription->name ?? $existingUser->name,
+                'phone' => $landingSubscription->phone ?? $existingUser->phone,
+            ]);
+
+            Log::info('Using existing user', [
+                'user_id' => $existingUser->id,
+                'email' => $existingUser->email,
+            ]);
+
+            return [
+                'user' => $existingUser,
+                'isNewUser' => false,
+                'temporaryPassword' => null,
+            ];
+        }
+
+        // Buat user baru dengan temporary password
         $temporaryPassword = Str::random(12);
         
         $user = User::create([
             'name' => $landingSubscription->name,
             'email' => $landingSubscription->email,
             'password' => Hash::make($temporaryPassword),
-            'email_verified_at' => now(), // Auto-verify since they paid
-            'phone' => $landingSubscription->phone,
-            'is_active' => true,
+            'email_verified_at' => now(), // Auto-verify karena sudah bayar
+            'store_id' => null, // Akan di-set setelah store dibuat
         ]);
 
-        // Store temporary password for email (will be cleared after first login)
-        $user->temporary_password = $temporaryPassword;
-        $user->save();
-
-        // Assign owner role
+        // Assign owner role (Spatie Permission)
+        if (!$user->hasRole('owner')) {
         $user->assignRole('owner');
+        }
 
-        \Log::info('New user created for subscription', [
+        Log::info('User created', [
             'user_id' => $user->id,
             'email' => $user->email,
-            'landing_subscription_id' => $landingSubscription->id
+            'landing_subscription_id' => $landingSubscription->id,
         ]);
 
-        return $user;
+        return [
+            'user' => $user,
+            'isNewUser' => true,
+            'temporaryPassword' => $temporaryPassword,
+        ];
     }
 
     /**
-     * Create store for the business.
+     * Pastikan user punya akses ke tenant dengan role owner.
      */
-    private function createStore(LandingSubscription $landingSubscription, User $user): Store
+    protected function ensureUserTenantAccess(User $user, Tenant $tenant): void
     {
-        $businessType = $this->getBusinessTypeFromMeta($landingSubscription);
-        $businessName = $landingSubscription->company ?? $landingSubscription->business_name;
-        
-        // Generate unique slug for the store
-        $baseSlug = Str::slug($businessName);
-        $slug = $this->generateUniqueStoreSlug($baseSlug, $user->id);
-        
-        $store = Store::create([
-            'name' => $businessName,
-            'slug' => $slug,
-            'description' => "Toko {$landingSubscription->name} - {$businessType}",
-            'owner_id' => $user->id,
-            'business_type' => $businessType,
-            'phone' => $landingSubscription->phone,
-            'email' => $landingSubscription->email,
-            'is_active' => true,
-            'settings' => [
-                'currency' => 'IDR',
-                'timezone' => 'Asia/Jakarta',
-                'language' => 'id',
-                'plan' => $landingSubscription->plan ?? $landingSubscription->plan_id,
-                'billing_cycle' => $this->getBillingCycleFromMeta($landingSubscription),
-            ]
+        // Cek apakah sudah ada akses
+        $existingAccess = DB::table('user_tenant_access')
+            ->where('user_id', $user->id)
+            ->where('tenant_id', $tenant->id)
+            ->first();
+
+        if ($existingAccess) {
+            // Update role ke owner jika belum
+            if ($existingAccess->role !== 'owner') {
+                DB::table('user_tenant_access')
+                    ->where('user_id', $user->id)
+                    ->where('tenant_id', $tenant->id)
+                    ->update(['role' => 'owner']);
+            }
+            return;
+        }
+
+        // Buat akses baru
+        DB::table('user_tenant_access')->insert([
+            'id' => Str::uuid()->toString(),
+            'user_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
-        \Log::info('Store created for subscription', [
-            'store_id' => $store->id,
-            'store_name' => $store->name,
+        Log::info('User tenant access created', [
             'user_id' => $user->id,
-            'landing_subscription_id' => $landingSubscription->id
+            'tenant_id' => $tenant->id,
+            'role' => 'owner',
+        ]);
+    }
+
+    /**
+     * Buat Store pertama untuk tenant (hanya jika belum ada).
+     */
+    protected function createStoreIfNeeded(LandingSubscription $landingSubscription, Tenant $tenant, User $user): Store
+    {
+        // Cek apakah tenant sudah punya store
+        $existingStore = Store::where('tenant_id', $tenant->id)->first();
+
+        if ($existingStore) {
+            Log::info('Tenant already has store, using existing', [
+                'tenant_id' => $tenant->id,
+                'store_id' => $existingStore->id,
+            ]);
+            return $existingStore;
+        }
+
+        // Buat store baru
+        $storeName = $landingSubscription->business_name 
+            ?? $landingSubscription->company 
+            ?? $tenant->name . ' Store';
+
+        // Generate unique code
+        $baseCode = Str::slug($storeName);
+        $code = $this->generateUniqueStoreCode($baseCode);
+
+        $store = Store::create([
+            'tenant_id' => $tenant->id,
+            'name' => $storeName,
+            'code' => $code,
+            'email' => $landingSubscription->email ?? $user->email,
+            'phone' => $landingSubscription->phone ?? $tenant->phone,
+            'address' => $landingSubscription->meta['address'] ?? null,
+            'timezone' => 'Asia/Jakarta',
+            'currency' => 'IDR',
+            'status' => 'active',
+            'settings' => [
+                'business_type' => $landingSubscription->business_type ?? 'retail',
+                'provisioned_from' => $landingSubscription->isAuthenticated() ? 'dashboard' : 'landing_page',
+                'landing_subscription_id' => $landingSubscription->id,
+            ],
+        ]);
+
+        // Update user store_id (legacy, untuk backward compatibility)
+        if (!$user->store_id) {
+            $user->update(['store_id' => $store->id]);
+        }
+
+        Log::info('Store created', [
+            'store_id' => $store->id,
+            'tenant_id' => $tenant->id,
+            'name' => $store->name,
+            'landing_subscription_id' => $landingSubscription->id,
         ]);
 
         return $store;
     }
 
     /**
-     * Generate unique store slug to avoid conflicts.
+     * Generate unique store code.
      */
-    private function generateUniqueStoreSlug(string $baseSlug, int $userId): string
+    protected function generateUniqueStoreCode(string $baseCode): string
     {
-        $slug = $baseSlug;
+        $code = $baseCode;
         $counter = 1;
         
-        // Check if slug exists for this user or globally
-        while (Store::where('slug', $slug)->exists()) {
-            $slug = $baseSlug . '-' . $counter;
+        while (Store::where('code', $code)->exists()) {
+            $code = $baseCode . '-' . $counter;
             $counter++;
         }
         
-        return $slug;
+        return $code;
     }
 
     /**
-     * Create subscription record.
+     * Buat store_user_assignments untuk owner.
      */
-    private function createSubscription(LandingSubscription $landingSubscription, User $user, Store $store): Subscription
+    protected function createStoreUserAssignment(Store $store, User $user): void
     {
-        $planId = $landingSubscription->plan ?? $landingSubscription->plan_id;
-        $billingCycle = $this->getBillingCycleFromMeta($landingSubscription);
-        
-        // Check for existing active subscription for this store
-        $existingSubscription = Subscription::where('store_id', $store->id)
-            ->where('status', 'active')
+        // Cek apakah sudah ada assignment
+        $existingAssignment = StoreUserAssignment::where('store_id', $store->id)
+            ->where('user_id', $user->id)
             ->first();
             
+        if ($existingAssignment) {
+            // Update ke owner dan primary jika belum
+            $existingAssignment->update([
+                'assignment_role' => AssignmentRoleEnum::OWNER,
+                'is_primary' => true,
+            ]);
+            return;
+        }
+
+        // Buat assignment baru
+        StoreUserAssignment::create([
+            'store_id' => $store->id,
+            'user_id' => $user->id,
+            'assignment_role' => AssignmentRoleEnum::OWNER,
+            'is_primary' => true,
+        ]);
+
+        Log::info('Store user assignment created', [
+            'store_id' => $store->id,
+            'user_id' => $user->id,
+            'role' => AssignmentRoleEnum::OWNER->value,
+        ]);
+    }
+
+    /**
+     * Buat atau update Subscription untuk tenant (handles new, renewal, upgrade, downgrade).
+     */
+    protected function createSubscription(
+        LandingSubscription $landingSubscription,
+        Tenant $tenant,
+        Plan $plan,
+        SubscriptionPayment $payment
+    ): Subscription {
+        // Cek apakah tenant sudah punya subscription aktif
+        $existingSubscription = $tenant->activeSubscription();
+            
+        if (! $existingSubscription) {
+            $existingSubscription = $tenant->subscriptions()
+                ->latest()
+                ->first();
+        }
+            
         if ($existingSubscription) {
-            // Update existing subscription instead of creating new one
-            $nextBillingDate = $billingCycle === 'yearly' 
+            // Determine action type
+            $actionType = 'renewal'; // default
+            if ($landingSubscription->isUpgrade()) {
+                $actionType = 'upgrade';
+            } elseif ($landingSubscription->isDowngrade()) {
+                $actionType = 'downgrade';
+            }
+            
+            // Calculate new end date
+            $billingCycle = $landingSubscription->billing_cycle ?? 'monthly';
+            $endsAt = $billingCycle === 'annual' 
                 ? now()->addYear() 
                 : now()->addMonth();
                 
+            // Update existing subscription
             $existingSubscription->update([
-                'plan_id' => $planId,
-                'billing_cycle' => $billingCycle,
-                'amount' => $landingSubscription->payment_amount,
-                'next_billing_date' => $nextBillingDate,
+                'plan_id' => $plan->id,
                 'status' => 'active',
+                'billing_cycle' => $billingCycle,
+                'starts_at' => now(),
+                'ends_at' => $endsAt,
+                'amount' => $payment->amount,
                 'metadata' => array_merge($existingSubscription->metadata ?? [], [
-                    'renewed_from_landing' => true,
+                    'action_type' => $actionType,
+                    'previous_plan_id' => $landingSubscription->previous_plan_id,
                     'landing_subscription_id' => $landingSubscription->id,
-                    'xendit_invoice_id' => $landingSubscription->xendit_invoice_id,
-                    'renewed_at' => now()->toISOString(),
-                ])
+                    'payment_id' => $payment->id,
+                    'updated_at' => now()->toISOString(),
+                ]),
             ]);
 
-            \Log::info('Existing subscription renewed', [
-                'subscription_id' => $existingSubscription->id,
-                'store_id' => $store->id,
-                'user_id' => $user->id,
-                'landing_subscription_id' => $landingSubscription->id
-            ]);
+            // Recreate subscription_usage if plan changed (upgrade/downgrade)
+            if ($landingSubscription->isPlanChange()) {
+                $this->recreateSubscriptionUsage($existingSubscription, $plan);
+                
+                Log::info("Subscription {$actionType} completed", [
+                    'subscription_id' => $existingSubscription->id,
+                    'tenant_id' => $tenant->id,
+                    'previous_plan_id' => $landingSubscription->previous_plan_id,
+                    'new_plan_id' => $plan->id,
+                    'change_type' => $landingSubscription->getChangeType(),
+                ]);
+            } else {
+                Log::info('Subscription renewed', [
+                    'subscription_id' => $existingSubscription->id,
+                    'tenant_id' => $tenant->id,
+                    'plan_id' => $plan->id,
+                ]);
+            }
 
             return $existingSubscription;
         }
         
-        // Calculate next billing date for new subscription
-        $nextBillingDate = $billingCycle === 'yearly' 
+        // Buat subscription baru (first time)
+        $billingCycle = $landingSubscription->billing_cycle ?? 'monthly';
+        $endsAt = $billingCycle === 'annual' 
             ? now()->addYear() 
             : now()->addMonth();
 
         $subscription = Subscription::create([
-            'user_id' => $user->id,
-            'store_id' => $store->id,
-            'plan_id' => $planId,
+            'tenant_id' => $tenant->id, // Subscription per tenant, bukan per store
+            'plan_id' => $plan->id,
             'status' => 'active',
             'billing_cycle' => $billingCycle,
-            'amount' => $landingSubscription->payment_amount,
-            'currency' => 'IDR',
-            'started_at' => now(),
-            'next_billing_date' => $nextBillingDate,
-            'trial_ends_at' => null, // No trial since they paid
+            'starts_at' => now(),
+            'ends_at' => $endsAt,
+            'amount' => $payment->amount,
             'metadata' => [
                 'source' => 'landing_page',
+                'action_type' => 'new',
                 'landing_subscription_id' => $landingSubscription->id,
-                'xendit_invoice_id' => $landingSubscription->xendit_invoice_id,
-            ]
+                'payment_id' => $payment->id,
+                'xendit_invoice_id' => $payment->xendit_invoice_id,
+                'provisioned_at' => now()->toISOString(),
+            ],
         ]);
 
-        \Log::info('New subscription created', [
+        Log::info('Subscription created', [
             'subscription_id' => $subscription->id,
-            'store_id' => $store->id,
-            'user_id' => $user->id,
-            'landing_subscription_id' => $landingSubscription->id
+            'tenant_id' => $tenant->id,
+            'plan_id' => $plan->id,
+            'billing_cycle' => $billingCycle,
         ]);
 
         return $subscription;
     }
 
     /**
-     * Update landing subscription with provisioned data.
+     * Recreate SubscriptionUsage untuk plan change (upgrade/downgrade).
+     * 
+     * IMPORTANT: This deletes existing usage and creates new ones based on new plan.
+     * Current usage data is preserved in metadata for audit.
      */
-    private function updateLandingSubscription(
+    protected function recreateSubscriptionUsage(Subscription $subscription, Plan $newPlan): void
+    {
+        // 1. Backup existing usage untuk audit trail
+        $existingUsage = SubscriptionUsage::where('subscription_id', $subscription->id)->get();
+        $usageBackup = $existingUsage->map(function ($usage) {
+            return [
+                'feature_type' => $usage->feature_type,
+                'current_usage' => $usage->current_usage,
+                'annual_quota' => $usage->annual_quota,
+                'backed_up_at' => now()->toISOString(),
+            ];
+        })->toArray();
+
+        // Save backup to subscription metadata
+        $subscription->update([
+            'metadata' => array_merge($subscription->metadata ?? [], [
+                'usage_backup_before_change' => $usageBackup,
+                'usage_recreated_at' => now()->toISOString(),
+            ]),
+        ]);
+
+        // 2. Delete existing usage records
+        SubscriptionUsage::where('subscription_id', $subscription->id)->delete();
+
+        Log::info('Subscription usage deleted for plan change', [
+            'subscription_id' => $subscription->id,
+            'records_deleted' => $existingUsage->count(),
+        ]);
+
+        // 3. Recreate dari new plan features
+        $this->createSubscriptionUsageFromPlan($subscription, $newPlan);
+    }
+
+    /**
+     * Buat SubscriptionUsage dari plan_features untuk tracking usage.
+     */
+    protected function createSubscriptionUsageFromPlan(Subscription $subscription, Plan $plan): void
+    {
+        // Ambil semua plan_features yang MAX_* (numeric limits yang perlu di-track)
+        $features = PlanFeature::where('plan_id', $plan->id)
+            ->where('is_enabled', true)
+            ->where('feature_code', 'LIKE', 'MAX_%')
+            ->get();
+
+        foreach ($features as $feature) {
+            // Map feature_code ke feature_type
+            $featureType = $this->mapFeatureCodeToType($feature->feature_code);
+            
+            if (!$featureType) {
+                continue; // Skip jika tidak ada mapping
+            }
+
+            // Cek apakah sudah ada usage record
+            $existingUsage = SubscriptionUsage::where('subscription_id', $subscription->id)
+                ->where('feature_type', $featureType)
+                ->first();
+
+            if ($existingUsage) {
+                continue; // Skip jika sudah ada
+            }
+
+            // Buat usage record
+            SubscriptionUsage::create([
+                'subscription_id' => $subscription->id,
+                'feature_type' => $featureType,
+                'current_usage' => 0,
+                'annual_quota' => $feature->getNumericLimit(),
+                'subscription_year_start' => $subscription->starts_at->startOfYear(),
+                'subscription_year_end' => $subscription->starts_at->endOfYear(),
+                'soft_cap_triggered' => false,
+            ]);
+
+            Log::info('Subscription usage created', [
+                'subscription_id' => $subscription->id,
+                'feature_type' => $featureType,
+                'feature_code' => $feature->feature_code,
+                'quota' => $feature->getNumericLimit(),
+            ]);
+        }
+    }
+
+    /**
+     * Map feature_code ke feature_type untuk subscription_usage.
+     */
+    protected function mapFeatureCodeToType(string $featureCode): ?string
+    {
+        $mapping = [
+            'MAX_TRANSACTIONS_PER_YEAR' => 'transactions',
+            'MAX_ORDERS_PER_MONTH' => 'orders',
+            // Tambahkan mapping lain sesuai kebutuhan
+        ];
+
+        return $mapping[$featureCode] ?? null;
+    }
+
+    /**
+     * Update landing_subscriptions dengan data yang sudah di-provision.
+     */
+    protected function updateLandingSubscription(
         LandingSubscription $landingSubscription, 
+        Tenant $tenant,
         User $user, 
         Store $store, 
         Subscription $subscription
@@ -274,68 +656,79 @@ class SubscriptionProvisioningService
             'provisioned_store_id' => $store->id,
             'subscription_id' => $subscription->id,
             'provisioned_at' => now(),
+            'processed_at' => now(),
             'onboarding_url' => $this->generateOnboardingUrl($user, $store),
+        ]);
+
+        Log::info('Landing subscription updated', [
+            'landing_subscription_id' => $landingSubscription->id,
+            'subscription_id' => $subscription->id,
         ]);
     }
 
     /**
-     * Send appropriate email based on user status.
+     * Update subscription_payment dengan subscription_id.
      */
-    private function sendWelcomeEmail(User $user, LandingSubscription $landingSubscription): void
+    protected function updateSubscriptionPayment(SubscriptionPayment $payment, Subscription $subscription): void
+    {
+        $payment->update([
+            'subscription_id' => $subscription->id,
+        ]);
+
+        Log::info('Subscription payment updated', [
+            'payment_id' => $payment->id,
+            'subscription_id' => $subscription->id,
+        ]);
+    }
+
+    /**
+     * Kirim email welcome + temporary password (jika user baru).
+     */
+    protected function sendWelcomeEmail(User $user, LandingSubscription $landingSubscription, Subscription $subscription): void
     {
         try {
-            // Determine if this is a new user or existing user
-            $isNewUser = $user->temporary_password !== null;
-            
-            if ($isNewUser) {
-                // Send welcome email with login credentials for new users
+            // Temporary password sudah di-set di user object sebelum method ini dipanggil
+            if (isset($user->temporary_password) && $user->temporary_password) {
+                // Kirim welcome email dengan temporary password
                 Mail::to($user->email)->send(new WelcomeNewOwner($user, $landingSubscription));
+                
+                Log::info('Welcome email sent', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                ]);
             } else {
-                // Send subscription confirmation email for existing users
-                Mail::to($user->email)->send(new \App\Mail\SubscriptionRenewalConfirmation($user, $landingSubscription));
+                // Kirim subscription confirmation untuk existing user
+                // TODO: Buat mail class SubscriptionRenewalConfirmation jika diperlukan
+                Log::info('Existing user - welcome email skipped', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                ]);
             }
         } catch (\Exception $e) {
-            \Log::error('Failed to send welcome/renewal email', [
+            Log::error('Failed to send welcome email', [
                 'user_id' => $user->id,
                 'email' => $user->email,
-                'is_new_user' => $isNewUser ?? false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
+            // Jangan throw error, email bukan critical path
         }
     }
 
     /**
-     * Get business type from meta data.
+     * Generate login URL untuk user.
      */
-    private function getBusinessTypeFromMeta(LandingSubscription $landingSubscription): string
-    {
-        $meta = $landingSubscription->meta ?? [];
-        return $meta['business_type'] ?? 'retail';
-    }
-
-    /**
-     * Get billing cycle from meta data.
-     */
-    private function getBillingCycleFromMeta(LandingSubscription $landingSubscription): string
-    {
-        $meta = $landingSubscription->meta ?? [];
-        return $meta['billing_cycle'] ?? $landingSubscription->billing_cycle ?? 'monthly';
-    }
-
-    /**
-     * Generate login URL for the user.
-     */
-    private function generateLoginUrl(): string
+    protected function generateLoginUrl(): string
     {
         return config('app.owner_url', url('/owner'));
     }
 
     /**
-     * Generate onboarding URL for the user.
+     * Generate onboarding URL untuk user.
      */
-    private function generateOnboardingUrl(User $user, Store $store): string
+    protected function generateOnboardingUrl(User $user, Store $store): string
     {
         $baseUrl = $this->generateLoginUrl();
-        return $baseUrl . '/onboarding?store=' . $store->slug . '&welcome=1';
+        return $baseUrl . '/onboarding?store=' . $store->code . '&welcome=1';
     }
 }

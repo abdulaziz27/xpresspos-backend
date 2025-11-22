@@ -9,10 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 use App\Services\StoreContext;
 use App\Traits\HasSubscriptionFeatures;
+use App\Models\Tenant;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 
@@ -29,8 +31,6 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
-        'store_id',
-        'midtrans_customer_id',
     ];
 
     /**
@@ -52,14 +52,6 @@ class User extends Authenticatable implements FilamentUser
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
-
-    /**
-     * Get the store that owns the user.
-     */
-    public function store(): BelongsTo
-    {
-        return $this->belongsTo(Store::class);
-    }
 
     public function storeAssignments(): HasMany
     {
@@ -87,25 +79,108 @@ class User extends Authenticatable implements FilamentUser
     {
         return StoreContext::instance()->current($this);
     }
-    
+
+    /**
+     * Get the primary store for the user (helper for backward compatibility).
+     * This is a convenience method that returns the primary store or first store.
+     */
+    public function store(): ?Store
+    {
+        // Try primary store first
+        $primaryStore = $this->primaryStore();
+        if ($primaryStore) {
+            return $primaryStore;
+        }
+
+        // Fallback to first store
+        return $this->stores()->first();
+    }
+
+    /**
+     * Get store_id attribute (accessor for backward compatibility).
+     */
+    public function getStoreIdAttribute(): ?string
+    {
+        $store = $this->store();
+        return $store?->id;
+    }
+
+    /**
+     * Get tenants that the user has access to.
+     */
+    public function tenants(): BelongsToMany
+    {
+        return $this->belongsToMany(Tenant::class, 'user_tenant_access')
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get user tenant access records (for RelationManager).
+     */
+    public function tenantAccesses(): HasMany
+    {
+        return $this->hasMany(\App\Models\UserTenantAccess::class);
+    }
+
+    /**
+     * Get the primary tenant for the user (first tenant with owner role).
+     */
+    public function currentTenant(): ?Tenant
+    {
+        $tenantAccess = DB::table('user_tenant_access')
+            ->where('user_id', $this->id)
+            ->where('role', 'owner')
+            ->first();
+
+        if ($tenantAccess) {
+            return Tenant::find($tenantAccess->tenant_id);
+        }
+
+        // Fallback: get first tenant if no owner role found
+        $firstTenant = $this->tenants()->first();
+        return $firstTenant;
+    }
+
+    /**
+     * Get current tenant ID from context.
+     */
+    public function currentTenantId(): ?string
+    {
+        $tenant = $this->currentTenant();
+        if ($tenant) {
+            return $tenant->id;
+        }
+
+        // Fallback: get tenant from primary store
+        $primaryStore = $this->primaryStore();
+        if ($primaryStore && $primaryStore->tenant_id) {
+            return $primaryStore->tenant_id;
+        }
+
+        return null;
+    }
+
     /**
      * Get roles with proper team context.
      */
     public function getRolesWithContext()
     {
-        if ($this->store_id) {
-            setPermissionsTeamId($this->store_id);
+        $tenantId = $this->currentTenantId();
+        if ($tenantId) {
+            setPermissionsTeamId($tenantId);
         }
         return $this->roles;
     }
-    
+
     /**
      * Get permissions with proper team context.
      */
     public function getPermissionsWithContext()
     {
-        if ($this->store_id) {
-            setPermissionsTeamId($this->store_id);
+        $tenantId = $this->currentTenantId();
+        if ($tenantId) {
+            setPermissionsTeamId($tenantId);
         }
         return $this->getAllPermissions();
     }
@@ -141,7 +216,7 @@ class User extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         // Set team context first to avoid SQL ambiguity
-        $storeId = $this->store_id ?? $this->primaryStore()?->id;
+        $storeId = $this->primaryStore()?->id ?? StoreContext::instance()->current($this);
         if ($storeId) {
             setPermissionsTeamId($storeId);
         }

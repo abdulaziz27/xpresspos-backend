@@ -6,6 +6,7 @@ use App\Models\CashSession;
 use App\Models\Category;
 use App\Models\CogsHistory;
 use App\Models\Expense;
+use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use App\Models\Member;
 use App\Models\MemberTier;
@@ -21,7 +22,9 @@ use App\Models\StoreUserAssignment;
 use App\Models\User;
 use App\Models\StaffPerformance;
 use App\Models\Table;
+use App\Models\Uom;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class OwnerDemoSeeder extends Seeder
 {
@@ -62,43 +65,55 @@ class OwnerDemoSeeder extends Seeder
                 [
                     'name' => 'Store Owner',
                     'password' => bcrypt('password123'),
-                    'store_id' => $store->id,
                     'email_verified_at' => now(),
                 ]
             );
         }
 
-        // CRITICAL: Always ensure store_id is set, even for existing users
-        if ($owner->store_id !== $store->id) {
-            $owner->store_id = $store->id;
-            $owner->save();
-            $this->command->info("Updated store_id for {$owner->email} to {$store->id}");
+        // CRITICAL: Create store_user_assignment for owner
+        \App\Models\StoreUserAssignment::updateOrCreate(
+            [
+                'store_id' => $store->id,
+                'user_id' => $owner->id,
+            ],
+            [
+                'assignment_role' => 'owner',
+                'is_primary' => true,
+            ]
+        );
+        $this->command->info("Created store_user_assignment for {$owner->email} to {$store->id}");
+        
+        // Get tenant from store
+        $tenant = $store->tenant;
+        if (!$tenant) {
+            $this->command->warn("⚠️ Store {$store->name} has no tenant. Skipping role assignment.");
+            return;
         }
         
         // Assign role with team context
         $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
-            ->where('store_id', $store->id)
+            ->where('tenant_id', $tenant->id)
             ->first();
         
         if ($ownerRole) {
             // CRITICAL: Always set team context BEFORE any role operation
-            setPermissionsTeamId($store->id);
+            setPermissionsTeamId($tenant->id);
             
-            // Force remove any existing role assignments for this user in this store
-            $owner->roles()->wherePivot('store_id', $store->id)->detach();
+            // Force remove any existing role assignments for this user in this tenant
+            $owner->roles()->wherePivot('tenant_id', $tenant->id)->detach();
             
             // Assign role fresh
             $owner->assignRole($ownerRole);
             
             // Verify assignment
             $owner->refresh();
-            setPermissionsTeamId($store->id);
+            setPermissionsTeamId($tenant->id);
             
             if (!$owner->hasRole('owner')) {
-                $this->command->warn("⚠️ Failed to assign owner role to {$owner->email} for store {$store->name}");
+                $this->command->warn("⚠️ Failed to assign owner role to {$owner->email} for tenant {$tenant->name}");
             }
         } else {
-            $this->command->warn("⚠️ Owner role not found for store {$store->name} (ID: {$store->id})");
+            $this->command->warn("⚠️ Owner role not found for tenant {$tenant->name} (ID: {$tenant->id})");
         }
         
         if ($owner) {
@@ -109,8 +124,7 @@ class OwnerDemoSeeder extends Seeder
         }
 
         // Pick a manager and cashier for sample data
-        $manager = User::where('store_id', $store->id)
-            ->whereHas('storeAssignments', function($q) use ($store) {
+        $manager = User::whereHas('storeAssignments', function($q) use ($store) {
                 $q->where('store_id', $store->id)->where('assignment_role', 'manager');
             })->first();
         
@@ -120,29 +134,28 @@ class OwnerDemoSeeder extends Seeder
                 [
                     'name' => 'Store Manager',
                     'password' => bcrypt('password123'),
-                    'store_id' => $store->id,
                     'email_verified_at' => now(),
                 ]
             );
             
             // Assign role with team context
             $managerRole = \Spatie\Permission\Models\Role::where('name', 'manager')
-                ->where('store_id', $store->id)
+                ->where('tenant_id', $tenant->id)
                 ->first();
             
             if ($managerRole) {
                 // CRITICAL: Always set team context BEFORE any role operation
-                setPermissionsTeamId($store->id);
+                setPermissionsTeamId($tenant->id);
                 
-                // Force remove any existing role assignments for this user in this store
-                $manager->roles()->wherePivot('store_id', $store->id)->detach();
+                // Force remove any existing role assignments for this user in this tenant
+                $manager->roles()->wherePivot('tenant_id', $tenant->id)->detach();
                 
                 // Assign role fresh
                 $manager->assignRole($managerRole);
                 
                 // Verify assignment
                 $manager->refresh();
-                setPermissionsTeamId($store->id);
+                setPermissionsTeamId($tenant->id);
             }
         }
         StoreUserAssignment::updateOrCreate(
@@ -150,8 +163,7 @@ class OwnerDemoSeeder extends Seeder
             ['assignment_role' => 'manager', 'is_primary' => false]
         );
 
-        $cashier = User::where('store_id', $store->id)
-            ->whereHas('storeAssignments', function($q) use ($store) {
+        $cashier = User::whereHas('storeAssignments', function($q) use ($store) {
                 $q->where('store_id', $store->id)->where('assignment_role', 'staff');
             })->first();
             
@@ -161,29 +173,28 @@ class OwnerDemoSeeder extends Seeder
                 [
                     'name' => 'Store Cashier',
                     'password' => bcrypt('password123'),
-                    'store_id' => $store->id,
                     'email_verified_at' => now(),
                 ]
             );
             
             // Assign role with team context
             $cashierRole = \Spatie\Permission\Models\Role::where('name', 'cashier')
-                ->where('store_id', $store->id)
+                ->where('tenant_id', $tenant->id)
                 ->first();
             
             if ($cashierRole) {
                 // CRITICAL: Always set team context BEFORE any role operation
-                setPermissionsTeamId($store->id);
+                setPermissionsTeamId($tenant->id);
                 
-                // Force remove any existing role assignments for this user in this store
-                $cashier->roles()->wherePivot('store_id', $store->id)->detach();
+                // Force remove any existing role assignments for this user in this tenant
+                $cashier->roles()->wherePivot('tenant_id', $tenant->id)->detach();
                 
                 // Assign role fresh
                 $cashier->assignRole($cashierRole);
                 
                 // Verify assignment
                 $cashier->refresh();
-                setPermissionsTeamId($store->id);
+                setPermissionsTeamId($tenant->id);
             }
         }
         StoreUserAssignment::updateOrCreate(
@@ -191,33 +202,38 @@ class OwnerDemoSeeder extends Seeder
             ['assignment_role' => 'staff', 'is_primary' => false]
         );
 
+        // Tenant already retrieved above for role assignment
+
         // Ensure default tiers exist
         /** @var LoyaltyService $loyaltyService */
         $loyaltyService = app(LoyaltyService::class);
-        if (MemberTier::withoutStoreScope()->where('store_id', $store->id)->count() === 0) {
-            $loyaltyService->initializeDefaultTiers($store->id);
+        if (MemberTier::where('tenant_id', $tenant->id)->count() === 0) {
+            $loyaltyService->initializeDefaultTiers($tenant->id);
         }
 
-        $silverTier = MemberTier::withoutStoreScope()
-            ->where('store_id', $store->id)
+        $silverTier = MemberTier::where('tenant_id', $tenant->id)
             ->where('slug', 'silver')
             ->first()
-            ?? MemberTier::withoutStoreScope()->where('store_id', $store->id)->ordered()->first();
+            ?? MemberTier::where('tenant_id', $tenant->id)->ordered()->first();
 
-        $member = Member::withoutStoreScope()->updateOrCreate(
-            ['store_id' => $store->id, 'email' => 'customer@example.com'],
-            [
-                'member_number' => 'MBR000001',
-                'name' => 'Sample Customer',
-                'phone' => '+6281234567890',
-                'loyalty_points' => 120,
-                'total_spent' => 150000,
-                'visit_count' => 8,
-                'tier_id' => $silverTier->id,
-                'is_active' => true,
-                'last_visit_at' => now()->subDays(2),
-            ]
-        );
+        $member = null;
+        if ($silverTier) {
+            $member = Member::updateOrCreate(
+                ['tenant_id' => $tenant->id, 'email' => 'customer@example.com'],
+                [
+                    'store_id' => $store->id,
+                    'member_number' => 'MBR000001',
+                    'name' => 'Sample Customer',
+                    'phone' => '+6281234567890',
+                    'loyalty_points' => 120,
+                    'total_spent' => 150000,
+                    'visit_count' => 8,
+                    'tier_id' => $silverTier->id,
+                    'is_active' => true,
+                    'last_visit_at' => now()->subDays(2),
+                ]
+            );
+        }
 
         // Categories
         $categories = [
@@ -228,8 +244,8 @@ class OwnerDemoSeeder extends Seeder
         ];
         $categoryMap = [];
         foreach ($categories as $cat) {
-            $c = Category::withoutStoreScope()->updateOrCreate(
-                ['store_id' => $store->id, 'slug' => $cat['slug']],
+            $c = Category::withoutTenantScope()->updateOrCreate(
+                ['tenant_id' => $store->tenant_id, 'slug' => $cat['slug']],
                 [
                     'name' => $cat['name'],
                     'description' => $cat['description'],
@@ -255,8 +271,8 @@ class OwnerDemoSeeder extends Seeder
         ];
         $products = [];
         foreach ($productsData as $pd) {
-            $products[$pd['sku']] = Product::withoutStoreScope()->updateOrCreate(
-                ['store_id' => $store->id, 'sku' => $pd['sku']],
+            $products[$pd['sku']] = Product::withoutTenantScope()->updateOrCreate(
+                ['tenant_id' => $store->tenant_id, 'sku' => $pd['sku']],
                 [
                     'category_id' => $categoryMap[$pd['cat']]->id,
                     'name' => $pd['name'],
@@ -264,8 +280,6 @@ class OwnerDemoSeeder extends Seeder
                     'price' => $pd['price'],
                     'cost_price' => $pd['cost'],
                     'track_inventory' => true,
-                    'stock' => $pd['stock'],
-                    'min_stock_level' => $pd['min'],
                     'status' => true,
                 ]
             );
@@ -301,8 +315,8 @@ class OwnerDemoSeeder extends Seeder
         foreach ($recipeSpecs as $spec) {
             if (!isset($products[$spec['sku']])) continue;
             $prod = $products[$spec['sku']];
-            $recipe = Recipe::withoutStoreScope()->updateOrCreate(
-                ['store_id' => $store->id, 'product_id' => $prod->id],
+            $recipe = Recipe::withoutTenantScope()->updateOrCreate(
+                ['tenant_id' => $store->tenant_id, 'product_id' => $prod->id],
                 [
                     'name' => $spec['name'],
                     'description' => $spec['name'] . ' recipe',
@@ -315,22 +329,46 @@ class OwnerDemoSeeder extends Seeder
             );
             foreach ($spec['ingredients'] as $ing) {
                 if (!isset($products[$ing['ref']])) continue;
-                $ingProduct = $products[$ing['ref']];
-                $recipe->items()->updateOrCreate(
-                    ['store_id' => $store->id, 'ingredient_product_id' => $ingProduct->id],
+                
+                // Get or create inventory item for this product
+                $inventoryItem = InventoryItem::withoutTenantScope()->firstOrCreate(
                     [
-                        'store_id' => $store->id,
+                        'tenant_id' => $store->tenant_id,
+                        'sku' => 'INV-' . $ing['ref'],
+                    ],
+                    [
+                        'name' => $products[$ing['ref']]->name . ' (Bahan)',
+                        'category' => 'ingredient',
+                        'uom_id' => $this->getUomIdByCode($ing['unit']),
+                        'default_cost' => $ing['unit_cost'],
+                        'track_stock' => true,
+                        'track_lot' => false,
+                        'status' => 'active',
+                    ]
+                );
+                
+                // Get UOM ID for the ingredient
+                $uomId = $this->getUomIdByCode($ing['unit']);
+                
+                RecipeItem::withoutTenantScope()->updateOrCreate(
+                    [
+                        'recipe_id' => $recipe->id,
+                        'tenant_id' => $store->tenant_id,
+                        'inventory_item_id' => $inventoryItem->id,
+                    ],
+                    [
+                        'tenant_id' => $store->tenant_id,
                         'quantity' => $ing['qty'],
-                        'unit' => $ing['unit'],
+                        'uom_id' => $uomId,
                         'unit_cost' => $ing['unit_cost'],
-                        'total_cost' => $ing['unit_cost'],
+                        'total_cost' => $ing['unit_cost'] * $ing['qty'],
                     ]
                 );
             }
         }
 
         // Cash sessions (morning & afternoon)
-        $cashSession = CashSession::withoutStoreScope()->updateOrCreate(
+        $cashSession = CashSession::updateOrCreate(
             ['store_id' => $store->id, 'opened_at' => now()->startOfDay()],
             [
                 'user_id' => $cashier?->id ?? $owner?->id,
@@ -342,7 +380,7 @@ class OwnerDemoSeeder extends Seeder
                 'notes' => 'Morning shift session',
             ]
         );
-        $afternoonSession = CashSession::withoutStoreScope()->updateOrCreate(
+        $afternoonSession = CashSession::updateOrCreate(
             ['store_id' => $store->id, 'opened_at' => now()->startOfDay()->addHours(8)],
             [
                 'user_id' => $cashier?->id ?? $owner?->id,
@@ -356,7 +394,7 @@ class OwnerDemoSeeder extends Seeder
         );
 
         // Expense
-        Expense::withoutStoreScope()->updateOrCreate(
+        Expense::updateOrCreate(
             ['store_id' => $store->id, 'description' => 'Milk restock'],
             [
                 'cash_session_id' => $cashSession->id,
@@ -369,47 +407,101 @@ class OwnerDemoSeeder extends Seeder
             ]
         );
 
-        // Inventory movements (restocks)
-        InventoryMovement::withoutStoreScope()->updateOrCreate(
-            ['store_id' => $store->id, 'reference_id' => 'restock-001'],
-            [
-                'product_id' => $products['ESP-001']->id,
-                'user_id' => $manager?->id ?? $owner?->id,
-                'type' => 'purchase',
-                'quantity' => 50,
-                'unit_cost' => 6000,
-                'total_cost' => 300000,
-                'reason' => 'Restock beans',
-                'reference_type' => 'purchase_order',
-                'notes' => 'Restocked coffee beans from supplier',
-            ]
-        );
-        InventoryMovement::withoutStoreScope()->updateOrCreate(
-            ['store_id' => $store->id, 'reference_id' => 'restock-002'],
-            [
-                'product_id' => $products['CAP-001']->id,
-                'user_id' => $manager?->id ?? $owner?->id,
-                'type' => 'purchase',
-                'quantity' => 30,
-                'unit_cost' => 9000,
-                'total_cost' => 270000,
-                'reason' => 'Restock milk & beans',
-                'reference_type' => 'purchase_order',
-                'notes' => 'Restocked cappuccino ingredients',
-            ]
-        );
+        // Inventory movements (restocks) - Create initial stock via adjustments
+        // Create inventory adjustments to set initial stock levels for all inventory items
+        $this->command->info('Creating initial inventory stock via adjustments...');
+        
+        // Get all inventory items created during recipe seeding
+        $allInventoryItems = InventoryItem::withoutTenantScope()
+            ->where('tenant_id', $store->tenant_id)
+            ->get();
+        
+        // Also create inventory items for products that don't have recipes
+        foreach ($products as $sku => $product) {
+            $inventoryItem = InventoryItem::withoutTenantScope()
+                ->where('tenant_id', $store->tenant_id)
+                ->where('sku', 'INV-' . $sku)
+                ->first();
+            
+            if (!$inventoryItem) {
+                // Create inventory item if not exists
+                $inventoryItem = InventoryItem::withoutTenantScope()->create([
+                    'tenant_id' => $store->tenant_id,
+                    'sku' => 'INV-' . $sku,
+                    'name' => $product->name . ' (Bahan)',
+                    'category' => 'ingredient',
+                    'uom_id' => $this->getUomIdByCode('pcs'),
+                    'default_cost' => $product->cost_price ?? 0,
+                    'track_stock' => true,
+                    'track_lot' => false,
+                    'status' => 'active',
+                ]);
+                $allInventoryItems->push($inventoryItem);
+            }
+        }
+        
+        // Group items by adjustment (batch per adjustment for efficiency)
+        $adjustmentItems = [];
+        foreach ($allInventoryItems as $inventoryItem) {
+            // Extract SKU from inventory item (remove 'INV-' prefix)
+            $productSku = str_replace('INV-', '', $inventoryItem->sku);
+            
+            // Find corresponding product data
+            $productDataKey = array_search($productSku, array_column($productsData, 'sku'));
+            $initialStock = $productDataKey !== false ? $productsData[$productDataKey]['stock'] ?? 0 : 100; // Default 100 if not found
+            
+            if ($initialStock > 0) {
+                $adjustmentItems[] = [
+                    'inventory_item' => $inventoryItem,
+                    'initial_stock' => $initialStock,
+                ];
+            }
+        }
+        
+        // Create one adjustment for all items
+        if (!empty($adjustmentItems)) {
+            $adjustment = \App\Models\InventoryAdjustment::create([
+                'tenant_id' => $store->tenant_id,
+                'store_id' => $store->id,
+                'user_id' => $owner?->id,
+                'adjustment_number' => 'ADJ-' . now()->format('Ymd') . '-001',
+                'status' => 'approved',
+                'reason' => 'INITIAL',
+                'adjusted_at' => now()->subDays(7), // Set initial stock 7 days ago
+                'notes' => 'Initial stock from seeder',
+            ]);
+            
+            foreach ($adjustmentItems as $item) {
+                $inventoryItem = $item['inventory_item'];
+                $initialStock = $item['initial_stock'];
+                
+                // Create adjustment item
+                \App\Models\InventoryAdjustmentItem::create([
+                    'inventory_adjustment_id' => $adjustment->id,
+                    'inventory_item_id' => $inventoryItem->id,
+                    'system_qty' => 0,
+                    'counted_qty' => $initialStock,
+                    'difference_qty' => $initialStock,
+                    'unit_cost' => $inventoryItem->default_cost ?? 0,
+                    'total_cost' => ($inventoryItem->default_cost ?? 0) * $initialStock,
+                ]);
+            }
+            
+            // Generate inventory movements (this will also update stock levels)
+            $adjustment->generateInventoryMovements();
+            $this->command->info("✅ Created initial stock for " . count($adjustmentItems) . " inventory items via adjustment");
+        }
 
-        // Generate recent orders for today and the past 5 days (total 50 orders)
+        // Generate recent orders for the past 5 days (total 50 orders, maksimal hari kemarin)
         // Use only enum-allowed methods from payments migration
         $paymentMethods = ['cash', 'qris', 'credit_card', 'debit_card', 'bank_transfer', 'e_wallet'];
-        $todayCount = 10; // 10 orders today
-        $pastDays = 4; // 4 days ago (total 5 days including today)
+        $pastDays = 4; // 4 days ago (total 5 days, mulai dari hari kemarin)
 
         $orderSeq = [];
-        for ($d = 0; $d <= $pastDays; $d++) {
+        for ($d = 1; $d <= $pastDays + 1; $d++) {
             $date = now()->subDays($d);
-            // Distribute 50 orders across 5 days: 10 today, 10 per past day
-            $ordersPerDay = $d === 0 ? $todayCount : 10;
+            // Distribute 50 orders across 5 days: 10 per day (maksimal hari kemarin)
+            $ordersPerDay = 10;
             $dateKey = $date->format('Ymd');
             // Initialize sequence from existing orders on that date (if any)
             $orderSeq[$dateKey] = Order::withoutGlobalScopes()->whereDate('created_at', $date->toDateString())->count();
@@ -421,6 +513,7 @@ class OwnerDemoSeeder extends Seeder
                 $orderNumber = 'ORD' . $dateKey . str_pad($orderSeq[$dateKey], 4, '0', STR_PAD_LEFT);
 
                 $order = Order::withoutGlobalScopes()->create([
+                    'tenant_id' => $store->tenant_id,
                     'store_id' => $store->id,
                     'user_id' => $cashier?->id ?? $owner?->id,
                     'member_id' => $customer?->id,
@@ -431,7 +524,7 @@ class OwnerDemoSeeder extends Seeder
                     'discount_amount' => 0,
                     'service_charge' => 0,
                     'total_amount' => 0,
-                    'notes' => $d === 0 ? 'Order today' : 'Historical order',
+                    'notes' => 'Historical order',
                     'created_at' => $orderTime,
                     'updated_at' => $orderTime,
                     'completed_at' => $orderTime->copy()->addMinutes(5),
@@ -446,7 +539,7 @@ class OwnerDemoSeeder extends Seeder
                 foreach ($chosen as $sku) {
                     $p = $products[$sku];
                     $qty = rand(1, 2);
-                    $item = OrderItem::withoutStoreScope()->create([
+                    $item = OrderItem::create([
                         'store_id' => $store->id,
                         'order_id' => $order->id,
                         'product_id' => $p->id,
@@ -461,7 +554,7 @@ class OwnerDemoSeeder extends Seeder
                     $lineTotal += (float) $item->total_price;
 
                     // Record simple COGS history using product cost_price
-                    CogsHistory::withoutStoreScope()->create([
+                    CogsHistory::create([
                         'store_id' => $store->id,
                         'product_id' => $p->id,
                         'order_id' => $order->id,
@@ -487,7 +580,7 @@ class OwnerDemoSeeder extends Seeder
                 ]);
 
                 // Payment
-                Payment::withoutStoreScope()->create([
+                Payment::create([
                     'store_id' => $store->id,
                     'order_id' => $order->id,
                     'payment_method' => $paymentMethods[array_rand($paymentMethods)],
@@ -501,13 +594,14 @@ class OwnerDemoSeeder extends Seeder
             }
         }
 
-        // Staff performance sample
-        StaffPerformance::withoutStoreScope()->updateOrCreate(
-            ['store_id' => $store->id, 'user_id' => $cashier?->id ?? $owner?->id, 'date' => now()->toDateString()],
+        // Staff performance sample (hari kemarin)
+        $yesterday = now()->subDay();
+        StaffPerformance::updateOrCreate(
+            ['store_id' => $store->id, 'user_id' => $cashier?->id ?? $owner?->id, 'date' => $yesterday->toDateString()],
             [
-                'orders_processed' => $todayCount,
-                'total_sales' => Payment::withoutStoreScope()->where('store_id', $store->id)->whereDate('created_at', now())->sum('amount'),
-                'average_order_value' => Order::withoutGlobalScopes()->where('store_id', $store->id)->whereDate('created_at', now())->avg('total_amount') ?? 0,
+                'orders_processed' => Order::withoutGlobalScopes()->where('store_id', $store->id)->whereDate('created_at', $yesterday)->count(),
+                'total_sales' => Payment::where('store_id', $store->id)->whereDate('created_at', $yesterday)->sum('amount'),
+                'average_order_value' => Order::withoutGlobalScopes()->where('store_id', $store->id)->whereDate('created_at', $yesterday)->avg('total_amount') ?? 0,
                 'additional_metrics' => [
                     'note' => 'Auto-generated performance data'
                 ],
@@ -515,11 +609,35 @@ class OwnerDemoSeeder extends Seeder
         );
 
         // Simple table occupancy snapshot (if tables exist)
-        $table = Table::withoutStoreScope()->first();
+        $table = Table::first();
         if ($table) {
             $table->update(['status' => 'available']);
         }
 
         $this->command?->info('Owner demo data seeded for store: ' . $store->name);
+    }
+
+    /**
+     * Get UOM ID by code, fallback to 'pcs' if not found.
+     */
+    private function getUomIdByCode(string $code): string
+    {
+        $uom = Uom::where('code', strtolower($code))->first();
+        
+        if (!$uom) {
+            // Fallback to 'pcs' if UOM not found
+            $uom = Uom::where('code', 'pcs')->first();
+        }
+        
+        if (!$uom) {
+            // If still not found, get first UOM
+            $uom = Uom::first();
+        }
+        
+        if (!$uom) {
+            throw new \Exception('No UOM found in database. Please run UomSeeder first.');
+        }
+        
+        return $uom->id;
     }
 }

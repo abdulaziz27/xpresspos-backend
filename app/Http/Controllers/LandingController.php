@@ -9,7 +9,9 @@ use Illuminate\Support\Facades\DB;
 use App\Models\User;
 use App\Models\LandingSubscription;
 use App\Models\Plan;
+use App\Models\Subscription;
 use App\Services\XenditService;
+use App\Services\RegistrationProvisioningService;
 use Illuminate\Validation\ValidationException;
 
 class LandingController extends Controller
@@ -18,9 +20,33 @@ class LandingController extends Controller
     {
         $plans = Plan::active()->ordered()->get();
         
+        // Get current user's tenant and active plan (for dynamic pricing UI)
+        $currentPlan = null;
+        $tenant = null;
+        
+        if (Auth::check()) {
+            $user = Auth::user();
+            $tenant = $user->currentTenant();
+            
+            if ($tenant) {
+                $activeSubscription = $tenant->activeSubscription();
+                $currentPlanId = $activeSubscription?->plan_id;
+
+                if (! $currentPlanId) {
+                    $currentPlanId = Subscription::where('tenant_id', $tenant->id)
+                        ->latest('created_at')
+                        ->value('plan_id');
+                }
+
+                $currentPlan = $currentPlanId ? Plan::find($currentPlanId) : null;
+            }
+        }
+        
         return view('landing.xpresspos', [
             'title' => 'XpressPOS - AI Maksimalkan Bisnismu',
-            'plans' => $plans
+            'plans' => $plans,
+            'currentPlan' => $currentPlan,
+            'tenant' => $tenant,
         ]);
     }
 
@@ -41,15 +67,15 @@ class LandingController extends Controller
             
             $user = Auth::user();
             
-            // Redirect berdasarkan role user
+            // Redirect berdasarkan role user atau intended URL
             // Admin sistem dan super admin -> Admin panel
             // Check role tanpa team context karena ini adalah global roles
             if ($user->hasRole(['admin_sistem', 'super_admin'])) {
-                return redirect()->to(config('app.admin_url', '/admin'));
+                return redirect()->intended(config('app.admin_url', '/admin'));
             }
             
-            // Owner dan role lainnya -> Owner panel
-            return redirect()->to(config('app.owner_url', '/owner'));
+            // Owner dan role lainnya -> Owner panel atau intended URL (e.g., checkout)
+            return redirect()->intended(config('app.owner_url', '/owner'));
         }
 
         throw ValidationException::withMessages([
@@ -74,15 +100,19 @@ class LandingController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'email_verified_at' => now(), // Auto-verify for now (implement email verification later if needed)
         ]);
 
         // Assign default role
         $user->assignRole('owner');
 
+        // Auto-provision tenant + store for new user
+        app(RegistrationProvisioningService::class)->provisionFor($user);
+
         Auth::login($user);
 
-        // Redirect ke owner panel untuk user baru
-        return redirect()->to(config('app.owner_url', '/owner'));
+        // Redirect to intended URL (e.g., checkout) or default to owner panel
+        return redirect()->intended(config('app.owner_url', '/owner'));
     }
 
     public function logout(Request $request)
@@ -102,72 +132,214 @@ class LandingController extends Controller
     {
         $plans = Plan::active()->ordered()->get();
         
-        return view('landing.pricing', compact('plans'));
+        // Get current user's tenant and active plan (for dynamic pricing UI)
+        $currentPlan = null;
+        $tenant = null;
+        
+        if (Auth::check()) {
+            $user = Auth::user();
+            $tenant = $user->currentTenant();
+            
+            if ($tenant) {
+                $activeSubscription = $tenant->activeSubscription();
+                $currentPlan = $activeSubscription?->plan;
+            }
+        }
+        
+        return view('landing.pricing', compact('plans', 'currentPlan', 'tenant'));
     }
 
     /**
      * Show checkout page for selected plan.
+     * 
+     * AUTHENTICATED FLOW: Support plan_id (integer) atau plan (slug) untuk backward compatibility.
      */
     public function showCheckout(Request $request)
     {
         $request->validate([
-            'plan' => 'required|in:basic,pro,enterprise',
-            'billing' => 'required|in:monthly,yearly'
+            'plan_id' => 'nullable|exists:plans,id', // Primary: plan_id (integer)
+            'plan' => 'nullable|string', // Secondary: slug (for backward compatibility)
+            'billing' => 'required|in:monthly,yearly',
+            'coupon_code' => 'nullable|string|max:255',
         ]);
 
-        $plan = Plan::where('slug', $request->plan)->firstOrFail();
+        // Prioritize plan_id over slug
+        if ($request->has('plan_id')) {
+            $plan = Plan::findOrFail($request->plan_id);
+        } elseif ($request->has('plan')) {
+            $plan = Plan::where('slug', $request->plan)->firstOrFail();
+        } else {
+            return redirect()->route('landing.pricing')
+                ->with('error', 'Silakan pilih plan terlebih dahulu.');
+        }
+
         $billing = $request->billing;
         $price = $billing === 'yearly' ? $plan->annual_price : $plan->price;
+        $originalPrice = $price;
+        
+        // Apply coupon if provided
+        $couponData = null;
+        $discountAmount = 0;
+        if ($request->coupon_code) {
+            $tenantId = null;
+            if (Auth::check()) {
+                $tenant = Auth::user()->currentTenant();
+                $tenantId = $tenant?->id;
+            }
+            
+            $couponService = app(\App\Services\SubscriptionCouponService::class);
+            $couponResult = $couponService->validateAndCalculate(
+                strtoupper(trim($request->coupon_code)),
+                $price,
+                $tenantId,
+                $plan
+            );
+            
+            if ($couponResult['valid']) {
+                $price = $couponResult['final_amount'];
+                $discountAmount = $couponResult['discount_amount'];
+                $couponData = [
+                    'code' => $couponResult['voucher']->code,
+                    'discount_amount' => $couponResult['discount_amount'],
+                    'discount_percentage' => $couponResult['discount_percentage'],
+                    'promotion_name' => $couponResult['promotion']->name ?? null,
+                ];
+            }
+        }
+        
         $total = $price; // No tax for now
+
+        // Detect upgrade/downgrade for authenticated users
+        $currentPlan = null;
+        $isUpgrade = false;
+        $isDowngrade = false;
+        $changeType = 'new'; // new, upgrade, downgrade
+        
+        if (Auth::check()) {
+            $user = Auth::user();
+            $tenant = $user->currentTenant();
+            
+            if ($tenant) {
+                $activeSubscription = $tenant->activeSubscription();
+                $currentPlan = $activeSubscription?->plan;
+                
+                if ($currentPlan) {
+                    if ($plan->sort_order > $currentPlan->sort_order) {
+                        $isUpgrade = true;
+                        $changeType = 'upgrade';
+                    } elseif ($plan->sort_order < $currentPlan->sort_order) {
+                        $isDowngrade = true;
+                        $changeType = 'downgrade';
+                    }
+                }
+            }
+        }
 
         return view('landing.checkout', [
             'plan' => $plan,
-            'planId' => $request->plan,
+            'planId' => $plan->id, // Use plan_id (integer) instead of slug
             'billing' => $billing,
             'price' => $price,
+            'original_price' => $originalPrice,
+            'discount_amount' => $discountAmount,
+            'coupon' => $couponData,
+            'coupon_code' => $request->coupon_code,
             'tax' => 0, // No tax
-            'total' => $total
+            'total' => $total,
+            'currentPlan' => $currentPlan,
+            'isUpgrade' => $isUpgrade,
+            'isDowngrade' => $isDowngrade,
+            'changeType' => $changeType,
         ]);
     }
 
     /**
      * Process subscription registration and create payment.
+     * 
+     * AUTHENTICATED FLOW: User harus login dulu, wajib isi user_id & tenant_id.
      */
     public function processSubscription(Request $request)
     {
+        // Wajib authenticated untuk checkout
+        if (!Auth::check()) {
+            return redirect()->route('landing.login')
+                ->with('error', 'Silakan login terlebih dahulu untuk melanjutkan checkout.');
+        }
+
+        $user = Auth::user();
+        $tenant = $user->currentTenant();
+
+        if (!$tenant) {
+            return redirect()->route('landing.login')
+                ->with('error', 'Anda belum memiliki tenant. Silakan hubungi administrator.');
+        }
+
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'phone' => 'required|string|max:20',
-            'business_name' => 'required|string|max:255',
-            'business_type' => 'required|string|max:100',
-            'plan_id' => 'required|in:basic,pro,enterprise',
+            'plan_id' => 'required|exists:plans,id', // Changed to plan_id (integer)
             'billing_cycle' => 'required|in:monthly,yearly'
-            // payment_method removed - will be selected in payment page
         ]);
 
         try {
             DB::beginTransaction();
 
-            // Calculate amount from database
-            $plan = Plan::where('slug', $request->plan_id)->firstOrFail();
+            // Get plan by ID (not slug)
+            $plan = Plan::findOrFail($request->plan_id);
+            
+            // Calculate amount
             $amount = $request->billing_cycle === 'yearly' ? $plan->annual_price : $plan->price;
-            // No tax calculation
-            $totalAmount = $amount; // No tax
+            $totalAmount = $amount; // No tax for now
 
-            // Create landing subscription with calculated amount
+            // Detect upgrade/downgrade
+            $activeSubscription = $tenant->activeSubscription();
+            $currentPlanId = $activeSubscription?->plan_id;
+
+            if (! $currentPlanId) {
+                $currentPlanId = Subscription::where('tenant_id', $tenant->id)
+                    ->latest('created_at')
+                    ->value('plan_id');
+            }
+
+            $currentPlan = $currentPlanId ? Plan::find($currentPlanId) : null;
+            $isUpgrade = false;
+            $isDowngrade = false;
+            
+            if ($currentPlan) {
+                if ($plan->sort_order > $currentPlan->sort_order) {
+                    $isUpgrade = true;
+                } elseif ($plan->sort_order < $currentPlan->sort_order) {
+                    $isDowngrade = true;
+                }
+            }
+
+            // Create landing subscription dengan authenticated flow
             $landingSubscription = LandingSubscription::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'phone' => $request->phone,
-                'business_name' => $request->business_name,
-                'business_type' => $request->business_type,
-                'plan_id' => $request->plan_id,
+                // Authenticated checkout fields (WAJIB)
+                'user_id' => $user->id,
+                'tenant_id' => $tenant->id,
+                'plan_id' => $plan->id,
                 'billing_cycle' => $request->billing_cycle,
                 'payment_amount' => $totalAmount,
-                'status' => 'pending_payment',
+                
+                // Status tracking
+                'status' => 'pending',
                 'stage' => 'payment_pending',
-                'payment_status' => 'pending'
+                'payment_status' => 'pending',
+                
+                // Upgrade/Downgrade tracking
+                'is_upgrade' => $isUpgrade,
+                'is_downgrade' => $isDowngrade,
+                'previous_plan_id' => $currentPlan?->id,
+                
+                // Legacy fields (optional, untuk backward compatibility)
+                'email' => $user->email,
+                'name' => $user->name,
+                'business_name' => $tenant->name,
+                'meta' => [
+                    'source' => 'dashboard',
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'change_type' => $isUpgrade ? 'upgrade' : ($isDowngrade ? 'downgrade' : 'new'),
+                ],
             ]);
 
             DB::commit();
@@ -295,41 +467,257 @@ class LandingController extends Controller
             return redirect()->route('landing.home')->with('error', 'Subscription not found.');
         }
 
-        // Auto-provision account if payment is successful and not yet provisioned
-        if ($subscription->payment_status === 'paid' && !$subscription->provisioned_user_id) {
-            $provisioningService = app(\App\Services\SubscriptionProvisioningService::class);
-            $result = $provisioningService->provisionSubscription($subscription);
-            
-            if ($result['success']) {
-                // Auto-login the user and redirect to owner dashboard
-                $user = \App\Models\User::find($result['user_id']);
+        // Check payment status from Xendit (important for simulated payments)
+        // This ensures we catch payments even if webhook didn't fire
+        $payment = $subscription->latestSubscriptionPayment;
+        
+        // If no payment record exists but we have xendit_invoice_id, create it
+        if (!$payment && $subscription->xendit_invoice_id) {
+            try {
+                $xenditService = app(\App\Services\XenditService::class);
+                $invoiceResult = $xenditService->getInvoice($subscription->xendit_invoice_id);
                 
-                if ($user) {
-                    auth()->login($user);
+                if ($invoiceResult['success']) {
+                    $invoiceData = $invoiceResult['data'];
                     
-                    return redirect()
-                        ->route('filament.owner.pages.dashboard')
-                        ->with('success', 'Welcome! Your subscription is now active. Check your email for login credentials.');
+                    // Create payment record from Xendit invoice
+                    // For dummy invoices, use subscription amount if invoice amount doesn't match
+                    $invoiceAmount = $invoiceData['amount'] ?? $subscription->payment_amount;
+                    if (str_starts_with($subscription->xendit_invoice_id, 'dummy_') && $invoiceAmount != $subscription->payment_amount) {
+                        $invoiceAmount = $subscription->payment_amount;
+                        $invoiceData['amount'] = $subscription->payment_amount;
+                        $invoiceData['paid_amount'] = $subscription->payment_amount;
+                    }
+                    
+                    $payment = \App\Models\SubscriptionPayment::create([
+                        'landing_subscription_id' => $subscription->id,
+                        'xendit_invoice_id' => $subscription->xendit_invoice_id,
+                        'external_id' => $invoiceData['external_id'] ?? 'LS-' . $subscription->id . '-' . time(),
+                        'amount' => $invoiceAmount,
+                        'status' => $this->mapXenditStatus($invoiceData['status'] ?? 'PENDING'),
+                        'gateway_response' => $invoiceData,
+                        'paid_at' => isset($invoiceData['paid_at']) ? ($invoiceData['status'] === 'PAID' ? now() : null) : null,
+                        'expires_at' => isset($invoiceData['expiry_date']) ? \Carbon\Carbon::parse($invoiceData['expiry_date']) : null,
+                    ]);
+                    
+                    \Log::info('Created payment record from Xendit on success page', [
+                        'landing_subscription_id' => $subscription->id,
+                        'payment_id' => $payment->id,
+                    ]);
                 }
-                
-                // Fallback: show success page with login info
-                $subscription->refresh();
-                
-                return view('landing.payment-success', [
-                    'subscription' => $subscription,
-                    'provisioning' => $result,
-                    'showLoginInfo' => true,
-                    'loginUrl' => $result['login_url'],
-                    'temporaryPassword' => $result['temporary_password']
+            } catch (\Exception $e) {
+                \Log::warning('Failed to create payment record from Xendit', [
+                    'landing_subscription_id' => $subscription->id,
+                    'error' => $e->getMessage(),
                 ]);
+            }
+        }
+        
+        if ($payment && $subscription->xendit_invoice_id) {
+            try {
+                $xenditService = app(\App\Services\XenditService::class);
+                $invoiceResult = $xenditService->getInvoice($subscription->xendit_invoice_id);
+                
+                if ($invoiceResult['success'] && isset($invoiceResult['data']['status'])) {
+                    $xenditStatus = $invoiceResult['data']['status'];
+                    
+                    \Log::info('Checking Xendit payment status on success page', [
+                        'landing_subscription_id' => $subscription->id,
+                        'payment_id' => $payment->id,
+                        'xendit_status' => $xenditStatus,
+                        'current_payment_status' => $payment->status,
+                        'current_subscription_status' => $subscription->payment_status,
+                    ]);
+                    
+                    // Update payment status if it's paid on Xendit but not in our database
+                    // For dummy invoices in development, this will always be PAID
+                    // SETTLED is also considered PAID
+                    if (in_array(strtoupper($xenditStatus), ['PAID', 'SETTLED'])) {
+                        // For dummy invoices, ensure amount matches subscription
+                        if (str_starts_with($subscription->xendit_invoice_id, 'dummy_')) {
+                            $invoiceResult['data']['amount'] = $subscription->payment_amount;
+                            $invoiceResult['data']['paid_amount'] = $subscription->payment_amount;
+                        }
+                        
+                        // Always update if Xendit says PAID, regardless of current status
+                        $payment->updateFromXenditCallback($invoiceResult['data']);
+                        $payment->refresh();
+                        
+                        // Update landing subscription status
+                        $subscription->update([
+                            'payment_status' => 'paid',
+                            'status' => 'paid',
+                            'stage' => 'payment_completed',
+                            'paid_at' => $payment->paid_at ?? now(),
+                        ]);
+                        $subscription->refresh();
+                        
+                        \Log::info('Payment status synced from Xendit on success page', [
+                            'landing_subscription_id' => $subscription->id,
+                            'payment_id' => $payment->id,
+                            'xendit_status' => $xenditStatus,
+                            'new_payment_status' => $payment->status,
+                            'new_subscription_status' => $subscription->payment_status,
+                        ]);
+                    } else {
+                        \Log::warning('Xendit invoice is not PAID yet', [
+                            'landing_subscription_id' => $subscription->id,
+                            'xendit_status' => $xenditStatus,
+                        ]);
+                    }
+                } else {
+                    \Log::warning('Failed to get invoice status from Xendit', [
+                        'landing_subscription_id' => $subscription->id,
+                        'success' => $invoiceResult['success'] ?? false,
+                        'error' => $invoiceResult['error'] ?? 'Unknown error',
+                    ]);
+                }
+                } catch (\Exception $e) {
+                \Log::warning('Failed to check Xendit payment status on success page', [
+                    'landing_subscription_id' => $subscription->id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        } elseif (!$payment && $subscription->xendit_invoice_id) {
+            // If no payment record but we have xendit_invoice_id, try to create it and check status
+            try {
+                $xenditService = app(\App\Services\XenditService::class);
+                $invoiceResult = $xenditService->getInvoice($subscription->xendit_invoice_id);
+                
+                if ($invoiceResult['success'] && isset($invoiceResult['data']['status'])) {
+                    $invoiceData = $invoiceResult['data'];
+                    
+                    // Create payment record
+                    $payment = \App\Models\SubscriptionPayment::create([
+                        'landing_subscription_id' => $subscription->id,
+                        'xendit_invoice_id' => $subscription->xendit_invoice_id,
+                        'external_id' => $invoiceData['external_id'] ?? 'LS-' . $subscription->id . '-' . time(),
+                        'amount' => $invoiceData['amount'] ?? $subscription->payment_amount,
+                        'status' => $this->mapXenditStatus($invoiceData['status'] ?? 'PENDING'),
+                        'gateway_response' => $invoiceData,
+                        'paid_at' => ($invoiceData['status'] === 'PAID' && isset($invoiceData['paid_at'])) 
+                            ? \Carbon\Carbon::parse($invoiceData['paid_at']) 
+                            : (($invoiceData['status'] === 'PAID') ? now() : null),
+                        'expires_at' => isset($invoiceData['expiry_date']) 
+                            ? \Carbon\Carbon::parse($invoiceData['expiry_date']) 
+                            : null,
+                    ]);
+                    
+                    // Update subscription if paid
+                    if ($invoiceData['status'] === 'PAID') {
+                        $subscription->update([
+                            'payment_status' => 'paid',
+                            'status' => 'paid',
+                            'stage' => 'payment_completed',
+                            'paid_at' => $payment->paid_at ?? now(),
+                        ]);
+                        $subscription->refresh();
+                    }
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Failed to create payment record from Xendit invoice on success page', [
+                    'landing_subscription_id' => $subscription->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Auto-provision account if payment is successful and not yet provisioned
+        // Check both provisioned_user_id (legacy) and subscription_id (new)
+        $needsProvisioning = $subscription->payment_status === 'paid' && 
+                           !$subscription->provisioned_user_id && 
+                           !$subscription->subscription_id;
+        
+        if ($needsProvisioning) {
+            // Try to find SubscriptionPayment to trigger provisioning
+            if (!$payment) {
+                $payment = $subscription->latestSubscriptionPayment;
+            }
+            
+            // If payment is not paid but subscription says paid, mark payment as paid
+            // This handles cases where status was updated but payment record wasn't
+            if ($payment && !$payment->isPaid() && $subscription->payment_status === 'paid') {
+                $payment->markAsPaid();
+                $payment->refresh();
+            }
+            
+            if ($payment && $payment->isPaid()) {
+                try {
+                    $provisioningService = app(\App\Services\SubscriptionProvisioningService::class);
+                    $result = $provisioningService->provisionFromPaidLandingSubscription($subscription, $payment);
+                    
+                    if ($result['success']) {
+                        // Auto-login the user and redirect to owner dashboard
+                        $user = \App\Models\User::find($result['user_id'] ?? $result['user']->id ?? null);
+                        
+                        if ($user) {
+                            auth()->login($user);
+                            
+                            return redirect()
+                                ->route('filament.owner.pages.dashboard')
+                                ->with('success', 'Welcome! Your subscription is now active.');
+                        }
+                        
+                        // Fallback: show success page with login info
+                        $subscription->refresh();
+                        
+                        return view('landing.payment-success', [
+                            'subscription' => $subscription,
+                            'provisioning' => $result,
+                            'showLoginInfo' => true,
+                            'loginUrl' => $result['login_url'] ?? config('app.owner_url', '/owner'),
+                            'temporaryPassword' => $result['temporary_password'] ?? null
+                        ]);
+                    } else {
+                        \Log::error('Auto-provisioning failed', [
+                            'subscription_id' => $subscription->id, 
+                            'error' => $result['error'] ?? 'Unknown error'
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Exception during auto-provisioning', [
+                        'subscription_id' => $subscription->id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                }
             } else {
-                \Log::error('Auto-provisioning failed', ['subscription_id' => $subscription->id, 'error' => $result['error']]);
+                // Fallback to old method (for legacy subscriptions without payment records)
+                try {
+                    $provisioningService = app(\App\Services\SubscriptionProvisioningService::class);
+                    $result = $provisioningService->provisionSubscription($subscription);
+                    
+                    if ($result['success']) {
+                        $user = \App\Models\User::find($result['user_id'] ?? null);
+                        
+                        if ($user) {
+                            auth()->login($user);
+                            
+                            return redirect()
+                                ->route('filament.owner.pages.dashboard')
+                                ->with('success', 'Welcome! Your subscription is now active.');
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Exception during fallback provisioning', [
+                        'subscription_id' => $subscription->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
         }
 
         // If already provisioned, try to auto-login
-        if ($subscription->provisioned_user_id) {
-            $user = \App\Models\User::find($subscription->provisioned_user_id);
+        if ($subscription->subscription_id || $subscription->provisioned_user_id) {
+            $user = null;
+            
+            // For authenticated users, use the user from landing subscription
+            if ($subscription->user_id) {
+                $user = \App\Models\User::find($subscription->user_id);
+            } elseif ($subscription->provisioned_user_id) {
+                $user = \App\Models\User::find($subscription->provisioned_user_id);
+            }
             
             if ($user && !auth()->check()) {
                 auth()->login($user);
@@ -341,9 +729,23 @@ class LandingController extends Controller
 
         return view('landing.payment-success', [
             'subscription' => $subscription,
-            'showLoginInfo' => $subscription->provisioned_user_id ? true : false,
+            'showLoginInfo' => ($subscription->provisioned_user_id || $subscription->subscription_id) ? true : false,
             'loginUrl' => $subscription->onboarding_url ?? config('app.owner_url', '/owner')
         ]);
+    }
+    
+    /**
+     * Map Xendit status to payment status
+     */
+    private function mapXenditStatus(string $xenditStatus): string
+    {
+        return match(strtoupper($xenditStatus)) {
+            'PAID', 'SETTLED' => 'paid',
+            'PENDING' => 'pending',
+            'EXPIRED' => 'expired',
+            'FAILED' => 'failed',
+            default => 'pending'
+        };
     }
 
     /**
@@ -387,24 +789,69 @@ class LandingController extends Controller
     public function showCheckoutStep2(Request $request)
     {
         $request->validate([
-            'plan' => 'required|in:basic,pro,enterprise',
-            'billing' => 'required|in:monthly,yearly'
+            'plan_id' => 'nullable|exists:plans,id', // Primary: plan_id (integer)
+            'plan' => 'nullable|string', // Secondary: slug (for backward compatibility)
+            'billing' => 'required|in:monthly,yearly',
+            'coupon_code' => 'nullable|string|max:255',
         ]);
 
-        // Get plans from database instead of hardcoded values
-        $plans = Plan::active()->ordered()->get()->keyBy('slug');
+        // Prioritize plan_id over slug
+        if ($request->has('plan_id')) {
+            $selectedPlan = Plan::findOrFail($request->plan_id);
+        } elseif ($request->has('plan')) {
+            $selectedPlan = Plan::where('slug', $request->plan)->firstOrFail();
+        } else {
+            return redirect()->route('landing.checkout')
+                ->with('error', 'Silakan pilih plan terlebih dahulu.');
+        }
 
-        $selectedPlan = $plans[$request->plan];
         $billing = $request->billing;
         $price = $billing === 'yearly' ? $selectedPlan->annual_price : $selectedPlan->price;
+        
+        // Apply coupon if provided
+        $couponData = null;
+        $discountAmount = 0;
+        $originalPrice = $price;
+        
+        if ($request->coupon_code) {
+            $tenantId = null;
+            if (Auth::check()) {
+                $tenant = Auth::user()->currentTenant();
+                $tenantId = $tenant?->id;
+            }
+            
+            $couponService = app(\App\Services\SubscriptionCouponService::class);
+            $couponResult = $couponService->validateAndCalculate(
+                strtoupper(trim($request->coupon_code)),
+                $price,
+                $tenantId,
+                $selectedPlan
+            );
+            
+            if ($couponResult['valid']) {
+                $price = $couponResult['final_amount'];
+                $discountAmount = $couponResult['discount_amount'];
+                $couponData = [
+                    'code' => $couponResult['voucher']->code,
+                    'discount_amount' => $couponResult['discount_amount'],
+                    'discount_percentage' => $couponResult['discount_percentage'],
+                    'promotion_name' => $couponResult['promotion']->name ?? null,
+                ];
+            }
+        }
+        
         // No tax calculation
         $total = $price; // No tax
 
         return view('landing.business-information', [
             'plan' => $selectedPlan,
-            'planId' => $request->plan,
+            'planId' => $selectedPlan->id, // Use plan_id (integer) instead of slug
             'billing' => $billing,
             'price' => $price,
+            'original_price' => $originalPrice,
+            'discount_amount' => $discountAmount,
+            'coupon' => $couponData,
+            'coupon_code' => $request->coupon_code,
             'tax' => 0, // No tax
             'total' => $total
         ]);
@@ -412,62 +859,93 @@ class LandingController extends Controller
 
     /**
      * Process checkout step 2 - Store business information and process payment directly.
+     * 
+     * AUTHENTICATED FLOW: User harus login dulu, wajib isi user_id & tenant_id.
      */
     public function processCheckoutStep2(Request $request)
     {
+        // Wajib authenticated untuk checkout
+        if (!Auth::check()) {
+            return redirect()->route('landing.login')
+                ->with('error', 'Silakan login terlebih dahulu untuk melanjutkan checkout.');
+        }
+
+        $user = Auth::user();
+        $tenant = $user->currentTenant();
+
+        if (!$tenant) {
+            return redirect()->route('landing.login')
+                ->with('error', 'Anda belum memiliki tenant. Silakan hubungi administrator.');
+        }
+
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'country_code' => 'nullable|string',
-            'phone' => 'required|string|max:20',
-            'business_name' => 'required|string|max:255',
-            'business_type' => 'required|string|max:100',
-            'plan_id' => 'required|in:basic,pro,enterprise',
-            'billing_cycle' => 'required|in:monthly,yearly'
+            'plan_id' => 'required|exists:plans,id', // Changed to plan_id (integer)
+            'billing_cycle' => 'required|in:monthly,yearly',
+            'coupon_code' => 'nullable|string|max:255',
         ]);
 
         try {
             DB::beginTransaction();
 
-            // Combine country code with phone number
-            $countryCode = $request->country_code ?? '+62'; // Default to +62 if not provided
-            $phoneNumber = $request->phone;
+            // Get plan by ID
+            $plan = Plan::findOrFail($request->plan_id);
             
-            // Remove leading 0 if exists
-            $phoneNumber = ltrim($phoneNumber, '0');
-            
-            // Combine country code with phone number
-            $fullPhoneNumber = $countryCode . $phoneNumber;
-            
-            \Log::info('Phone number processing', [
-                'country_code' => $countryCode,
-                'phone_input' => $request->phone,
-                'phone_cleaned' => $phoneNumber,
-                'full_phone' => $fullPhoneNumber
-            ]);
-
-            // Calculate amount from database
-            $plan = Plan::where('slug', $request->plan_id)->firstOrFail();
+            // Calculate base amount
             $amount = $request->billing_cycle === 'yearly' ? $plan->annual_price : $plan->price;
-            // No tax calculation
-            $totalAmount = $amount; // No tax
+            $totalAmount = $amount; // No tax for now
+            
+            // Apply coupon if provided
+            $couponData = null;
+            $voucherId = null;
+            if ($request->coupon_code) {
+                $couponService = app(\App\Services\SubscriptionCouponService::class);
+                $couponResult = $couponService->validateAndCalculate(
+                    strtoupper(trim($request->coupon_code)),
+                    $amount,
+                    $tenant->id,
+                    $plan
+                );
+                
+                if ($couponResult['valid']) {
+                    $totalAmount = $couponResult['final_amount'];
+                    $couponData = [
+                        'code' => $couponResult['voucher']->code,
+                        'discount_amount' => $couponResult['discount_amount'],
+                        'original_amount' => $couponResult['original_amount'],
+                        'final_amount' => $couponResult['final_amount'],
+                        'discount_percentage' => $couponResult['discount_percentage'],
+                        'promotion_name' => $couponResult['promotion']->name ?? null,
+                    ];
+                    $voucherId = $couponResult['voucher']->id;
+                } else {
+                    return back()->withErrors(['coupon_code' => $couponResult['error'] ?? 'Kode kupon tidak valid']);
+                }
+            }
 
-            // Create landing subscription
+            // Create landing subscription dengan authenticated flow
             $landingSubscription = LandingSubscription::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'phone' => $fullPhoneNumber,
-                'company' => $request->business_name, // Use company field for business_name
-                'plan' => $request->plan_id,
+                // Authenticated checkout fields (WAJIB)
+                'user_id' => $user->id,
+                'tenant_id' => $tenant->id,
+                'plan_id' => $plan->id,
+                'billing_cycle' => $request->billing_cycle,
                 'payment_amount' => $totalAmount,
-                'status' => 'pending_payment',
+                
+                // Status tracking
+                'status' => 'pending',
                 'stage' => 'payment_pending',
                 'payment_status' => 'pending',
-                'meta' => json_encode([
-                    'business_type' => $request->business_type,
-                    'billing_cycle' => $request->billing_cycle,
-                    'payment_method' => 'xendit_hosted' // Use Xendit's hosted payment page with all methods
-                ])
+                
+                // Legacy fields (optional, untuk backward compatibility)
+                'email' => $user->email,
+                'name' => $user->name,
+                'business_name' => $tenant->name,
+                'meta' => array_merge([
+                    'source' => 'dashboard',
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'payment_method' => 'xendit_hosted',
+                ], $couponData ? ['coupon' => $couponData, 'voucher_id' => $voucherId] : []),
             ]);
 
             // Create Xendit invoice with all payment methods available
@@ -476,11 +954,11 @@ class LandingController extends Controller
             $invoiceData = [
                 'external_id' => 'XPOS-SUB-' . $landingSubscription->id . '-' . time(),
                 'amount' => (int) $totalAmount, // Ensure integer
-                'description' => "XpressPOS {$request->plan_id} subscription ({$request->billing_cycle})",
+                'description' => "XpressPOS {$plan->name} subscription ({$request->billing_cycle})",
                 'customer' => [
-                    'given_names' => $request->name,
-                    'email' => $request->email,
-                    'mobile_number' => $fullPhoneNumber, // E.164 format: +6285211553430
+                    'given_names' => $user->name,
+                    'email' => $user->email,
+                    'mobile_number' => $tenant->phone ?? $user->email, // Use tenant phone or fallback
                 ],
                 // payment_methods will be determined by XenditService based on environment
                 'success_redirect_url' => config('xendit.invoice.success_redirect_url') . '?subscription_id=' . $landingSubscription->id,
@@ -667,5 +1145,35 @@ class LandingController extends Controller
             
             return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * Show Privacy Policy page.
+     */
+    public function showPrivacyPolicy()
+    {
+        return view('landing.privacy-policy', [
+            'title' => 'Kebijakan Privasi - XpressPOS'
+        ]);
+    }
+
+    /**
+     * Show Terms and Conditions page.
+     */
+    public function showTermsAndConditions()
+    {
+        return view('landing.terms-and-conditions', [
+            'title' => 'Syarat dan Ketentuan - XpressPOS'
+        ]);
+    }
+
+    /**
+     * Show Cookie Policy page.
+     */
+    public function showCookiePolicy()
+    {
+        return view('landing.cookie-policy', [
+            'title' => 'Kebijakan Cookie - XpressPOS'
+        ]);
     }
 }

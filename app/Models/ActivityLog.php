@@ -13,6 +13,7 @@ class ActivityLog extends Model
     use HasFactory, HasUuids, BelongsToStore;
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
         'user_id',
         'event',
@@ -29,7 +30,29 @@ class ActivityLog extends Model
         'new_values' => 'array',
     ];
 
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function ($log) {
+            // Auto-set tenant_id from store
+            if (!$log->tenant_id && $log->store_id) {
+                $store = Store::find($log->store_id);
+                if ($store) {
+                    $log->tenant_id = $store->tenant_id;
+                }
+            }
+        });
+    }
 
+    /**
+     * Get the tenant that owns the activity log.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     /**
      * Get the user who performed the activity.

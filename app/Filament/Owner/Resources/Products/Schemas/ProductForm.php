@@ -3,6 +3,7 @@
 namespace App\Filament\Owner\Resources\Products\Schemas;
 
 use App\Models\Category;
+use App\Filament\Owner\Resources\Concerns\HasCurrencyInput;
 use Filament\Forms\Components\FileUpload;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
@@ -16,6 +17,7 @@ use App\Support\Money;
 
 class ProductForm
 {
+    use HasCurrencyInput;
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -54,23 +56,22 @@ class ProductForm
 
                         Grid::make(3)
                             ->schema([
-                                TextInput::make('price')
-                                    ->label('Harga')
-                                    ->required()
-                                    ->prefix('Rp')
-                                    ->helperText('Bisa input: 10500 atau 10.500')
-                                    ->placeholder('10.500')
-                                    ->rules(['required', 'numeric', 'min:0'])
-                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state)),
-
+                                static::currencyInput('price', 'Harga Jual', '10.500', true, 0),
                                 TextInput::make('cost_price')
-                                    ->label('Harga Pokok')
-                                    ->prefix('Rp')
-                                    ->helperText('Bisa input: 8000 atau 8.000')
-                                    ->placeholder('8.000')
-                                    ->rules(['nullable', 'numeric', 'min:0'])
-                                    ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state)),
-
+                                    ->label('Estimasi HPP (dari resep)')
+                                    ->helperText('Harga pokok penjualan dihitung otomatis dari resep aktif. Read-only.')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->formatStateUsing(function ($state, $record) {
+                                        if (!$state && $record) {
+                                            // Try to get from active recipe if cost_price is null
+                                            $activeRecipe = $record->getActiveRecipe();
+                                            if ($activeRecipe && $activeRecipe->cost_per_unit > 0) {
+                                                return 'Rp ' . number_format($activeRecipe->cost_per_unit, 0, ',', '.');
+                                            }
+                                        }
+                                        return $state ? 'Rp ' . number_format($state, 0, ',', '.') : '-';
+                                    }),
                                 TextInput::make('sort_order')
                                     ->label('Urutan di Menu')
                                     ->helperText('Angka kecil akan tampil lebih dulu di menu (1, 2, 3...)')
@@ -81,40 +82,20 @@ class ProductForm
                     ])
                     ->columns(1),
 
-                Section::make('Manajemen Stok')
-                    ->description('Pengaturan pelacakan stok dan persediaan')
+                Section::make('Status & Pengaturan')
+                    ->description('Status produk dan pengaturan tampil')
                     ->schema([
                         Grid::make(2)
                             ->schema([
-                                Toggle::make('track_inventory')
-                                    ->label('Lacak Stok')
-                                    ->default(true)
-                                    ->live(),
-
                                 Toggle::make('status')
                                     ->label('Aktif')
                                     ->default(true),
+
+                                Toggle::make('track_inventory')
+                                    ->label('Lacak Stok')
+                                    ->helperText('Aktifkan untuk produk yang perlu dilacak stoknya')
+                                    ->default(true),
                             ]),
-
-                        Group::make([
-                            Grid::make(2)
-                                ->schema([
-                                    TextInput::make('stock')
-                                        ->label('Stok')
-                                        ->numeric()
-                                        ->minValue(0)
-                                        ->default(0)
-                                        ->visible(fn(callable $get) => $get('track_inventory')),
-
-                                    TextInput::make('min_stock_level')
-                                        ->label('Batas Minimum Stok')
-                                        ->numeric()
-                                        ->minValue(0)
-                                        ->default(0)
-                                        ->visible(fn(callable $get) => $get('track_inventory')),
-                                ])
-                                ->visible(fn(callable $get) => $get('track_inventory')),
-                        ]),
                     ])
                     ->columns(1),
 
@@ -127,11 +108,8 @@ class ProductForm
                                     ->label('Kategori')
                                     ->required()
                                     ->options(function () {
-                                        $user = auth()->user();
-                                        $storeId = $user ? $user->store_id : null;
-
+                                        // Category is tenant-scoped, TenantScope will automatically filter
                                         return Category::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->where('status', true)
                                             ->pluck('name', 'id');
                                     })
@@ -150,8 +128,7 @@ class ProductForm
                                             ->default(true),
                                     ])
                                     ->createOptionUsing(function (array $data): int {
-                                        $user = auth()->user();
-                                        $data['store_id'] = $user ? $user->store_id : null;
+                                        // Category is tenant-scoped, tenant_id will be auto-set by model booted()
                                         return Category::create($data)->getKey();
                                     }),
 

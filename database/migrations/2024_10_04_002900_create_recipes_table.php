@@ -10,7 +10,8 @@ return new class extends Migration
     {
         Schema::create('recipes', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignId('product_id')->constrained('products');
             $table->string('name');
             $table->text('description')->nullable();
@@ -21,8 +22,8 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            $table->index(['store_id', 'product_id']);
-            $table->index(['store_id', 'is_active']);
+            $table->index(['tenant_id', 'product_id']);
+            $table->index(['tenant_id', 'is_active']);
         });
     }
 

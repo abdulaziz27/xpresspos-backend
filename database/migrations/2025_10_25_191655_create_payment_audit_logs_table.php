@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::create('payment_audit_logs', function (Blueprint $table) {
             $table->id();
+            $table->string('tenant_id', 36)->nullable();
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->string('operation')->index(); // created, updated, deleted, etc.
             $table->string('entity_type')->index(); // subscription_payment, store_payment, api_key, etc.
             $table->unsignedBigInteger('entity_id')->index(); // ID of the entity being audited
@@ -28,6 +30,8 @@ return new class extends Migration
             $table->timestamp('created_at')->index();
 
             // Indexes for performance
+            $table->index(['tenant_id', 'created_at']);
+            $table->index(['tenant_id', 'entity_type', 'entity_id']);
             $table->index(['entity_type', 'entity_id']);
             $table->index(['operation', 'created_at']);
             $table->index(['user_id', 'created_at']);

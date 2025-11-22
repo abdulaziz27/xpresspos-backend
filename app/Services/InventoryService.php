@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Product;
+use App\Models\InventoryItem;
 use App\Models\StockLevel;
 use App\Models\InventoryMovement;
 use App\Models\CogsHistory;
@@ -15,17 +15,27 @@ class InventoryService
 {
     /**
      * Adjust stock manually.
+     * 
+     * NOTE: Now accepts inventory_item_id (not product_id).
+     * Stock adjustments are per inventory_item per store.
+     * 
+     * @param string $inventoryItemId The inventory item ID
+     * @param float $quantity Quantity to adjust (positive for adjustment_in, negative for adjustment_out)
+     * @param string $reason Reason for adjustment
+     * @param float|null $unitCost Optional unit cost
+     * @param string|null $notes Optional notes
+     * @return array
      */
     public function adjustStock(
-        string $productId,
-        int $quantity,
+        string $inventoryItemId,
+        float $quantity,
         string $reason,
         ?float $unitCost = null,
         ?string $notes = null
     ): array {
-        return DB::transaction(function () use ($productId, $quantity, $reason, $unitCost, $notes) {
-            $product = Product::where('track_inventory', true)->findOrFail($productId);
-            $stockLevel = StockLevel::getOrCreateForProduct($productId);
+        return DB::transaction(function () use ($inventoryItemId, $quantity, $reason, $unitCost, $notes) {
+            $inventoryItem = InventoryItem::where('track_stock', true)->findOrFail($inventoryItemId);
+            $stockLevel = StockLevel::getOrCreateForInventoryItem($inventoryItemId);
             
             // Determine movement type
             $movementType = $quantity > 0 
@@ -34,7 +44,7 @@ class InventoryService
             
             // Create movement record
             $movement = InventoryMovement::createMovement(
-                $productId,
+                $inventoryItemId,
                 $movementType,
                 abs($quantity),
                 $unitCost,
@@ -49,25 +59,33 @@ class InventoryService
             
             // Check for low stock and send notification if needed
             if ($stockLevel->isLowStock()) {
-                dispatch(new SendLowStockNotification($product, $stockLevel));
+                dispatch(new SendLowStockNotification($inventoryItem, $stockLevel));
             }
             
             return [
                 'movement' => $movement,
                 'stock_level' => $stockLevel->fresh(),
-                'product' => $product,
+                'inventory_item' => $inventoryItem,
             ];
         });
     }
 
     /**
      * Process stock deduction for a sale.
+     * 
+     * NOTE: Now accepts inventory_item_id (not product_id).
+     * Stock deductions are per inventory_item per store.
+     * 
+     * @param string $inventoryItemId The inventory item ID
+     * @param float $quantity Quantity sold
+     * @param string|null $orderId Optional order ID
+     * @return array
      */
-    public function processSale(string $productId, int $quantity, ?string $orderId = null): array
+    public function processSale(string $inventoryItemId, float $quantity, ?string $orderId = null): array
     {
-        return DB::transaction(function () use ($productId, $quantity, $orderId) {
-            $product = Product::where('track_inventory', true)->findOrFail($productId);
-            $stockLevel = StockLevel::getOrCreateForProduct($productId);
+        return DB::transaction(function () use ($inventoryItemId, $quantity, $orderId) {
+            $inventoryItem = InventoryItem::where('track_stock', true)->findOrFail($inventoryItemId);
+            $stockLevel = StockLevel::getOrCreateForInventoryItem($inventoryItemId);
             
             // Check if enough stock is available
             if ($stockLevel->available_stock < $quantity) {
@@ -76,7 +94,7 @@ class InventoryService
             
             // Create sale movement
             $movement = InventoryMovement::createMovement(
-                $productId,
+                $inventoryItemId,
                 InventoryMovement::TYPE_SALE,
                 $quantity,
                 $stockLevel->average_cost,
@@ -88,46 +106,46 @@ class InventoryService
             // Update stock level
             $stockLevel->updateFromMovement($movement);
             
-            // Calculate COGS using CogsService
-            $cogsService = app(CogsService::class);
-            $cogsRecord = $cogsService->calculateCogs(
-                $productId,
-                $quantity,
-                CogsHistory::METHOD_WEIGHTED_AVERAGE,
-                $orderId
-            );
-            
             // Check for low stock and send notification if needed
             if ($stockLevel->isLowStock()) {
-                dispatch(new SendLowStockNotification($product, $stockLevel));
+                dispatch(new SendLowStockNotification($inventoryItem, $stockLevel));
             }
             
             return [
                 'movement' => $movement,
                 'stock_level' => $stockLevel->fresh(),
-                'cogs' => $cogsRecord,
-                'product' => $product,
+                'inventory_item' => $inventoryItem,
             ];
         });
     }
 
     /**
      * Process stock increase for a purchase.
+     * 
+     * NOTE: Now accepts inventory_item_id (not product_id).
+     * Stock increases are per inventory_item per store.
+     * 
+     * @param string $inventoryItemId The inventory item ID
+     * @param float $quantity Quantity purchased
+     * @param float $unitCost Unit cost
+     * @param string|null $referenceId Optional reference ID (e.g., purchase order ID)
+     * @param string|null $notes Optional notes
+     * @return array
      */
     public function processPurchase(
-        string $productId,
-        int $quantity,
+        string $inventoryItemId,
+        float $quantity,
         float $unitCost,
         ?string $referenceId = null,
         ?string $notes = null
     ): array {
-        return DB::transaction(function () use ($productId, $quantity, $unitCost, $referenceId, $notes) {
-            $product = Product::where('track_inventory', true)->findOrFail($productId);
-            $stockLevel = StockLevel::getOrCreateForProduct($productId);
+        return DB::transaction(function () use ($inventoryItemId, $quantity, $unitCost, $referenceId, $notes) {
+            $inventoryItem = InventoryItem::where('track_stock', true)->findOrFail($inventoryItemId);
+            $stockLevel = StockLevel::getOrCreateForInventoryItem($inventoryItemId);
             
             // Create purchase movement
             $movement = InventoryMovement::createMovement(
-                $productId,
+                $inventoryItemId,
                 InventoryMovement::TYPE_PURCHASE,
                 $quantity,
                 $unitCost,
@@ -143,19 +161,21 @@ class InventoryService
             return [
                 'movement' => $movement,
                 'stock_level' => $stockLevel->fresh(),
-                'product' => $product,
+                'inventory_item' => $inventoryItem,
             ];
         });
     }
 
     /**
      * Get inventory valuation report.
+     * 
+     * NOTE: Now returns valuation per inventory_item (not per product).
      */
     public function getInventoryValuation(): array
     {
-        $stockLevels = StockLevel::with('product:id,name,sku')
-            ->whereHas('product', function ($q) {
-                $q->where('track_inventory', true);
+        $stockLevels = StockLevel::with('inventoryItem:id,name,sku')
+            ->whereHas('inventoryItem', function ($q) {
+                $q->where('track_stock', true);
             })
             ->where('current_stock', '>', 0)
             ->get();
@@ -166,7 +186,7 @@ class InventoryService
         return [
             'total_value' => $totalValue,
             'total_items' => $totalItems,
-            'products_count' => $stockLevels->count(),
+            'items_count' => $stockLevels->count(),
             'stock_levels' => $stockLevels,
             'valuation_date' => now(),
         ];
@@ -174,17 +194,33 @@ class InventoryService
 
     /**
      * Get stock movement summary for a period.
+     * 
+     * NOTE: Now returns summary per inventory_item (not per product).
      */
     public function getMovementSummary(string $dateFrom, string $dateTo): array
     {
-        $movements = InventoryMovement::with('product:id,name,sku')
+        $movements = InventoryMovement::with('inventoryItem:id,name,sku')
             ->whereBetween('created_at', [$dateFrom, $dateTo])
             ->get();
 
+        $stockInTypes = [
+            InventoryMovement::TYPE_PURCHASE,
+            InventoryMovement::TYPE_ADJUSTMENT_IN,
+            InventoryMovement::TYPE_TRANSFER_IN,
+            InventoryMovement::TYPE_RETURN,
+        ];
+
+        $stockOutTypes = [
+            InventoryMovement::TYPE_SALE,
+            InventoryMovement::TYPE_ADJUSTMENT_OUT,
+            InventoryMovement::TYPE_TRANSFER_OUT,
+            InventoryMovement::TYPE_WASTE,
+        ];
+
         $summary = [
             'total_movements' => $movements->count(),
-            'stock_in' => $movements->where('type', 'in')->sum('quantity'),
-            'stock_out' => $movements->where('type', 'out')->sum('quantity'),
+            'stock_in' => $movements->whereIn('type', $stockInTypes)->sum('quantity'),
+            'stock_out' => $movements->whereIn('type', $stockOutTypes)->sum('quantity'),
             'by_type' => $movements->groupBy('type')->map(function ($group) {
                 return [
                     'count' => $group->count(),
@@ -192,11 +228,11 @@ class InventoryService
                     'value' => $group->sum('total_cost'),
                 ];
             }),
-            'by_product' => $movements->groupBy('product_id')->map(function ($group) {
-                $product = $group->first()->product;
+            'by_inventory_item' => $movements->groupBy('inventory_item_id')->map(function ($group) {
+                $inventoryItem = $group->first()->inventoryItem;
                 return [
-                    'product_name' => $product->name,
-                    'product_sku' => $product->sku,
+                    'inventory_item_name' => $inventoryItem?->name,
+                    'inventory_item_sku' => $inventoryItem?->sku,
                     'movements_count' => $group->count(),
                     'net_quantity' => $group->sum(function ($movement) {
                         return $movement->getSignedQuantity();
@@ -209,25 +245,40 @@ class InventoryService
     }
 
     /**
-     * Get low stock products.
+     * Get low stock inventory items.
+     * 
+     * NOTE: Now returns low stock per inventory_item (not per product).
      */
-    public function getLowStockProducts(): array
+    public function getLowStockItems(): array
     {
-        $lowStockProducts = StockLevel::with('product:id,name,sku,min_stock_level')
-            ->whereHas('product', function ($q) {
-                $q->where('track_inventory', true)
-                  ->whereColumn('stock_levels.current_stock', '<=', 'products.min_stock_level');
+        $lowStockItems = StockLevel::with('inventoryItem:id,name,sku,min_stock_level')
+            ->whereHas('inventoryItem', function ($q) {
+                $q->where('track_stock', true);
             })
-            ->get();
+            ->get()
+            ->filter(function ($level) {
+                return $level->isLowStock();
+            });
 
         return [
-            'count' => $lowStockProducts->count(),
-            'products' => $lowStockProducts,
+            'count' => $lowStockItems->count(),
+            'inventory_items' => $lowStockItems->values(),
         ];
     }
 
     /**
+     * @deprecated Use getLowStockItems() instead. Stock is now tracked per inventory_item, not per product.
+     */
+    public function getLowStockProducts(): array
+    {
+        throw new Exception('getLowStockProducts() is deprecated. Use getLowStockItems() instead.');
+    }
+
+    /**
      * Reserve stock for an order.
+     * 
+     * NOTE: Now accepts inventory_item_id (not product_id).
+     * Expected format: [['inventory_item_id' => '...', 'quantity' => 1.5], ...]
      */
     public function reserveStock(array $items): array
     {
@@ -236,27 +287,39 @@ class InventoryService
 
         DB::transaction(function () use ($items, &$reservations, &$errors) {
             foreach ($items as $item) {
-                $productId = $item['product_id'];
-                $quantity = $item['quantity'];
+                $inventoryItemId = $item['inventory_item_id'] ?? null;
+                $quantity = $item['quantity'] ?? 0;
                 
-                $product = Product::where('track_inventory', true)->find($productId);
-                
-                if (!$product) {
-                    continue; // Skip non-tracked products
+                if (!$inventoryItemId) {
+                    $errors[] = [
+                        'inventory_item_id' => null,
+                        'message' => 'inventory_item_id is required',
+                    ];
+                    continue;
                 }
                 
-                $stockLevel = StockLevel::getOrCreateForProduct($productId);
+                $inventoryItem = InventoryItem::where('track_stock', true)->find($inventoryItemId);
                 
-                if ($stockLevel->reserveStock($quantity)) {
+                if (!$inventoryItem) {
+                    $errors[] = [
+                        'inventory_item_id' => $inventoryItemId,
+                        'message' => 'Inventory item not found or not tracking stock',
+                    ];
+                    continue;
+                }
+                
+                $stockLevel = StockLevel::getOrCreateForInventoryItem($inventoryItemId);
+                
+                if ($stockLevel->reserveStock((float) $quantity)) {
                     $reservations[] = [
-                        'product_id' => $productId,
+                        'inventory_item_id' => $inventoryItemId,
                         'quantity' => $quantity,
                         'reserved' => true,
                     ];
                 } else {
                     $errors[] = [
-                        'product_id' => $productId,
-                        'product_name' => $product->name,
+                        'inventory_item_id' => $inventoryItemId,
+                        'inventory_item_name' => $inventoryItem->name,
                         'requested' => $quantity,
                         'available' => $stockLevel->available_stock,
                         'message' => 'Insufficient stock available',
@@ -278,18 +341,25 @@ class InventoryService
 
     /**
      * Release reserved stock.
+     * 
+     * NOTE: Now accepts inventory_item_id (not product_id).
+     * Expected format: [['inventory_item_id' => '...', 'quantity' => 1.5], ...]
      */
     public function releaseReservedStock(array $items): void
     {
         DB::transaction(function () use ($items) {
             foreach ($items as $item) {
-                $productId = $item['product_id'];
-                $quantity = $item['quantity'];
+                $inventoryItemId = $item['inventory_item_id'] ?? null;
+                $quantity = $item['quantity'] ?? 0;
                 
-                $stockLevel = StockLevel::where('product_id', $productId)->first();
+                if (!$inventoryItemId) {
+                    continue;
+                }
+                
+                $stockLevel = StockLevel::where('inventory_item_id', $inventoryItemId)->first();
                 
                 if ($stockLevel) {
-                    $stockLevel->releaseReservedStock($quantity);
+                    $stockLevel->releaseReservedStock((float) $quantity);
                 }
             }
         });

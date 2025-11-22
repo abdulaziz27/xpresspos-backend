@@ -2,101 +2,113 @@
 
 namespace App\Filament\Owner\Widgets;
 
-use App\Models\Payment;
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Models\Store;
+use App\Support\Currency;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
-use App\Support\Currency;
 
 class BestBranchesWidget extends BaseWidget
 {
-    protected static ?string $heading = 'Cabang dengan Penjualan Terbaik';
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
+
+    protected static bool $isLazy = false;
 
     protected int | string | array $columnSpan = ['xl' => 6];
 
-    public ?string $filter = 'this_month';
-
-    protected function getTableHeading(): ?string
+    protected function getTableHeading(): string | Htmlable | null
     {
-        return static::$heading;
-    }
-
-    protected function getFilters(): array
-    {
-        return [
-            'today' => 'Hari ini',
-            'this_week' => 'Minggu ini',
-            'this_month' => 'Bulan ini',
-        ];
+        return 'Cabang dengan Penjualan Terbaik • ' . $this->dashboardFilterContextLabel();
     }
 
     public function table(Table $table): Table
     {
-        $owner = auth()->user();
+            $filters = $this->dashboardFilters();
+            $storeIds = $this->dashboardStoreIds();
+        $tenantId = $filters['tenant_id'] ?? null;
+        $dateRange = $filters['range'] ?? null;
 
-        $start = now();
-        $end = now();
-
-        if ($this->filter === 'this_week') {
-            $start = now()->startOfWeek();
-            $end = now()->endOfWeek();
-        } elseif ($this->filter === 'this_month') {
-            $start = now()->startOfMonth();
-            $end = now()->endOfMonth();
-        } else {
-            $start = now()->startOfDay();
-            $end = now()->endOfDay();
+        if (! $tenantId || empty($storeIds) || ! $dateRange) {
+            return $this->buildEmptyTable(
+                $table,
+                'Tenant atau Cabang Belum Dipilih',
+                'Silakan pilih tenant dan cabang untuk melihat performa cabang.'
+            );
         }
 
-        $query = Store::query()
-            ->select([
-                DB::raw('stores.id as id'),
-                DB::raw('stores.id as store_id'),
-                DB::raw('stores.name as store_name'),
-                DB::raw('SUM(payments.amount) as revenue'),
-                DB::raw('COUNT(payments.id) as transactions'),
-            ])
-            ->leftJoin('payments', 'payments.store_id', '=', 'stores.id')
-            ->where('payments.status', 'completed')
-            ->whereBetween('payments.created_at', [$start, $end])
-            ->groupBy('stores.id', 'stores.name');
+        try {
+            $summary = $this->dashboardFilterSummary();
 
-        // Restrict to stores assigned to this owner (all branches), defaulting to primary store if none
-        $storeIds = collect();
-        if ($owner) {
-            $storeIds = $owner->storeAssignments()->pluck('store_id');
-            if ($storeIds->isEmpty() && $owner->store_id) {
-                $storeIds = collect([$owner->store_id]);
-            }
-        }
-        if ($storeIds->isNotEmpty()) {
-            $query->whereIn('stores.id', $storeIds->all());
-        } else {
-            $query->whereRaw('1 = 0');
-        }
+            $query = Store::query()
+                ->select([
+                    DB::raw('stores.id as id'),
+                    DB::raw('stores.id as store_id'),
+                    DB::raw('stores.name as store_name'),
+                    DB::raw('COALESCE(SUM(payments.amount), 0) as revenue'),
+                    DB::raw('COUNT(payments.id) as transactions'),
+                ])
+                ->leftJoin('payments', function ($join) use ($dateRange) {
+                    $join->on('payments.store_id', '=', 'stores.id')
+                         ->where('payments.status', '=', 'completed')
+                         ->whereBetween('payments.created_at', [$dateRange['start'], $dateRange['end']]);
+                })
+                ->where('stores.tenant_id', $tenantId)
+                ->whereIn('stores.id', $storeIds)
+                ->groupBy('stores.id', 'stores.name')
+                ->orderByDesc('revenue');
 
-        return $table
-            ->query($query)
-            ->columns([
-                Tables\Columns\TextColumn::make('store_name')
-                    ->label('Cabang')
-                    ->sortable()
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('revenue')
-                    ->label('Pendapatan')
-                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s ?? $record->revenue ?? 0)))
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('transactions')
-                    ->label('Transaksi')
-                    ->sortable(),
-            ])
-            ->defaultSort('revenue', 'desc')
-            ->paginated(false)
-            ->emptyStateHeading('Tidak ada data cabang')
-            ->striped();
+            return $table
+                ->query($query)
+                ->columns($this->tableColumns())
+                ->defaultSort('revenue', 'desc')
+                ->paginated(false)
+                ->emptyStateHeading('Tidak ada data cabang')
+                ->emptyStateDescription('Belum ada transaksi untuk ' . ($summary['store'] ?? 'Semua Cabang') . '.')
+                ->striped();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $this->buildEmptyTable(
+                $table,
+                'Tidak dapat memuat data cabang',
+                'Terjadi kesalahan saat memuat performa cabang.'
+            );
+        }
+    }
+
+    /**
+     * @return array<int, Tables\Columns\Column>
+     */
+    protected function tableColumns(): array
+    {
+        return [
+                    Tables\Columns\TextColumn::make('store_name')
+                        ->label('Cabang')
+                        ->sortable()
+                        ->searchable(),
+                    Tables\Columns\TextColumn::make('revenue')
+                        ->label('Pendapatan')
+                        ->formatStateUsing(fn ($state, $record) => Currency::rupiah((float) ($state ?? $record->revenue ?? 0)))
+                        ->sortable(),
+                    Tables\Columns\TextColumn::make('transactions')
+                        ->label('Transaksi')
+                        ->sortable(),
+        ];
+    }
+
+    protected function buildEmptyTable(Table $table, string $heading, string $description): Table
+    {
+            return $table
+                ->query(Store::query()->whereRaw('1 = 0'))
+            ->columns($this->tableColumns())
+            ->emptyStateHeading($heading)
+            ->emptyStateDescription($description)
+                ->paginated(false)
+                ->striped();
     }
 }
-
-

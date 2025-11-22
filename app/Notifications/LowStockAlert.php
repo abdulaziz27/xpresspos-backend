@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Models\Product;
+use App\Models\InventoryItem;
 use App\Models\StockLevel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,15 +13,17 @@ class LowStockAlert extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    protected Product $product;
+    protected InventoryItem $inventoryItem;
     protected StockLevel $stockLevel;
 
     /**
      * Create a new notification instance.
+     * 
+     * NOTE: Now accepts InventoryItem (not Product). Stock is tracked per inventory_item.
      */
-    public function __construct(Product $product, StockLevel $stockLevel)
+    public function __construct(InventoryItem $inventoryItem, StockLevel $stockLevel)
     {
-        $this->product = $product;
+        $this->inventoryItem = $inventoryItem;
         $this->stockLevel = $stockLevel;
     }
 
@@ -40,12 +42,16 @@ class LowStockAlert extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
+        $minLevel = $this->stockLevel->min_stock_level > 0
+            ? $this->stockLevel->min_stock_level
+            : ($this->inventoryItem->min_stock_level ?? 0);
+
         return (new MailMessage)
-            ->subject('Low Stock Alert - ' . $this->product->name)
+            ->subject('Low Stock Alert - ' . $this->inventoryItem->name)
             ->greeting('Low Stock Alert!')
-            ->line("The product '{$this->product->name}' (SKU: {$this->product->sku}) is running low on stock.")
+            ->line("The inventory item '{$this->inventoryItem->name}' (SKU: {$this->inventoryItem->sku}) is running low on stock.")
             ->line("Current stock: {$this->stockLevel->current_stock}")
-            ->line("Minimum level: {$this->product->min_stock_level}")
+            ->line("Minimum level: {$minLevel}")
             ->line("Available stock: {$this->stockLevel->available_stock}")
             ->action('View Inventory', url('/admin/inventory'))
             ->line('Please restock this item to avoid stockouts.');
@@ -56,15 +62,19 @@ class LowStockAlert extends Notification implements ShouldQueue
      */
     public function toDatabase(object $notifiable): array
     {
+        $minLevel = $this->stockLevel->min_stock_level > 0
+            ? $this->stockLevel->min_stock_level
+            : ($this->inventoryItem->min_stock_level ?? 0);
+
         return [
             'type' => 'low_stock_alert',
-            'product_id' => $this->product->id,
-            'product_name' => $this->product->name,
-            'product_sku' => $this->product->sku,
+            'inventory_item_id' => $this->inventoryItem->id,
+            'inventory_item_name' => $this->inventoryItem->name,
+            'inventory_item_sku' => $this->inventoryItem->sku,
             'current_stock' => $this->stockLevel->current_stock,
-            'min_stock_level' => $this->product->min_stock_level,
+            'min_stock_level' => $minLevel,
             'available_stock' => $this->stockLevel->available_stock,
-            'message' => "Low stock alert for {$this->product->name}",
+            'message' => "Low stock alert for {$this->inventoryItem->name}",
         ];
     }
 

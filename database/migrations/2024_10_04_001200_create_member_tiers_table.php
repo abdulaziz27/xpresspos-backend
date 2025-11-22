@@ -10,7 +10,9 @@ return new class extends Migration
     {
         Schema::create('member_tiers', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
+            $table->foreignUuid('store_id')->nullable()->constrained('stores')->nullOnDelete();
             $table->string('name');
             $table->string('slug');
             $table->integer('min_points')->default(0);
@@ -23,9 +25,9 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->timestamps();
 
-            $table->index(['store_id', 'is_active']);
-            $table->index('min_points');
-            $table->unique(['store_id', 'slug']);
+            $table->index(['tenant_id', 'is_active']);
+            $table->index(['tenant_id', 'min_points', 'max_points']);
+            $table->unique(['tenant_id', 'slug']);
         });
     }
 

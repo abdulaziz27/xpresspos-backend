@@ -10,18 +10,22 @@ return new class extends Migration
     {
         Schema::create('recipe_items', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreignUuid('recipe_id')->constrained('recipes')->cascadeOnDelete();
-            $table->foreignId('ingredient_product_id')->constrained('products');
+            $table->string('inventory_item_id', 36);
+            $table->foreign('inventory_item_id')->references('id')->on('inventory_items')->onDelete('restrict');
             $table->decimal('quantity', 10, 3);
-            $table->string('unit');
+            $table->string('uom_id', 36);
+            $table->foreign('uom_id')->references('id')->on('uoms')->onDelete('restrict');
             $table->decimal('unit_cost', 10, 2);
             $table->decimal('total_cost', 10, 2);
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->index(['store_id', 'recipe_id']);
-            $table->index('ingredient_product_id');
+            $table->index(['tenant_id', 'recipe_id']);
+            $table->index('inventory_item_id');
+            $table->index('uom_id');
         });
     }
 

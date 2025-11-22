@@ -70,13 +70,14 @@
             <!-- Demo Video/Image Placeholder - Simplified animations -->
             <div class="mt-16 px-2 sm:mt-20 md:mt-24 animate-fade-in-up" style="animation-delay: 1.2s">
                 <div class="demo-container mx-auto h-auto w-full max-w-6xl rounded-3xl bg-gradient-to-br from-blue-50 via-indigo-50/30 to-indigo-100 p-8 shadow-lg">
-                    <div class="flex items-center justify-center h-96 bg-white rounded-2xl border-2 border-dashed border-gray-300 hover:border-blue-300 transition-colors duration-300">
-                        <div class="text-center">
+                    <div class="flex items-center justify-center h-fit overflow-hidden bg-white rounded-2xl border-2 border-dashed border-gray-300 hover:border-blue-300 transition-colors duration-300">
+                        <img src="{{ asset('img/campaign-home-page.jpg') }}" alt="">
+                        <!-- <div class="text-center">
                             <div class="relative">
                                 <svg class="mx-auto h-16 w-16 text-gray-400 hover:text-blue-500 transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                 </svg>
-                                <!-- Play button overlay -->
+                                Play button overlay
                                 <div class="absolute inset-0 flex items-center justify-center">
                                     <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors duration-300 cursor-pointer">
                                         <svg class="w-5 h-5 text-white ml-1" fill="currentColor" viewBox="0 0 20 20">
@@ -87,7 +88,7 @@
                             </div>
                             <p class="mt-4 text-sm text-gray-600 font-medium">Demo Video XpressPOS</p>
                             <p class="text-xs text-gray-500">Lihat bagaimana XpressPOS bekerja</p>
-                        </div>
+                        </div> -->
                     </div>
                 </div>
             </div>
@@ -110,19 +111,37 @@
                     </svg>
                 </a>
             </div>
-            <div class="mx-auto mt-12 grid max-w-2xl grid-cols-4 gap-x-6 gap-y-4 transition-all duration-500 group-hover:opacity-50 group-hover:blur-sm md:gap-x-12 md:gap-y-8">
+            <div class="mx-auto mt-12 grid max-w-2xl grid-cols-3 gap-x-6 gap-y-6 transition-all duration-500 group-hover:opacity-50 group-hover:blur-sm md:grid-cols-6 md:gap-x-8 md:gap-y-8">
                 <!-- Partner Logos -->
-                <div class="flex items-center justify-center h-16 bg-gray-100 rounded-lg dark:bg-gray-800">
-                    <span class="text-gray-500 dark:text-gray-400 text-sm">Partner 1</span>
+                <div class="flex items-center justify-center">
+                    <div class="partner-logo-circle rounded-full overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow">
+                        <img src="{{ asset('partner-logo/harmony-mart.jpg') }}" alt="Harmony Mart" class="partner-logo-img">
+                    </div>
                 </div>
-                <div class="flex items-center justify-center h-16 bg-gray-100 rounded-lg dark:bg-gray-800">
-                    <span class="text-gray-500 dark:text-gray-400 text-sm">Partner 2</span>
+                <div class="flex items-center justify-center">
+                    <div class="partner-logo-circle rounded-full overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow">
+                        <img src="{{ asset('partner-logo/nakama.jpg') }}" alt="Nakama" class="partner-logo-img">
+                    </div>
                 </div>
-                <div class="flex items-center justify-center h-16 bg-gray-100 rounded-lg dark:bg-gray-800">
-                    <span class="text-gray-500 dark:text-gray-400 text-sm">Partner 3</span>
+                <div class="flex items-center justify-center">
+                    <div class="partner-logo-circle rounded-full overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow">
+                        <img src="{{ asset('partner-logo/orion-coffe.jpg') }}" alt="Orion Coffee" class="partner-logo-img">
+                    </div>
                 </div>
-                <div class="flex items-center justify-center h-16 bg-gray-100 rounded-lg dark:bg-gray-800">
-                    <span class="text-gray-500 dark:text-gray-400 text-sm">Partner 4</span>
+                <div class="flex items-center justify-center">
+                    <div class="partner-logo-circle rounded-full overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow">
+                        <img src="{{ asset('partner-logo/trek-coffe.jpg') }}" alt="Trek Coffee" class="partner-logo-img">
+                    </div>
+                </div>
+                <div class="flex items-center justify-center">
+                    <div class="partner-logo-circle rounded-full overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow">
+                        <img src="{{ asset('partner-logo/los-in-between.jpg') }}" alt="Los In Between" class="partner-logo-img">
+                    </div>
+                </div>
+                <div class="flex items-center justify-center">
+                    <div class="partner-logo-circle rounded-full overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow">
+                        <img src="{{ asset('partner-logo/workop-sinar-bintang.jpg') }}" alt="Workop Sinar Bintang" class="partner-logo-img">
+                    </div>
                 </div>
             </div>
         </div>
@@ -166,13 +185,14 @@
                     </div>
                     <div class="relative order-1 lg:order-none lg:order-2">
                         <div class="demo-container mx-auto h-auto w-full max-w-lg rounded-3xl bg-gradient-to-br from-blue-50 via-blue-50/50 to-indigo-100 p-8 shadow-lg">
-                            <div class="flex items-center justify-center h-64 bg-white rounded-2xl border-2 border-dashed border-gray-300">
-                                <div class="text-center">
+                            <div class="flex items-center justify-center h-fit overflow-hidden bg-white rounded-2xl border-2 border-dashed border-gray-300">
+                                <img src="{{ asset('img/manajemen-stok.jpg') }}" >
+                                <!-- <div class="text-center">
                                     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                                     </svg>
                                     <p class="mt-2 text-sm text-gray-500">Inventory Demo</p>
-                                </div>
+                                </div> -->
                             </div>
                         </div>
                     </div>
@@ -204,13 +224,14 @@
                     </div>
                     <div class="relative order-1 lg:order-none lg:order-1 lg:col-start-1">
                         <div class="demo-container mx-auto h-auto w-full max-w-lg rounded-3xl bg-gradient-to-br from-green-50 via-emerald-50/50 to-emerald-100 p-8 shadow-lg">
-                            <div class="flex items-center justify-center h-64 bg-white rounded-2xl border-2 border-dashed border-gray-300">
-                                <div class="text-center">
+                            <div class="flex items-center justify-center h-fit overflow-hidden bg-white rounded-2xl border-2 border-dashed border-gray-300">
+                                <img src="{{ asset('img/laporan-aktivitas-bisnis.jpg') }}" >
+                                <!-- <div class="text-center">
                                     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                                     </svg>
                                     <p class="mt-2 text-sm text-gray-500">Analytics Demo</p>
-                                </div>
+                                </div> -->
                             </div>
                         </div>
                     </div>
@@ -243,13 +264,14 @@
                     </div>
                     <div class="relative order-1 lg:order-none lg:order-2">
                         <div class="demo-container mx-auto h-auto w-full max-w-lg rounded-3xl bg-gradient-to-br from-purple-50 via-violet-50/50 to-violet-100 p-8 shadow-lg">
-                            <div class="flex items-center justify-center h-64 bg-white rounded-2xl border-2 border-dashed border-gray-300">
-                                <div class="text-center">
+                            <div class="flex items-center justify-center h-fit overflow-hidden bg-white rounded-2xl border-2 border-dashed border-gray-300">
+                                <img src="{{ asset('img/http-otomatis.jpg') }}">
+                                <!-- <div class="text-center">
                                     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                     </svg>
                                     <p class="mt-2 text-sm text-gray-500">Reports Demo</p>
-                                </div>
+                                </div> -->
                             </div>
                         </div>
                     </div>
@@ -275,46 +297,88 @@
 
         <!-- Simple Grid Layout -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            <!-- Testimonial 1 -->
+            <!-- Testimonial 1 - Harmony Mart -->
             <div class="bg-gradient-to-br from-white to-blue-50/30 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 scroll-animate testimonial-card" style="animation-delay: 0.1s">
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
-                        A
+                    <div class="h-12 w-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                        <img src="{{ asset('partner-logo/harmony-mart.jpg') }}" alt="Sajian Harmony" class="h-full w-full object-cover">
                     </div>
                     <div class="text-left">
-                        <h4 class="font-semibold text-gray-900">Ahmad</h4>
-                        <p class="text-sm text-gray-500">Warung Makan Sederhana</p>
+                        <h4 class="font-semibold text-gray-900">Sajian Harmony</h4>
+                        <p class="text-sm text-gray-500">Toko Bahan Kue</p>
                     </div>
                 </div>
-                <p class="text-gray-600 text-sm leading-relaxed">"Sejak pakai XpressPOS, pencatatan jadi lebih rapi dan tidak ada lagi kesalahan hitung."</p>
+                <p class="text-gray-600 text-sm leading-relaxed">"Dengan berbagai varian bahan kue yang kami jual, XpressPOS sangat membantu dalam mengelola stok dan inventory. Sistem yang mudah digunakan membuat kami bisa fokus melayani pelanggan dengan lebih baik."</p>
             </div>
 
-            <!-- Testimonial 2 -->
+            <!-- Testimonial 2 - Orion Coffee -->
             <div class="bg-gradient-to-br from-white to-green-50/30 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 scroll-animate testimonial-card" style="animation-delay: 0.2s">
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center text-white font-semibold">
-                        S
+                    <div class="h-12 w-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                        <img src="{{ asset('partner-logo/orion-coffe.jpg') }}" alt="Orion Coffee" class="h-full w-full object-cover">
                     </div>
                     <div class="text-left">
-                        <h4 class="font-semibold text-gray-900">Sari</h4>
-                        <p class="text-sm text-gray-500">Toko Kelontong</p>
+                        <h4 class="font-semibold text-gray-900">Orion Coffee</h4>
+                        <p class="text-sm text-gray-500">Coffee Shop & Cafe</p>
                     </div>
                 </div>
-                <p class="text-gray-600 text-sm leading-relaxed">"Fitur inventory sangat membantu, sekarang stok selalu terkontrol dengan baik."</p>
+                <p class="text-gray-600 text-sm leading-relaxed">"Laporan penjualan yang detail membantu kami membuat keputusan bisnis yang lebih baik. Fitur laporan harian sangat membantu analisis."</p>
             </div>
 
-            <!-- Testimonial 3 -->
+            <!-- Testimonial 3 - Trek Coffee -->
             <div class="bg-gradient-to-br from-white to-purple-50/30 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 scroll-animate testimonial-card" style="animation-delay: 0.3s">
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="h-10 w-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-semibold">
-                        B
+                    <div class="h-12 w-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                        <img src="{{ asset('partner-logo/trek-coffe.jpg') }}" alt="Trek Coffee" class="h-full w-full object-cover">
                     </div>
                     <div class="text-left">
-                        <h4 class="font-semibold text-gray-900">Budi</h4>
-                        <p class="text-sm text-gray-500">Cafe Corner</p>
+                        <h4 class="font-semibold text-gray-900">Trek Coffee</h4>
+                        <p class="text-sm text-gray-500">Coffee Shop</p>
                     </div>
                 </div>
-                <p class="text-gray-600 text-sm leading-relaxed">"Interface yang mudah dipahami, staff baru bisa langsung pakai tanpa training lama."</p>
+                <p class="text-gray-600 text-sm leading-relaxed">"Interface yang user-friendly membuat staff kami cepat beradaptasi. Proses transaksi menjadi lebih cepat dan efisien."</p>
+            </div>
+
+            <!-- Testimonial 4 - Nakama -->
+            <div class="bg-gradient-to-br from-white to-orange-50/30 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 scroll-animate testimonial-card" style="animation-delay: 0.4s">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="h-12 w-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                        <img src="{{ asset('partner-logo/nakama.jpg') }}" alt="Nakama" class="h-full w-full object-cover">
+                    </div>
+                    <div class="text-left">
+                        <h4 class="font-semibold text-gray-900">Nakama</h4>
+                        <p class="text-sm text-gray-500">Cafe dan Resto</p>
+                    </div>
+                </div>
+                <p class="text-gray-600 text-sm leading-relaxed">"Sistem POS yang stabil dan cepat sangat penting untuk cafe dan resto kami. XpressPOS tidak pernah mengecewakan, bahkan saat rush hour."</p>
+            </div>
+
+            <!-- Testimonial 5 - Los In Between -->
+            <div class="bg-gradient-to-br from-white to-pink-50/30 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 scroll-animate testimonial-card" style="animation-delay: 0.5s">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="h-12 w-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                        <img src="{{ asset('partner-logo/los-in-between.jpg') }}" alt="Los In Between" class="h-full w-full object-cover">
+                    </div>
+                    <div class="text-left">
+                        <h4 class="font-semibold text-gray-900">Los In Between</h4>
+                        <p class="text-sm text-gray-500">Noodle bar</p>
+                    </div>
+                </div>
+                <p class="text-gray-600 text-sm leading-relaxed">"Fitur multi-outlet sangat membantu kami mengelola beberapa cabang. Semua data terpusat dan mudah diakses kapan saja."</p>
+            </div>
+
+            <!-- Testimonial 6 - Workop Sinar Bintang -->
+            <div class="bg-gradient-to-br from-white to-indigo-50/30 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 scroll-animate testimonial-card" style="animation-delay: 0.6s">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="h-12 w-12 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                        <img src="{{ asset('partner-logo/workop-sinar-bintang.jpg') }}" alt="Workop Sinar Bintang" class="h-full w-full object-cover">
+                    </div>
+                    <div class="text-left">
+                        <h4 class="font-semibold text-gray-900">Workop Sinar Bintang</h4>
+                        <p class="text-sm text-gray-500">Warung Kopi</p>
+                    </div>
+                </div>
+                <p class="text-gray-600 text-sm leading-relaxed">"Sebagai warung kopi yang ramai, XpressPOS membantu kami melayani pelanggan dengan lebih cepat dan efisien. Sistem yang mudah digunakan membuat operasional harian menjadi lebih lancar."</p>
             </div>
         </div>
 
@@ -322,9 +386,15 @@
         <div class="mt-12 flex flex-col sm:flex-row items-center justify-center gap-8 text-center scroll-animate">
             <div class="flex items-center gap-2">
                 <div class="flex -space-x-2">
-                    <div class="h-8 w-8 rounded-full bg-blue-500 border-2 border-white"></div>
-                    <div class="h-8 w-8 rounded-full bg-green-500 border-2 border-white"></div>
-                    <div class="h-8 w-8 rounded-full bg-purple-500 border-2 border-white"></div>
+                    <div class="h-8 w-8 rounded-full overflow-hidden bg-white border-2 border-white">
+                        <img src="{{ asset('partner-logo/orion-coffe.jpg') }}" alt="Orion Coffee" class="h-full w-full object-cover">
+                    </div>
+                    <div class="h-8 w-8 rounded-full overflow-hidden bg-white border-2 border-white">
+                        <img src="{{ asset('partner-logo/trek-coffe.jpg') }}" alt="Trek Coffee" class="h-full w-full object-cover">
+                    </div>
+                    <div class="h-8 w-8 rounded-full overflow-hidden bg-white border-2 border-white">
+                        <img src="{{ asset('partner-logo/nakama.jpg') }}" alt="Nakama" class="h-full w-full object-cover">
+                    </div>
                     <div class="h-8 w-8 rounded-full bg-orange-500 border-2 border-white flex items-center justify-center text-white text-xs font-semibold">+7</div>
                 </div>
                 <span class="text-sm text-gray-600 ml-2"><span data-count="10">0</span>+ bisnis aktif</span>
@@ -407,8 +477,33 @@
                                 <p class="text-2xl font-bold text-gray-900">{{ number_format($plan->annual_price, 0, ',', '.') }}</p>
                                 <p class="text-xs text-gray-500">/tahun</p>
                             </div>
-                            <button onclick="selectPlanFromLanding('{{ $plan->slug }}')" class="mt-3 w-full {{ $index === 1 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-900 hover:bg-gray-800' }} text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-                                Beli
+                            @php
+                                // Dynamic button text based on auth & current plan
+                                $btnLabel = 'Beli';
+                                $btnDisabled = false;
+                                $btnOnclick = "selectPlanFromLanding('{$plan->slug}')";
+                                
+                                // Check if user has active plan
+                                if (isset($currentPlan) && $currentPlan) {
+                                    if ($plan->id === $currentPlan->id) {
+                                        // Current plan
+                                        $btnLabel = 'Paket Saat Ini ✓';
+                                        $btnDisabled = true;
+                                        $btnOnclick = '';
+                                    } elseif ($plan->sort_order > $currentPlan->sort_order) {
+                                        // Upgrade
+                                        $btnLabel = 'Upgrade';
+                                    } elseif ($plan->sort_order < $currentPlan->sort_order) {
+                                        // Downgrade
+                                        $btnLabel = 'Downgrade';
+                                    }
+                                }
+                            @endphp
+                            <button 
+                                @if($btnOnclick) onclick="{{ $btnOnclick }}" @endif
+                                @if($btnDisabled) disabled @endif
+                                class="mt-3 w-full {{ $index === 1 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-900 hover:bg-gray-800' }} text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors {{ $btnDisabled ? 'opacity-60 cursor-not-allowed' : '' }}">
+                                {{ $btnLabel }}
                             </button>
                         </div>
                     </div>
@@ -1636,6 +1731,36 @@
             display: none !important;
         }
     }
+
+    /* Partner Logo Circle Styles */
+    .partner-logo-circle {
+        width: 96px;
+        height: 96px;
+        min-width: 96px;
+        min-height: 96px;
+        max-width: 96px;
+        max-height: 96px;
+        flex-shrink: 0;
+    }
+
+    @media (min-width: 768px) {
+        .partner-logo-circle {
+            width: 112px;
+            height: 112px;
+            min-width: 112px;
+            min-height: 112px;
+            max-width: 112px;
+            max-height: 112px;
+        }
+    }
+
+    .partner-logo-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+        display: block;
+    }
 </style>
 
 <!-- Professional JavaScript Enhancements -->
@@ -2205,7 +2330,7 @@
                             <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
                         </svg>
                     </a>
-                    <a href="https://www.instagram.com/xpresspos.id" target="_blank" rel="noopener noreferrer"
+                    <a href="https://www.instagram.com/xpresspos" target="_blank" rel="noopener noreferrer"
                        class="group w-11 h-11 bg-gray-800 rounded-xl flex items-center justify-center hover:bg-gradient-to-br hover:from-purple-500 hover:to-pink-500 transition-all duration-300 transform hover:scale-110 hover:shadow-lg">
                         <svg class="w-5 h-5 transition-colors duration-300" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
@@ -2323,15 +2448,15 @@
                         © {{ date('Y') }} XpressPOS. All rights reserved.
                     </p>
                     <div class="flex space-x-6">
-                        <a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm relative group">
+                        <a href="{{ route('landing.privacy-policy') }}" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm relative group">
                             Privacy Policy
                             <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-500 transition-all duration-300 group-hover:w-full"></span>
                         </a>
-                        <a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm relative group">
+                        <a href="{{ route('landing.terms-and-conditions') }}" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm relative group">
                             Syarat & Ketentuan
                             <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-500 transition-all duration-300 group-hover:w-full"></span>
                         </a>
-                        <a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm relative group">
+                        <a href="{{ route('landing.cookie-policy') }}" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm relative group">
                             Cookie Policy
                             <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-500 transition-all duration-300 group-hover:w-full"></span>
                         </a>
@@ -2347,14 +2472,14 @@
             </div>
         </div>
     </div>
-</footer>
 
-<!-- Scroll to Top Button -->
-<button id="scrollToTop" class="fixed bottom-4 right-4 w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 opacity-0 invisible z-50" style="position: fixed !important; bottom: 16px !important; right: 16px !important; z-index: 9999 !important;">
-    <svg class="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
-    </svg>
-</button>
+    <!-- Scroll to Top Button -->
+    <button id="scrollToTop" class="fixed bottom-10 left-10 w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 opacity-0 invisible z-50" style="position: fixed !important; z-index: 9999 !important;">
+        <svg class="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+        </svg>
+    </button>
+</footer>
 
 <script>
     // Scroll to top functionality

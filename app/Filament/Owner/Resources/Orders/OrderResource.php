@@ -6,11 +6,17 @@ use App\Filament\Owner\Resources\Orders\Pages\ListOrders;
 use App\Filament\Owner\Resources\Orders\Pages\ViewOrder;
 use App\Filament\Owner\Resources\Orders\Schemas\OrderForm;
 use App\Filament\Owner\Resources\Orders\Tables\OrdersTable;
+use App\Filament\Owner\Resources\Orders\RelationManagers\OrderDiscountsRelationManager;
+use App\Filament\Owner\Resources\Orders\RelationManagers\OrderItemsRelationManager;
+use App\Filament\Owner\Resources\Orders\RelationManagers\PaymentsRelationManager;
+use App\Filament\Owner\Resources\Orders\RelationManagers\RefundsRelationManager;
 use App\Models\Order;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Support\Icons\Heroicon;
 
@@ -26,7 +32,7 @@ class OrderResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Pesanan';
 
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = 10;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Operasional Harian';
 
@@ -45,7 +51,10 @@ class OrderResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            OrderItemsRelationManager::class,
+            OrderDiscountsRelationManager::class,
+            PaymentsRelationManager::class,
+            RefundsRelationManager::class,
         ];
     }
 
@@ -90,5 +99,25 @@ class OrderResource extends Resource
     public static function canViewAny(): bool
     {
         return true;
+    }
+
+    /**
+     * Apply Global Filter to Orders query
+     * 
+     * Unified Multi-Store Dashboard: Filter by tenant + store + date
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+
+        $query = parent::getEloquentQuery();
+
+        // Apply store filter (multi-store support)
+        if (!empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
+
+        return $query;
     }
 }

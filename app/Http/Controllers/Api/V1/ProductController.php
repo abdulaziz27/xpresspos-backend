@@ -91,7 +91,6 @@ class ProductController extends Controller
         $this->authorize('create', Product::class);
 
         $product = Product::create([
-            'store_id' => request()->user()->store_id,
             'category_id' => $request->input('category_id'),
             'name' => $request->input('name'),
             'sku' => $request->input('sku'),
@@ -100,8 +99,6 @@ class ProductController extends Controller
             'price' => $request->input('price'),
             'cost_price' => $request->input('cost_price'),
             'track_inventory' => $request->input('track_inventory', false),
-            'stock' => $request->input('stock', 0),
-            'min_stock_level' => $request->input('min_stock_level', 0),
             'status' => $request->input('status', true),
             'is_favorite' => $request->input('is_favorite', false),
             'sort_order' => $request->input('sort_order', 0)
@@ -153,22 +150,18 @@ class ProductController extends Controller
             'category_id' => [
                 'sometimes',
                 'exists:categories,id',
-                function ($attribute, $value, $fail) {
-                    if ($value) {
-                        $category = Category::find($value);
-                        if (!$category || $category->store_id !== request()->user()->store_id) {
-                            $fail('The selected category is invalid.');
-                        }
-                    }
-                }
             ],
             'name' => 'sometimes|required|string|max:255',
             'sku' => [
                 'nullable',
                 'string',
                 'max:100',
-                Rule::unique('products')->where(function ($query) {
-                    return $query->where('store_id', request()->user()->store_id);
+                Rule::unique('products')->where(function ($query) use ($product) {
+                    $user = request()->user();
+                    $tenantId = $user->currentTenant()?->id;
+                    if ($tenantId) {
+                        $query->where('tenant_id', $tenantId);
+                    }
                 })->ignore($product->id)
             ],
             'description' => 'nullable|string|max:2000',
@@ -176,8 +169,6 @@ class ProductController extends Controller
             'price' => 'sometimes|required|numeric|min:0|max:999999.99',
             'cost_price' => 'nullable|numeric|min:0|max:999999.99',
             'track_inventory' => 'boolean',
-            'stock' => 'integer|min:0',
-            'min_stock_level' => 'integer|min:0',
             'status' => 'boolean',
             'is_favorite' => 'boolean',
             'sort_order' => 'integer|min:0',
@@ -233,12 +224,6 @@ class ProductController extends Controller
         }
         if ($request->has('track_inventory')) {
             $updateData['track_inventory'] = $request->input('track_inventory');
-        }
-        if ($request->has('stock')) {
-            $updateData['stock'] = $request->input('stock');
-        }
-        if ($request->has('min_stock_level')) {
-            $updateData['min_stock_level'] = $request->input('min_stock_level');
         }
         if ($request->has('status')) {
             $updateData['status'] = $request->input('status');

@@ -18,7 +18,7 @@ class SubscriptionStatusWidget extends Widget
             ->first();
 
         $nextPaymentAmount = $this->record->amount;
-        $daysUntilRenewal = $this->record->ends_at->diffInDays();
+        $daysUntilRenewal = (int) $this->record->ends_at->diffInDays();
         $isExpiringSoon = $daysUntilRenewal <= 7;
         $isExpired = $this->record->ends_at->isPast();
 

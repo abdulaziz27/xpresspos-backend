@@ -70,7 +70,6 @@ class CategoryController extends Controller
         $this->authorize('create', Category::class);
 
         $category = Category::create([
-            'store_id' => request()->user()->store_id,
             'name' => $request->input('name'),
             'slug' => Str::slug($request->input('name')),
             'description' => $request->input('description'),

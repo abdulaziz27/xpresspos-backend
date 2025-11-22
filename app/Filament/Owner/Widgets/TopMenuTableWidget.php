@@ -2,109 +2,108 @@
 
 namespace App\Filament\Owner\Widgets;
 
-use App\Models\CogsHistory;
-use Illuminate\Support\Facades\DB;
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
+use App\Models\Product;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\DB;
 
 class TopMenuTableWidget extends BaseWidget
 {
-    protected static ?string $heading = 'Produk Terlaris (Top 10)';
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
+
+    protected static bool $isLazy = false;
 
     protected int | string | array $columnSpan = ['xl' => 6];
 
-    public ?string $filter = 'today';
-
-    protected function getFilters(): array
+    protected function getTableHeading(): string | Htmlable | null
     {
-        return [
-            'today' => 'Hari ini',
-            'this_week' => 'Minggu ini',
-            'this_month' => 'Bulan ini',
-        ];
+        return 'Produk Terlaris (Top 10) • ' . $this->dashboardFilterContextLabel();
     }
 
     public function table(Table $table): Table
     {
-        $storeId = auth()->user()?->store_id;
+            $filters = $this->dashboardFilters();
+            $storeIds = $this->dashboardStoreIds();
+        $tenantId = $filters['tenant_id'] ?? null;
+        $dateRange = $filters['range'] ?? null;
 
-        return $table
-            ->query(
-                \App\Models\Product::query()
-                    ->when($storeId, fn($q) => $q->where('store_id', $storeId))
-            )
-            ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->label('Produk')
-                    ->searchable()
-                    ->sortable()
-                    ->limit(30),
-                Tables\Columns\TextColumn::make('total_qty')
-                    ->label('Terjual')
-                    ->numeric()
-                    ->sortable()
-                    ->formatStateUsing(fn ($state) => $state ?? 0),
-            ])
-            ->filters([
-                Tables\Filters\SelectFilter::make('date_range')
-                    ->label('Tanggal')
-                    ->default('today')
-                    ->options([
-                        'today' => 'Hari ini',
-                        'this_week' => 'Minggu ini',
-                        'this_month' => 'Bulan ini',
-                    ])
-                    ->query(function ($query, array $data) use ($storeId) {
-                        $range = $data['value'] ?? $data['date_range'] ?? 'today';
-                        $start = now();
-                        $end = now();
-                        if ($range === 'this_week') {
-                            $start = now()->startOfWeek();
-                            $end = now()->endOfWeek();
-                        } elseif ($range === 'this_month') {
-                            $start = now()->startOfMonth();
-                            $end = now()->endOfMonth();
-                        } else {
-                            $start = now()->startOfDay();
-                            $end = now()->endOfDay();
-                        }
+        if (! $tenantId || empty($storeIds) || ! $dateRange) {
+            return $this->buildFallbackTable(
+                $table,
+                'Tenant atau Cabang Belum Dipilih',
+                'Silakan pilih tenant dan cabang untuk melihat produk terlaris.'
+            );
+        }
 
-                        $sumSub = DB::table('cogs_history')
-                            ->selectRaw('COALESCE(SUM(quantity_sold), 0)')
-                            ->whereColumn('cogs_history.product_id', 'products.id')
-                            ->when($storeId, fn ($q) => $q->where('cogs_history.store_id', $storeId))
-                            ->whereBetween('cogs_history.created_at', [$start, $end]);
+        try {
+            $summary = $this->dashboardFilterSummary();
 
-                        $query->select('products.*')
-                            ->selectSub($sumSub, 'total_qty')
-                            ->having('total_qty', '>', 0)
-                            ->orderByDesc('total_qty')
-                            ->limit(10);
-                    })
-            ])
-            ->modifyQueryUsing(function ($query) use ($storeId) {
-                // Default TODAY aggregation, ensures 'total_qty' is present even before filters run
-                $start = now()->startOfDay();
-                $end = now()->endOfDay();
+                $query = Product::query()
+                ->select('products.*')
+                ->selectSub(
+                    DB::table('cogs_history')
+                        ->selectRaw('COALESCE(SUM(quantity_sold), 0)')
+                        ->whereColumn('cogs_history.product_id', 'products.id')
+                        ->whereIn('cogs_history.store_id', $storeIds)
+                        ->whereBetween('cogs_history.created_at', [$dateRange['start'], $dateRange['end']]),
+                    'total_qty'
+                )
+                ->where('tenant_id', $tenantId)
+                ->where('status', true)
+                        ->having('total_qty', '>', 0)
+                        ->orderByDesc('total_qty')
+                        ->limit(10);
 
-                $sumSub = DB::table('cogs_history')
-                    ->selectRaw('COALESCE(SUM(quantity_sold), 0)')
-                    ->whereColumn('cogs_history.product_id', 'products.id')
-                    ->when($storeId, fn ($q) => $q->where('cogs_history.store_id', $storeId))
-                    ->whereBetween('cogs_history.created_at', [$start, $end]);
+            return $table
+                ->query($query)
+                ->columns($this->tableColumns())
+                ->emptyStateHeading('Tidak Ada Produk yang Terjual')
+                ->emptyStateDescription('Belum ada transaksi untuk ' . ($summary['store'] ?? 'Semua Cabang') . '.')
+                ->paginated(false)
+                ->striped();
+        } catch (\Throwable $e) {
+            report($e);
 
-                $query->select('products.*')
-                    ->selectSub($sumSub, 'total_qty')
-                    ->having('total_qty', '>', 0)
-                    ->orderByDesc('total_qty')
-                    ->limit(10);
-            })
-            ->emptyStateHeading('Tidak Ada Produk yang Terjual')
-            ->emptyStateDescription('Semua produk belum ada transaksi dalam periode ini.')
-            ->paginated(false)
-            ->striped();
+            return $this->buildFallbackTable(
+                $table,
+                'Tidak dapat memuat data',
+                'Terjadi kesalahan saat memuat data penjualan produk.'
+            );
+                    }
+    }
+
+    /**
+     * @return array<int, Tables\Columns\Column>
+     */
+    protected function tableColumns(): array
+    {
+        return [
+                    Tables\Columns\TextColumn::make('name')
+                        ->label('Produk')
+                        ->searchable()
+                        ->sortable()
+                        ->limit(30),
+                    Tables\Columns\TextColumn::make('total_qty')
+                        ->label('Terjual')
+                        ->numeric()
+                        ->sortable()
+                        ->formatStateUsing(fn ($state) => $state ?? 0),
+        ];
+    }
+
+    protected function buildFallbackTable(Table $table, string $heading, string $description): Table
+    {
+            return $table
+                ->query(Product::query()->whereRaw('1 = 0'))
+            ->columns($this->tableColumns())
+            ->emptyStateHeading($heading)
+            ->emptyStateDescription($description)
+                ->paginated(false)
+                ->striped();
     }
 }
-
-

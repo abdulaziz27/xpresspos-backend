@@ -44,7 +44,6 @@ Dokumen ini berisi dokumentasi lengkap skema database sistem XpressPOS Backend, 
 -   `email` (string, unique) - Email user
 -   `email_verified_at` (timestamp, nullable) - Waktu verifikasi email
 -   `password` (string) - Password terenkripsi
--   `midtrans_customer_id` (string, nullable) - ID customer di Midtrans
 -   `two_factor_secret` (text, nullable) - Secret 2FA
 -   `two_factor_recovery_codes` (text, nullable) - Recovery codes 2FA
 -   `two_factor_confirmed_at` (timestamp, nullable) - Waktu konfirmasi 2FA
@@ -55,7 +54,6 @@ Dokumen ini berisi dokumentasi lengkap skema database sistem XpressPOS Backend, 
 **Index:**
 
 -   `store_id` - Untuk filtering berdasarkan store
--   `midtrans_customer_id` - Untuk integrasi Midtrans
 
 **Relasi:**
 
@@ -107,7 +105,7 @@ Dokumen ini berisi dokumentasi lengkap skema database sistem XpressPOS Backend, 
 -   `track_inventory` (boolean) - Apakah track inventori
 -   `stock` (integer) - Jumlah stok
 -   `min_stock_level` (integer) - Level stok minimum
--   `variants` (json, nullable) - Variant produk
+-   Variants handled by product_variants table
 -   `status` (boolean) - Status aktif produk
 -   `is_favorite` (boolean) - Apakah produk favorit
 -   `sort_order` (integer) - Urutan tampil
@@ -124,18 +122,18 @@ Dokumen ini berisi dokumentasi lengkap skema database sistem XpressPOS Backend, 
 **Relasi:**
 
 -   `belongsTo` stores, categories
--   `hasMany` order_items, product_options, product_price_histories, inventory_movements, stock_levels, cogs_history, recipes
+-   `hasMany` order_items, product_variants, product_price_histories, inventory_movements, stock_levels, cogs_history, recipes
 
-#### 2.3 product_options
+#### 2.3 product_variants
 
-**Tujuan:** Menyimpan opsi produk (size, color, dll)
+**Tujuan:** Menyimpan variant produk (size, color, dll)
 **Kolom:**
 
--   `id` (bigint, primary key) - ID unik opsi
+-   `id` (uuid, primary key) - ID unik variant
 -   `store_id` (uuid, foreign key) - ID store terkait
 -   `product_id` (bigint, foreign key) - ID produk
--   `name` (string) - Nama opsi (Size, Color, dll)
--   `value` (string) - Nilai opsi (Small, Red, dll)
+-   `name` (string) - Nama variant (Size, Color, dll)
+-   `value` (string) - Nilai variant (Small, Red, dll)
 -   `price_adjustment` (decimal 10,2) - Penyesuaian harga
 -   `sort_order` (integer) - Urutan tampil
 -   `is_active` (boolean) - Status aktif
@@ -369,7 +367,7 @@ Dokumen ini berisi dokumentasi lengkap skema database sistem XpressPOS Backend, 
 -   `quantity` (integer) - Jumlah
 -   `unit_price` (decimal 10,2) - Harga satuan
 -   `total_price` (decimal 12,2) - Total harga
--   `product_options` (json, nullable) - Opsi produk
+-   `product_options` (json, nullable) - Snapshot opsi produk saat order dibuat (historical data, bukan FK)
 -   `notes` (text, nullable) - Catatan
 -   `created_at` (timestamp) - Waktu pembuatan
 -   `updated_at` (timestamp) - Waktu update
@@ -870,7 +868,7 @@ Dokumen ini berisi dokumentasi lengkap skema database sistem XpressPOS Backend, 
 
 1. **categories** → **products** (hasMany)
 2. **products** → **order_items** (hasMany)
-3. **products** → **product_options** (hasMany)
+3. **products** → **product_variants** (hasMany)
 4. **products** → **product_price_histories** (hasMany)
 5. **products** → **recipes** (hasMany)
 6. **products** → **inventory_movements** (hasMany)

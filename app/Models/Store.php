@@ -4,23 +4,28 @@ namespace App\Models;
 
 use App\Models\Discount;
 use App\Models\StoreUserAssignment;
+use App\Models\Subscription;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Store extends Model
 {
     use HasFactory, HasUuids;
 
     protected $fillable = [
+        'tenant_id',
         'name',
+        'code',
         'email',
         'phone',
         'address',
         'logo',
+        'timezone',
+        'currency',
         'settings',
         'status',
     ];
@@ -28,14 +33,6 @@ class Store extends Model
     protected $casts = [
         'settings' => 'array',
     ];
-
-    /**
-     * Get the users for the store.
-     */
-    public function users(): HasMany
-    {
-        return $this->hasMany(User::class);
-    }
 
     public function userAssignments(): HasMany
     {
@@ -50,27 +47,39 @@ class Store extends Model
     }
 
     /**
-     * Get the subscription for the store (alias for activeSubscription).
+     * Alias for assignedUsers() for backward compatibility.
+     * Some legacy code may still use $store->users()
      */
-    public function subscription(): HasOne
+    public function users(): BelongsToMany
     {
-        return $this->hasOne(Subscription::class)->where('status', 'active');
+        return $this->assignedUsers();
     }
 
     /**
-     * Get the active subscription for the store.
+     * Get the tenant that owns the store.
      */
-    public function activeSubscription(): HasOne
+    public function tenant(): BelongsTo
     {
-        return $this->hasOne(Subscription::class)->where('status', 'active');
+        return $this->belongsTo(Tenant::class);
     }
 
     /**
-     * Get all subscriptions for the store.
+     * Convenience helper: Get active subscription via tenant.
+     * 
+     * Model Bisnis: Subscription per Tenant (bukan per Store)
+     * Satu tenant bisa punya banyak store, semua dilindungi oleh satu subscription yang sama.
      */
-    public function subscriptions(): HasMany
+    public function activeSubscription(): ?Subscription
     {
-        return $this->hasMany(Subscription::class);
+        return $this->tenant?->activeSubscription();
+    }
+
+    /**
+     * Convenience helper: Get all subscriptions via tenant.
+     */
+    public function subscriptions()
+    {
+        return $this->tenant?->subscriptions() ?? Subscription::whereRaw('1 = 0'); // Return empty query if no tenant
     }
 
     /**
@@ -182,13 +191,6 @@ class Store extends Model
      */
     private function getCurrentUserUsage(): int
     {
-        $user = auth()->user();
-
-        if (!$user) {
-            // In testing or no auth context, use direct query (User doesn't have store scope)
-            return \App\Models\User::where('store_id', $this->id)->count();
-        }
-
         return $this->userAssignments()->count();
     }
 

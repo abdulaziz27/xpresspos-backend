@@ -112,7 +112,9 @@ class RecipesTable
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->modifyQueryUsing(function ($query) {
+                return $query->orderBy('created_at', 'desc');
+            })
             ->striped()
             ->paginated([10, 25, 50, 100]);
     }

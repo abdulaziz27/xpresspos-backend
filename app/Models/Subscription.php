@@ -13,7 +13,7 @@ class Subscription extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        'store_id',
+        'tenant_id',
         'plan_id',
         'status',
         'billing_cycle',
@@ -33,11 +33,14 @@ class Subscription extends Model
     ];
 
     /**
-     * Get the store that owns the subscription.
+     * Get the tenant that owns the subscription.
+     * 
+     * Model Bisnis: Subscription per Tenant (bukan per Store)
+     * Satu tenant bisa punya banyak store, semua dilindungi oleh satu subscription yang sama.
      */
-    public function store(): BelongsTo
+    public function tenant(): BelongsTo
     {
-        return $this->belongsTo(Store::class);
+        return $this->belongsTo(Tenant::class);
     }
 
     /**

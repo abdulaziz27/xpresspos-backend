@@ -17,14 +17,16 @@ class StoreFactory extends Factory
     public function definition(): array
     {
         return [
+            'tenant_id' => \App\Models\Tenant::factory(),
             'name' => $this->faker->company(),
+            'code' => $this->faker->unique()->slug(),
             'email' => $this->faker->unique()->companyEmail(),
             'phone' => $this->faker->phoneNumber(),
             'address' => $this->faker->address(),
             'logo' => null,
+            'timezone' => 'Asia/Jakarta',
+            'currency' => 'IDR',
             'settings' => [
-                'currency' => 'IDR',
-                'timezone' => 'Asia/Jakarta',
                 'tax_rate' => 10,
                 'service_charge_rate' => 5,
             ],

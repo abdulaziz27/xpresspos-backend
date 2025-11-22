@@ -3,7 +3,7 @@
 namespace App\Filament\Admin\Resources\Subscriptions\Schemas;
 
 use App\Models\Plan;
-use App\Models\Store;
+use App\Models\Tenant;
 use Filament\Forms\Components\DatePicker;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -22,25 +22,21 @@ class SubscriptionForm
         return $schema
             ->components([
                 Section::make('Subscription Information')
-                    ->description('Basic subscription details and store information')
+                    ->description('Basic subscription details and tenant information')
                     ->schema([
                         Grid::make(2)
                             ->schema([
-                                Select::make('store_id')
-                                    ->label('Store')
-                                    ->options(function () {
-                                        return Store::where('status', true)
-                                            ->pluck('name', 'id');
-                                    })
+                                Select::make('tenant_id')
+                                    ->label('Tenant')
+                                    ->relationship('tenant', 'name')
                                     ->searchable()
                                     ->preload()
-                                    ->required(),
+                                    ->required()
+                                    ->helperText('Pilih tenant yang akan memiliki subscription ini'),
 
                                 Select::make('plan_id')
                                     ->label('Plan')
-                                    ->options(function () {
-                                        return Plan::pluck('name', 'id');
-                                    })
+                                    ->relationship('plan', 'name')
                                     ->searchable()
                                     ->preload()
                                     ->required()

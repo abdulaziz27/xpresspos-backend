@@ -42,12 +42,38 @@ class PaymentValidationService
         
         // Check payment amount
         $remainingBalance = $this->calculateRemainingBalance($order);
-        if ($paymentData['amount'] > $remainingBalance) {
-            $errors[] = 'Payment amount exceeds remaining balance.';
+        $paymentMethod = $paymentData['payment_method'] ?? null;
+        $isCashPayment = $paymentMethod === 'cash';
+        $requestedAmount = $paymentData['amount'];
+        $receivedAmount = $paymentData['received_amount'] ?? null;
+        
+        if ($requestedAmount <= 0) {
+            $errors[] = 'Payment amount must be greater than zero.';
         }
         
-        if ($paymentData['amount'] <= 0) {
-            $errors[] = 'Payment amount must be greater than zero.';
+        // For cash payments: allow overpayment (amount can be >= remaining_balance)
+        // The controller will adjust: actual payment amount = min(amount, remaining_balance)
+        // received_amount will be used for change calculation
+        if ($isCashPayment) {
+            // For cash, amount should be at least the remaining balance
+            // Overpayment is allowed (will be handled as change)
+            if ($requestedAmount < $remainingBalance) {
+                $errors[] = sprintf(
+                    'Payment amount (%.2f) is less than remaining balance (%.2f). For cash payments, amount must be at least the remaining balance.',
+                    $requestedAmount,
+                    $remainingBalance
+                );
+            }
+            // Overpayment is allowed for cash - no error if amount > remaining_balance
+        } else {
+            // For non-cash payments, amount must match remaining balance exactly
+            if (abs($requestedAmount - $remainingBalance) > 0.01) { // Allow small rounding differences
+                $errors[] = sprintf(
+                    'Payment amount (%.2f) does not match remaining balance (%.2f). For non-cash payments, amount must match the remaining balance exactly.',
+                    $requestedAmount,
+                    $remainingBalance
+                );
+            }
         }
         
         // Check if order is already fully paid
@@ -68,11 +94,47 @@ class PaymentValidationService
      */
     private function calculateRemainingBalance(Order $order): float
     {
-        $totalAmount = $order->total_amount;
+        // Ensure order has items loaded
+        if (!$order->relationLoaded('items')) {
+            $order->load('items');
+        }
+        
+        // Ensure order has store loaded (needed for tax calculation)
+        if (!$order->relationLoaded('store')) {
+            $order->load('store');
+        }
+        
+        // Recalculate totals if order has items but total_amount is 0 or null
+        if ($order->items->count() > 0 && (!$order->total_amount || $order->total_amount == 0)) {
+            \Log::info('Recalculating order totals in PaymentValidationService', [
+                'order_id' => $order->id,
+                'items_count' => $order->items->count(),
+                'current_total' => $order->total_amount,
+            ]);
+            
+            $calculationService = app(\App\Services\OrderCalculationService::class);
+            $calculationService->updateOrderTotals($order);
+            $order->refresh();
+            
+            \Log::info('Order totals recalculated', [
+                'order_id' => $order->id,
+                'new_total' => $order->total_amount,
+            ]);
+        }
+        
+        $totalAmount = $order->total_amount ?? 0;
         $paidAmount = $order->payments()->where('status', 'completed')->sum('amount');
         $refundedAmount = $order->refunds()->where('status', 'completed')->sum('amount');
         
         $remainingBalance = $totalAmount - ($paidAmount - $refundedAmount);
+        
+        \Log::info('Payment balance calculation', [
+            'order_id' => $order->id,
+            'total_amount' => $totalAmount,
+            'paid_amount' => $paidAmount,
+            'refunded_amount' => $refundedAmount,
+            'remaining_balance' => $remainingBalance,
+        ]);
         
         return max(0, round($remainingBalance, 2));
     }

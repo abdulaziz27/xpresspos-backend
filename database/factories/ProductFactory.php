@@ -17,14 +17,18 @@ class ProductFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => $this->faker->name,
+            'tenant_id' => \App\Models\Tenant::factory(),
+            'name' => $this->faker->words(3, true),
+            'sku' => $this->faker->unique()->bothify('SKU-####'),
             'description' => $this->faker->text,
             'price' => $this->faker->randomFloat(2, 1, 100),
+            'cost_price' => $this->faker->randomFloat(2, 0.5, 50),
             'image' => $this->faker->imageUrl(),
-            'stock' => $this->faker->numberBetween(1, 100),
-            'status' => $this->faker->boolean,
-            'is_favorite' => $this->faker->boolean,
-            'category_id' => $this->faker->numberBetween(1, 4),
+            'track_inventory' => $this->faker->boolean(70),
+            'status' => $this->faker->boolean(90),
+            'is_favorite' => $this->faker->boolean(20),
+            'sort_order' => $this->faker->numberBetween(0, 100),
+            'category_id' => \App\Models\Category::factory(),
         ];
     }
 }

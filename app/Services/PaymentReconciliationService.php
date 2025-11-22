@@ -12,8 +12,9 @@ use Illuminate\Support\Facades\Log;
 
 class PaymentReconciliationService
 {
+    // NOTE: PaymentService (Midtrans) telah dihapus karena tidak digunakan.
+    
     public function __construct(
-        protected PaymentService $paymentService,
         protected InvoiceService $invoiceService
     ) {}
 
@@ -28,8 +29,9 @@ class PaymentReconciliationService
             'errors' => [],
         ];
 
+        // NOTE: Midtrans gateway telah dihapus. Skip payment dengan gateway midtrans.
         $pendingPayments = Payment::where('status', 'pending')
-            ->where('gateway', 'midtrans')
+            ->where('gateway', '!=', 'midtrans') // Skip Midtrans payments
             ->where('created_at', '>=', now()->subDays(7)) // Only check payments from last 7 days
             ->get();
 
@@ -58,93 +60,27 @@ class PaymentReconciliationService
 
     /**
      * Reconcile a specific payment.
+     * 
+     * NOTE: Midtrans reconciliation telah dihapus.
+     * Perlu di-refactor untuk Xendit jika diperlukan.
      */
     public function reconcilePayment(Payment $payment): bool
     {
-        try {
-            // Get payment status from Midtrans
-            $status = $this->getPaymentStatusFromMidtrans($payment->gateway_transaction_id);
-
-            if (!$status) {
-                Log::warning('Could not retrieve payment status from Midtrans', [
-                    'payment_id' => $payment->id,
-                    'gateway_transaction_id' => $payment->gateway_transaction_id,
-                ]);
-                return false;
-            }
-
-            // Update payment status if it has changed
-            if ($status['transaction_status'] !== $payment->status) {
-                $this->updatePaymentFromStatus($payment, $status);
-                return true;
-            }
-
+        // Skip Midtrans payments
+        if ($payment->gateway === 'midtrans') {
+            Log::info('Skipping Midtrans payment reconciliation (Midtrans removed)', [
+                'payment_id' => $payment->id,
+            ]);
             return false;
-        } catch (\Exception $e) {
-            Log::error('Payment reconciliation failed', [
-                'payment_id' => $payment->id,
-                'error' => $e->getMessage(),
-            ]);
-            throw $e;
         }
-    }
 
-    /**
-     * Get payment status from Midtrans API.
-     */
-    private function getPaymentStatusFromMidtrans(string $orderId): ?array
-    {
-        try {
-            // Use Midtrans Core API to get transaction status
-            $response = \Midtrans\Transaction::status($orderId);
-
-            if ($response && isset($response['transaction_status'])) {
-                return $response;
-            }
-
-            return null;
-        } catch (\Exception $e) {
-            Log::error('Failed to get payment status from Midtrans', [
-                'order_id' => $orderId,
-                'error' => $e->getMessage(),
-            ]);
-            return null;
-        }
-    }
-
-    /**
-     * Update payment based on Midtrans status.
-     */
-    private function updatePaymentFromStatus(Payment $payment, array $status): void
-    {
-        DB::transaction(function () use ($payment, $status) {
-            $newStatus = $this->paymentService->mapMidtransStatus(
-                $status['transaction_status'],
-                $status['fraud_status'] ?? null
-            );
-
-            $payment->update([
-                'status' => $newStatus,
-                'gateway_response' => array_merge($payment->gateway_response ?? [], $status),
-                'processed_at' => $newStatus === 'completed' ? now() : $payment->processed_at,
-            ]);
-
-            // Update invoice status
-            if ($payment->invoice) {
-                if ($newStatus === 'completed') {
-                    $this->invoiceService->markInvoiceAsPaid($payment->invoice);
-                } elseif (in_array($newStatus, ['failed', 'cancelled'])) {
-                    $payment->invoice->markAsFailed();
-                }
-            }
-
-            Log::info('Payment status updated from reconciliation', [
+        // TODO: Implement reconciliation for other gateways (Xendit, etc.)
+        Log::info('Payment reconciliation not implemented for gateway', [
                 'payment_id' => $payment->id,
-                'old_status' => $payment->getOriginal('status'),
-                'new_status' => $newStatus,
-                'gateway_transaction_id' => $payment->gateway_transaction_id,
+            'gateway' => $payment->gateway,
             ]);
-        });
+        
+        return false;
     }
 
     /**
@@ -158,8 +94,9 @@ class PaymentReconciliationService
             'errors' => [],
         ];
 
+        // NOTE: Midtrans gateway telah dihapus. Skip payment dengan gateway midtrans.
         $failedPayments = Payment::where('status', 'failed')
-            ->where('gateway', 'midtrans')
+            ->where('gateway', '!=', 'midtrans') // Skip Midtrans payments
             ->where('created_at', '>=', now()->subDays(30)) // Last 30 days
             ->with('invoice.subscription')
             ->get();
@@ -247,12 +184,13 @@ class PaymentReconciliationService
      */
     public function getReconciliationSummary(): array
     {
+        // NOTE: Midtrans gateway telah dihapus. Hanya hitung payment non-Midtrans.
         $pendingPayments = Payment::where('status', 'pending')
-            ->where('gateway', 'midtrans')
+            ->where('gateway', '!=', 'midtrans')
             ->count();
 
         $failedPayments = Payment::where('status', 'failed')
-            ->where('gateway', 'midtrans')
+            ->where('gateway', '!=', 'midtrans')
             ->where('created_at', '>=', now()->subDays(7))
             ->count();
 
@@ -283,9 +221,10 @@ class PaymentReconciliationService
      */
     public function cleanupOldPayments(int $daysOld = 90): int
     {
+        // NOTE: Midtrans gateway telah dihapus. Hanya hapus payment non-Midtrans.
         $deletedCount = Payment::where('created_at', '<', now()->subDays($daysOld))
             ->where('status', 'failed')
-            ->where('gateway', 'midtrans')
+            ->where('gateway', '!=', 'midtrans')
             ->delete();
 
         Log::info('Cleaned up old failed payments', [

@@ -22,9 +22,9 @@ class ProductPriceHistoryResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Product Price Histories';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 40;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
+    protected static string|\UnitEnum|null $navigationGroup = 'Produk';
 
     public static function table(Table $table): Table
     {
@@ -55,14 +55,7 @@ class ProductPriceHistoryResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $user = auth()->user();
-        
-        if ($user && $user->store_id) {
-            return parent::getEloquentQuery()
-                ->withoutGlobalScopes()
-                ->where('store_id', $user->store_id);
-        }
-
+        // Tenant scope is automatically applied via TenantScope global scope
         return parent::getEloquentQuery();
     }
 

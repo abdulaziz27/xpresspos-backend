@@ -27,9 +27,9 @@ class ProductResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Produk';
 
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = 11;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
+    protected static string|\UnitEnum|null $navigationGroup = 'Produk';
 
     // Check if user can create more products based on subscription limit
     public static function canCreate(): bool
@@ -51,6 +51,7 @@ class ProductResource extends Resource
     {
         return [
             RelationManagers\VariantsRelationManager::class,
+            RelationManagers\ModifierGroupsRelationManager::class,
         ];
     }
 
@@ -65,21 +66,10 @@ class ProductResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $user = auth()->user();
-        
-        if ($user && $user->store_id) {
-            // Set store context secara eksplisit
-            $storeContext = \App\Services\StoreContext::instance();
-            $storeContext->set($user->store_id);
-            setPermissionsTeamId($user->store_id);
-            
-            // Force query untuk store ini
-            return parent::getEloquentQuery()
-                ->withoutGlobalScopes()
-                ->where('store_id', $user->store_id);
-        }
-
-        return parent::getEloquentQuery();
+        // Tenant scope is automatically applied via TenantScope global scope
+        // Eager load category for better performance
+        return parent::getEloquentQuery()
+            ->with(['category']);
     }
 
     public static function canViewAny(): bool

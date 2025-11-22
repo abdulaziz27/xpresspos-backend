@@ -39,6 +39,14 @@ class Plan extends Model
     }
 
     /**
+     * Get the plan features for the plan.
+     */
+    public function planFeatures(): HasMany
+    {
+        return $this->hasMany(PlanFeature::class);
+    }
+
+    /**
      * Check if plan has a specific feature.
      */
     public function hasFeature(string $feature): bool

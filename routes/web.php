@@ -27,19 +27,21 @@ Route::domain(config('domains.main'))->group(function () {
     // Subscription and payment routes
     Route::get('/pricing', [LandingController::class, 'showPricing'])->name('landing.pricing');
 
-    // Multi-step checkout
-    Route::get('/checkout', [LandingController::class, 'showCheckout'])->name('landing.checkout');
+    // Multi-step checkout (auth required)
+    Route::middleware('auth')->group(function () {
+        Route::get('/checkout', [LandingController::class, 'showCheckout'])->name('landing.checkout');
+        Route::post('/subscription', [LandingController::class, 'processSubscription'])->name('landing.subscription.process');
+        Route::get('/checkout/business-info', [LandingController::class, 'showCheckoutStep2'])->name('landing.checkout.step2');
+        Route::post('/checkout/business-info', [LandingController::class, 'processCheckoutStep2'])->name('landing.checkout.step2.process');
+        Route::get('/checkout/payment-method', [LandingController::class, 'showCheckoutStep3'])->name('landing.checkout.step3');
+        Route::post('/checkout/payment-method', [LandingController::class, 'processCheckoutStep3'])->name('landing.checkout.step3.process');
+    });
     
     // Payment result pages
     Route::get('/payment/success', [LandingController::class, 'paymentSuccess'])->name('landing.payment.success');
     Route::get('/payment/failed', [LandingController::class, 'paymentFailed'])->name('landing.payment.failed');
-    Route::get('/checkout/business-info', [LandingController::class, 'showCheckoutStep2'])->name('landing.checkout.step2');
-    Route::post('/checkout/business-info', [LandingController::class, 'processCheckoutStep2'])->name('landing.checkout.step2.process');
-    Route::get('/checkout/payment-method', [LandingController::class, 'showCheckoutStep3'])->name('landing.checkout.step3');
-    Route::post('/checkout/payment-method', [LandingController::class, 'processCheckoutStep3'])->name('landing.checkout.step3.process');
-
-    // Legacy routes (keep for backward compatibility)
-    Route::post('/subscription', [LandingController::class, 'processSubscription'])->name('landing.subscription.process');
+    
+    // Legacy payment routes (keep for backward compatibility)
     Route::get('/payment', [LandingController::class, 'showPayment'])->name('landing.payment');
     Route::post('/payment/process', [LandingController::class, 'processPayment'])->name('landing.payment.process');
     
@@ -53,6 +55,14 @@ Route::domain(config('domains.main'))->group(function () {
             'title' => 'Company - XpressPOS'
         ]);
     })->name('company');
+    
+    // Policy pages
+    Route::get('/privacy-policy', [LandingController::class, 'showPrivacyPolicy'])->name('landing.privacy-policy');
+    Route::get('/terms-and-conditions', [LandingController::class, 'showTermsAndConditions'])->name('landing.terms-and-conditions');
+    Route::get('/cookie-policy', [LandingController::class, 'showCookiePolicy'])->name('landing.cookie-policy');
+    
+    // Coupon validation for checkout (public route)
+    Route::post('/checkout/validate-coupon', [\App\Http\Controllers\SubscriptionCouponController::class, 'validateCoupon'])->name('landing.checkout.validate-coupon');
 });
 
 // Local development domains
@@ -95,9 +105,13 @@ Route::domain(config('domains.api'))->group(function () {
 
 // Localhost fallback routes (for development without domain setup)
 Route::get('/', [LandingController::class, 'index'])->name('home');
-Route::get('/', [LandingController::class, 'index'])->name('landing.home.fallback'); // Alias untuk lingkungan lokal
+Route::get('/', [LandingController::class, 'index'])->name('landing.home'); // Fallback untuk localhost
 Route::get('/pricing', [LandingController::class, 'showPricing'])->name('pricing');
-Route::get('/checkout', [LandingController::class, 'showCheckout'])->name('checkout');
+
+// Checkout (auth required)
+Route::middleware('auth')->group(function () {
+    Route::get('/checkout', [LandingController::class, 'showCheckout'])->name('checkout');
+});
 
 // Auth routes for localhost fallback (also works as global fallback)
 Route::middleware('guest')->group(function () {
@@ -121,6 +135,14 @@ Route::get('/company', function () {
         'title' => 'Company - XpressPOS'
     ]);
 })->name('company.fallback');
+
+// Policy pages (fallback for localhost)
+Route::get('/privacy-policy', [LandingController::class, 'showPrivacyPolicy'])->name('privacy-policy');
+Route::get('/terms-and-conditions', [LandingController::class, 'showTermsAndConditions'])->name('terms-and-conditions');
+Route::get('/cookie-policy', [LandingController::class, 'showCookiePolicy'])->name('cookie-policy');
+
+// Coupon validation for checkout (fallback for localhost)
+Route::post('/checkout/validate-coupon', [\App\Http\Controllers\SubscriptionCouponController::class, 'validateCoupon'])->name('checkout.validate-coupon');
 
 // Local development prefix routes (alternative access method)
 Route::prefix('main')->group(function () {

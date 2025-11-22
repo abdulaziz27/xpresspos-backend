@@ -7,6 +7,11 @@
                     Status Subscription
                 </h3>
             </div>
+            @if(!empty($filterContext))
+                <p class="text-xs text-gray-500 dark:text-gray-300">
+                    {{ $filterContext }}
+                </p>
+            @endif
             @if($activeSubscription)
                 @php
                     $now = now();

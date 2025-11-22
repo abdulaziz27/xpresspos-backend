@@ -6,14 +6,37 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\Concerns\BelongsToStore;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\Scopes\TenantScope;
 
 class Product extends Model
 {
-    use HasFactory, BelongsToStore;
+    use HasFactory;
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new TenantScope);
+        
+        // Automatically set tenant_id when creating
+        static::creating(function ($model) {
+            if (!$model->tenant_id && auth()->check()) {
+                $user = auth()->user();
+                $tenantId = $user->currentTenant()?->id;
+                
+                if (!$tenantId) {
+                    throw new \Exception('Tidak dapat menentukan tenant aktif untuk pengguna.');
+                }
+                
+                $model->tenant_id = $tenantId;
+            }
+        });
+    }
 
     protected $fillable = [
-        'store_id',
+        'tenant_id',
         'category_id',
         'name',
         'sku',
@@ -22,8 +45,6 @@ class Product extends Model
         'price',
         'cost_price',
         'track_inventory',
-        'stock',
-        'min_stock_level',
         // 'variants', // Removed - use product_options relationship instead
         'status',
         'is_favorite',
@@ -40,6 +61,14 @@ class Product extends Model
     ];
 
 
+
+    /**
+     * Get the tenant that owns the product.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     /**
      * Get the category that owns the product.
@@ -83,18 +112,32 @@ class Product extends Model
 
     /**
      * Get the inventory movements for the product.
+     * 
+     * @deprecated Product-based inventory relations are deprecated. Stock is now tracked per inventory_item, not per product.
+     * Use InventoryItem::inventoryMovements() instead.
      */
     public function inventoryMovements(): HasMany
     {
-        return $this->hasMany(InventoryMovement::class);
+        throw new \Exception(
+            'Product::inventoryMovements() is deprecated. ' .
+            'Product-based inventory relations are deprecated due to inventory refactor. ' .
+            'Use InventoryItem::inventoryMovements() instead.'
+        );
     }
 
     /**
      * Get the stock level for the product.
+     * 
+     * @deprecated Product-based inventory relations are deprecated. Stock is now tracked per inventory_item, not per product.
+     * Use InventoryItem::stockLevels() instead.
      */
     public function stockLevel()
     {
-        return $this->hasOne(StockLevel::class);
+        throw new \Exception(
+            'Product::stockLevel() is deprecated. ' .
+            'Product-based inventory relations are deprecated due to inventory refactor. ' .
+            'Use InventoryItem::stockLevels() instead.'
+        );
     }
 
     /**
@@ -114,39 +157,76 @@ class Product extends Model
     }
 
     /**
+     * Get the active recipe for the product.
+     * Returns the first active recipe, or null if none exists.
+     */
+    public function getActiveRecipe(): ?Recipe
+    {
+        return $this->recipes()
+            ->where('is_active', true)
+            ->orderBy('created_at', 'desc')
+            ->first();
+    }
+
+    /**
+     * Recalculate cost_price from active recipe.
+     * Sets cost_price to the cost_per_unit of the active recipe.
+     */
+    public function recalculateCostPriceFromRecipe(): void
+    {
+        $activeRecipe = $this->getActiveRecipe();
+        
+        if ($activeRecipe && $activeRecipe->cost_per_unit > 0) {
+            $this->cost_price = $activeRecipe->cost_per_unit;
+            $this->save();
+        }
+    }
+
+    /**
+     * Get modifier groups attached to the product.
+     */
+    public function modifierGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(ModifierGroup::class, 'product_modifier_groups')
+            ->withPivot(['is_required', 'sort_order'])
+            ->withTimestamps()
+            ->orderByPivot('sort_order');
+    }
+
+    /**
      * Check if product is low on stock.
+     * Note: Stock is now tracked via stock_levels table, not product.stock column
      */
     public function isLowStock(): bool
     {
-        return $this->track_inventory && $this->stock <= $this->min_stock_level;
+        if (!$this->track_inventory) {
+            return false;
+        }
+        
+        $stockLevel = $this->stockLevel;
+        if (!$stockLevel) {
+            return false;
+        }
+        
+        return $stockLevel->current_stock <= $stockLevel->min_stock_level;
     }
 
     /**
      * Check if product is out of stock.
+     * Note: Stock is now tracked via stock_levels table, not product.stock column
      */
     public function isOutOfStock(): bool
     {
-        return $this->track_inventory && $this->stock <= 0;
+        if (!$this->track_inventory) {
+            return false;
     }
 
-    /**
-     * Reduce stock quantity.
-     */
-    public function reduceStock(int $quantity): void
-    {
-        if ($this->track_inventory) {
-            $this->decrement('stock', $quantity);
+        $stockLevel = $this->stockLevel;
+        if (!$stockLevel) {
+            return true;
         }
-    }
-
-    /**
-     * Increase stock quantity.
-     */
-    public function increaseStock(int $quantity): void
-    {
-        if ($this->track_inventory) {
-            $this->increment('stock', $quantity);
-        }
+        
+        return $stockLevel->current_stock <= 0;
     }
 
     /**
@@ -167,11 +247,14 @@ class Product extends Model
 
     /**
      * Scope to get low stock products.
+     * Note: Stock is now tracked via stock_levels table
      */
     public function scopeLowStock($query)
     {
         return $query->where('track_inventory', true)
-            ->whereColumn('stock', '<=', 'min_stock_level');
+            ->whereHas('stockLevel', function ($q) {
+                $q->whereColumn('current_stock', '<=', 'min_stock_level');
+            });
     }
 
     /**
@@ -193,7 +276,7 @@ class Product extends Model
         if ($this->price != $newPrice || ($newCostPrice !== null && $this->cost_price != $newCostPrice)) {
             $user = auth()->user() ?? request()->user();
             $this->priceHistory()->create([
-                'store_id' => $this->store_id,
+                'tenant_id' => $this->tenant_id,
                 'old_price' => $this->price,
                 'new_price' => $newPrice,
                 'old_cost_price' => $this->cost_price,

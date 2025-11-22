@@ -5,6 +5,7 @@ namespace App\Filament\Owner\Resources\Recipes;
 use App\Filament\Owner\Resources\Recipes\Pages\CreateRecipe;
 use App\Filament\Owner\Resources\Recipes\Pages\EditRecipe;
 use App\Filament\Owner\Resources\Recipes\Pages\ListRecipes;
+use App\Filament\Owner\Resources\Recipes\RelationManagers\RecipeItemsRelationManager;
 use App\Filament\Owner\Resources\Recipes\Schemas\RecipeForm;
 use App\Filament\Owner\Resources\Recipes\Tables\RecipesTable;
 use App\Models\Recipe;
@@ -27,9 +28,9 @@ class RecipeResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Resep';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 12;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Produk & Inventori';
+    protected static string|\UnitEnum|null $navigationGroup = 'Produk';
 
     public static function form(Schema $schema): Schema
     {
@@ -44,7 +45,7 @@ class RecipeResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RecipeItemsRelationManager::class,
         ];
     }
 

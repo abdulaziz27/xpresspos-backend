@@ -26,7 +26,15 @@ class SubscriptionResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Subscriptions';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 2;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Plans & Subscriptions';
+
+    public static function canDelete($record): bool
+    {
+        // Tidak boleh delete hard untuk histori
+        return false;
+    }
 
 
     public static function form(Schema $schema): Schema

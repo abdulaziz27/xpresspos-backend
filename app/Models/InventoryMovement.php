@@ -7,14 +7,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Concerns\BelongsToStore;
+use App\Models\Scopes\TenantScope;
 
 class InventoryMovement extends Model
 {
     use HasFactory, HasUuids, BelongsToStore;
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
-        'product_id',
+        'inventory_item_id',
         'user_id',
         'type',
         'quantity',
@@ -26,8 +28,33 @@ class InventoryMovement extends Model
         'notes',
     ];
 
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new TenantScope);
+        
+        static::creating(function ($model) {
+            if (!$model->tenant_id && $model->store_id) {
+                $store = Store::find($model->store_id);
+                if ($store) {
+                    $model->tenant_id = $store->tenant_id;
+                }
+            }
+        });
+    }
+
+    /**
+     * Get the tenant that owns the inventory movement.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
     protected $casts = [
-        'quantity' => 'integer',
+        'quantity' => 'decimal:3',
         'unit_cost' => 'decimal:2',
         'total_cost' => 'decimal:2',
     ];
@@ -43,7 +70,15 @@ class InventoryMovement extends Model
     const TYPE_WASTE = 'waste';
 
     /**
-     * Get the product associated with the movement.
+     * Get the inventory item associated with the movement.
+     */
+    public function inventoryItem(): BelongsTo
+    {
+        return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
+    }
+
+    /**
+     * @deprecated Use inventoryItem() instead. Stock is now tracked per inventory_item, not per product.
      */
     public function product(): BelongsTo
     {
@@ -129,18 +164,28 @@ class InventoryMovement extends Model
     /**
      * Get the signed quantity (positive for stock in, negative for stock out).
      */
-    public function getSignedQuantity(): int
+    public function getSignedQuantity(): float
     {
-        return $this->isStockIncrease() ? $this->quantity : -$this->quantity;
+        return $this->isStockIncrease() ? (float) $this->quantity : -(float) $this->quantity;
     }
 
     /**
      * Create a stock movement record.
+     * 
+     * @param string $inventoryItemId The inventory item ID (not product ID)
+     * @param string $type Movement type
+     * @param float $quantity Quantity (decimal, e.g., 1.5 kg)
+     * @param float|null $unitCost Optional unit cost
+     * @param string|null $reason Optional reason
+     * @param string|null $referenceType Optional reference type (polymorphic)
+     * @param string|null $referenceId Optional reference ID
+     * @param string|null $notes Optional notes
+     * @return self
      */
     public static function createMovement(
-        string $productId,
+        string $inventoryItemId,
         string $type,
-        int $quantity,
+        float $quantity,
         ?float $unitCost = null,
         ?string $reason = null,
         ?string $referenceType = null,
@@ -148,10 +193,23 @@ class InventoryMovement extends Model
         ?string $notes = null
     ): self {
         $user = auth()->user() ?? request()->user();
+        $user = auth()->user() ?? request()->user();
+        $storeContext = \App\Services\StoreContext::instance();
+        $storeId = $storeContext->current($user);
+
+        if (!$storeId) {
+            throw new \Exception('Store context is required to create inventory movement');
+        }
+
+        $store = Store::find($storeId);
+        if (!$store) {
+            throw new \Exception('Store not found');
+        }
 
         return self::create([
-            'store_id' => $user?->store_id,
-            'product_id' => $productId,
+            'tenant_id' => $store->tenant_id,
+            'store_id' => $storeId,
+            'inventory_item_id' => $inventoryItemId,
             'user_id' => $user?->id,
             'type' => $type,
             'quantity' => abs($quantity), // Always store positive quantity

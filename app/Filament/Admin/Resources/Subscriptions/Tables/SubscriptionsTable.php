@@ -26,11 +26,13 @@ class SubscriptionsTable
                     ->weight('medium')
                     ->copyable(),
 
-                TextColumn::make('store.name')
-                    ->label('Store')
+                TextColumn::make('tenant.name')
+                    ->label('Tenant')
                     ->searchable()
                     ->sortable()
-                    ->weight('medium'),
+                    ->weight('medium')
+                    ->badge()
+                    ->color('info'),
 
                 TextColumn::make('plan.name')
                     ->label('Plan')
@@ -125,9 +127,9 @@ class SubscriptionsTable
                     ->searchable()
                     ->preload(),
 
-                SelectFilter::make('store_id')
-                    ->label('Store')
-                    ->relationship('store', 'name')
+                SelectFilter::make('tenant_id')
+                    ->label('Tenant')
+                    ->relationship('tenant', 'name')
                     ->searchable()
                     ->preload(),
 

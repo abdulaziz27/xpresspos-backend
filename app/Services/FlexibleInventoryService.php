@@ -108,11 +108,13 @@ class FlexibleInventoryService
             }
             
             // Check if already reserved
-            $existingReservation = InventoryMovement::where('product_id', $product->id)
-                ->where('reference_type', Order::class)
-                ->where('reference_id', $order->id)
-                ->where('type', 'reserved')
-                ->first();
+            // NOTE: This service is deprecated - product-based inventory is no longer valid
+            // TODO: Refactor to use inventory_item_id in Wave 3
+            throw new \Exception(
+                'FlexibleInventoryService::reserveStock() is deprecated. ' .
+                'Product-based inventory operations are deprecated due to inventory refactor. ' .
+                'Use InventoryService for inventory-item-based operations.'
+            );
                 
             if ($existingReservation) {
                 Log::info("Stock already reserved", [

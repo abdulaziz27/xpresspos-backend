@@ -10,7 +10,9 @@ return new class extends Migration
     {
         Schema::create('discounts', function (Blueprint $table) {
             $table->id();
-            $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
+            $table->string('tenant_id', 36);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
+            $table->foreignUuid('store_id')->nullable()->constrained('stores')->nullOnDelete(); // Nullable for global discounts
             $table->string('name');
             $table->text('description')->nullable();
             $table->enum('type', ['percentage', 'fixed'])->default('percentage');
@@ -19,6 +21,7 @@ return new class extends Migration
             $table->date('expired_date')->nullable();
             $table->timestamps();
 
+            $table->index(['tenant_id', 'store_id']);
             $table->index(['store_id', 'status']);
         });
     }

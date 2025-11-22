@@ -42,7 +42,7 @@ class PaymentSecurityService
         Log::log($level, "Payment security event: {$event}", $logData);
 
         // Store in database for audit trail
-        $this->storeAuditLog($event, $logData);
+        $this->storeAuditLog($event, $logData, $user);
 
         // Update security metrics
         $this->updateSecurityMetrics($event, $request);
@@ -95,10 +95,14 @@ class PaymentSecurityService
     /**
      * Store audit log in database for compliance.
      */
-    protected function storeAuditLog(string $event, array $logData): void
+    protected function storeAuditLog(string $event, array $logData, ?User $user = null): void
     {
         try {
+            // Resolve tenant_id from user context
+            $tenantId = $user?->currentTenant()?->id;
+
             DB::table('payment_security_logs')->insert([
+                'tenant_id' => $tenantId,
                 'event' => $event,
                 'level' => $logData['level'],
                 'ip_address' => $logData['ip_address'],

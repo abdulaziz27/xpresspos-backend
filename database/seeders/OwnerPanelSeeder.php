@@ -24,6 +24,13 @@ class OwnerPanelSeeder extends Seeder
             $legacy->update(['name' => 'Arasta Coffee - Central']);
         }
 
+        // Get primary tenant (from StoreSeeder)
+        $primaryTenant = \App\Models\Tenant::first();
+        if (!$primaryTenant) {
+            $this->command->error('No tenant found! Please run StoreSeeder first.');
+            return;
+        }
+
         // Get primary store first to set as default store_id
         $primaryStore = Store::where('name', 'Arasta Coffee - Pusat')
             ->orWhere('name', 'Arasta Coffee - Central')
@@ -41,16 +48,22 @@ class OwnerPanelSeeder extends Seeder
                 'name' => 'Arasta Owner',
                 'password' => bcrypt('password123'),
                 'email_verified_at' => now(),
-                'store_id' => $primaryStore?->id, // Set store_id if primary store exists
             ]
         );
 
-        // CRITICAL: Always ensure store_id is set, even for existing users
-        // This prevents issues where user was created by another seeder without store_id
-        if (!$owner->store_id && $primaryStore) {
-            $owner->store_id = $primaryStore->id;
-            $owner->save();
-            $this->command->info("Updated store_id for {$owner->email} to {$primaryStore->id}");
+        // CRITICAL: Create store_user_assignment for owner
+        if ($primaryStore) {
+            \App\Models\StoreUserAssignment::updateOrCreate(
+                [
+                    'store_id' => $primaryStore->id,
+                    'user_id' => $owner->id,
+                ],
+                [
+                    'assignment_role' => 'owner',
+                    'is_primary' => true,
+                ]
+            );
+            $this->command->info("Created store_user_assignment for {$owner->email} to {$primaryStore->id}");
         }
 
         // Rename any legacy English branch names to Indonesian to avoid duplicates
@@ -100,38 +113,55 @@ class OwnerPanelSeeder extends Seeder
             $store = Store::firstOrCreate(
                 ['name' => $branchName],
                 [
+                    'tenant_id' => $primaryTenant->id, // CRITICAL: Set tenant_id
                     'email' => 'branch' . ($idx + 1) . '@arasta.coffee',
                     'phone' => '+62812' . rand(10000000, 99999999),
                     'address' => 'Arasta Branch ' . ($idx + 1),
-                    'settings' => ['currency' => 'IDR', 'tax_rate' => 10, 'service_charge_rate' => 5],
+                    'code' => 'ARASTA-' . str_pad((string)($idx + 1), 3, '0', STR_PAD_LEFT),
+                    'timezone' => 'Asia/Jakarta',
+                    'currency' => 'IDR',
+                    'settings' => ['tax_rate' => 10, 'service_charge_rate' => 5],
                     'status' => 'active',
                 ]
             );
 
+            // CRITICAL: Ensure tenant_id is set even for existing stores
+            if (!$store->tenant_id) {
+                $store->tenant_id = $primaryTenant->id;
+                $store->save();
+            }
+
+            // Get tenant from store
+            $tenant = $store->tenant ?: $primaryTenant;
+            if (!$tenant) {
+                $this->command->warn("⚠️ Store {$store->name} has no tenant. Skipping role assignment.");
+                continue;
+            }
+            
             $ownerRole = \Spatie\Permission\Models\Role::where('name', 'owner')
-                ->where('store_id', $store->id)
+                ->where('tenant_id', $tenant->id)
                 ->first();
             
             if ($ownerRole) {
                 // CRITICAL: Always set team context BEFORE any role operation
-                setPermissionsTeamId($store->id);
+                setPermissionsTeamId($tenant->id);
                 
-                // Force remove any existing role assignments for this user in this store
+                // Force remove any existing role assignments for this user in this tenant
                 // to ensure clean state (prevents duplicate role assignments)
-                $owner->roles()->wherePivot('store_id', $store->id)->detach();
+                $owner->roles()->wherePivot('tenant_id', $tenant->id)->detach();
                 
                 // Assign role fresh
                 $owner->assignRole($ownerRole);
                 
                 // Verify assignment was successful
                 $owner->refresh();
-                setPermissionsTeamId($store->id); // Set context again after refresh
+                setPermissionsTeamId($tenant->id); // Set context again after refresh
                 
                 if (!$owner->hasRole('owner')) {
-                    $this->command->warn("⚠️ Failed to assign owner role to {$owner->email} for store {$store->name}");
+                    $this->command->warn("⚠️ Failed to assign owner role to {$owner->email} for tenant {$tenant->name}");
                 }
             } else {
-                $this->command->warn("⚠️ Owner role not found for store {$store->name} (ID: {$store->id})");
+                $this->command->warn("⚠️ Owner role not found for tenant {$tenant->name} (ID: {$tenant->id})");
             }
 
             StoreUserAssignment::updateOrCreate(
@@ -139,20 +169,106 @@ class OwnerPanelSeeder extends Seeder
                 ['assignment_role' => 'owner', 'is_primary' => $idx === 0]
             );
 
-            // CRITICAL: Ensure the owner's primary store_id points to Central branch (first store)
+            // Create cashier for each store
+            $cashierEmail = 'cashier.b' . ($idx + 1) . '@xpresspos.id';
+            $cashier = User::firstOrCreate(
+                ['email' => $cashierEmail],
+                [
+                    'name' => 'Cashier ' . ($idx + 1) . ' - ' . $branchName,
+                    'password' => bcrypt('cashier123'),
+                    'email_verified_at' => now(),
+                ]
+            );
+
+            // CRITICAL: Create store_user_assignment for cashier
+            // Note: assignment_role uses 'staff' (AssignmentRoleEnum doesn't have 'cashier')
+            // but Spatie Permission role is 'cashier' for proper permissions
+            StoreUserAssignment::updateOrCreate(
+                [
+                    'store_id' => $store->id,
+                    'user_id' => $cashier->id,
+                ],
+                [
+                    'assignment_role' => 'staff',
+                    'is_primary' => false,
+                ]
+            );
+
+            // CRITICAL: Create user_tenant_access for cashier
+            if ($tenant) {
+                $exists = \DB::table('user_tenant_access')
+                    ->where('user_id', $cashier->id)
+                    ->where('tenant_id', $tenant->id)
+                    ->exists();
+
+                if (!$exists) {
+                    \DB::table('user_tenant_access')->insert([
+                        'id' => \Illuminate\Support\Str::uuid()->toString(),
+                        'user_id' => $cashier->id,
+                        'tenant_id' => $tenant->id,
+                        'role' => 'cashier',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } else {
+                    \DB::table('user_tenant_access')
+                        ->where('user_id', $cashier->id)
+                        ->where('tenant_id', $tenant->id)
+                        ->update([
+                            'role' => 'cashier',
+                            'updated_at' => now(),
+                        ]);
+                }
+            }
+
+            // CRITICAL: Assign cashier role with team context
+            $cashierRole = \Spatie\Permission\Models\Role::where('name', 'cashier')
+                ->where('tenant_id', $tenant->id)
+                ->first();
+            
+            if ($cashierRole) {
+                // CRITICAL: Always set team context BEFORE any role operation
+                setPermissionsTeamId($tenant->id);
+                
+                // Force remove any existing role assignments for this user in this tenant
+                $cashier->roles()->wherePivot('tenant_id', $tenant->id)->detach();
+                
+                // Assign role fresh
+                $cashier->assignRole($cashierRole);
+                
+                // Verify assignment
+                $cashier->refresh();
+                setPermissionsTeamId($tenant->id);
+                
+                if ($cashier->hasRole('cashier')) {
+                    $this->command->info("✅ Cashier role successfully assigned to {$cashierEmail} for store {$branchName}");
+                } else {
+                    $this->command->warn("⚠️ Failed to assign cashier role to {$cashierEmail} for store {$branchName}");
+                }
+            } else {
+                $this->command->warn("⚠️ Cashier role not found for tenant {$tenant->name} (ID: {$tenant->id})");
+            }
+
+            // CRITICAL: Ensure the owner's primary store assignment points to Central branch (first store)
             // This is essential for auth gate to work correctly
             if ($idx === 0) {
-                if ($owner->store_id !== $store->id) {
-                    $owner->store_id = $store->id;
-                    $owner->save();
-                    $this->command->info("✅ Set primary store_id for {$owner->email} to {$store->name} (ID: {$store->id})");
-                }
+                \App\Models\StoreUserAssignment::updateOrCreate(
+                    [
+                        'store_id' => $store->id,
+                        'user_id' => $owner->id,
+                    ],
+                    [
+                        'assignment_role' => 'owner',
+                        'is_primary' => true,
+                    ]
+                );
+                $this->command->info("✅ Set primary store assignment for {$owner->email} to {$store->name} (ID: {$store->id})");
             }
 
             $categoryMap = [];
             foreach ($categoriesSpec as $cat) {
-                $category = Category::withoutStoreScope()->updateOrCreate(
-                    ['store_id' => $store->id, 'slug' => $cat['slug']],
+                $category = Category::withoutTenantScope()->updateOrCreate(
+                    ['tenant_id' => $store->tenant_id, 'slug' => $cat['slug']],
                     [
                         'name' => $cat['name'],
                         'description' => $cat['name'],
@@ -165,8 +281,8 @@ class OwnerPanelSeeder extends Seeder
 
             $products = [];
             foreach ($productsSpec as $pd) {
-                $products[$pd['sku']] = Product::withoutStoreScope()->updateOrCreate(
-                    ['store_id' => $store->id, 'sku' => $pd['sku']],
+                $products[$pd['sku']] = Product::withoutTenantScope()->updateOrCreate(
+                    ['tenant_id' => $store->tenant_id, 'sku' => $pd['sku']],
                     [
                         'category_id' => $categoryMap[$pd['cat']]->id,
                         'name' => $pd['name'],
@@ -174,26 +290,46 @@ class OwnerPanelSeeder extends Seeder
                         'price' => $pd['price'],
                         'cost_price' => $pd['cost'],
                         'track_inventory' => true,
-                        'stock' => $pd['stock'],
-                        'min_stock_level' => $pd['min'],
                         'status' => true,
                     ]
                 );
             }
 
-            $tier = MemberTier::withoutStoreScope()->where('store_id', $store->id)->ordered()->first();
+            // Get tenant from store
+            $tenant = $store->tenant ?: $primaryTenant;
+            if (!$tenant) {
+                $this->command->warn("⚠️ Store {$store->name} has no tenant. Skipping member creation.");
+                continue;
+            }
+
+            $tier = MemberTier::where('tenant_id', $tenant->id)->ordered()->first();
             for ($m = 1; $m <= 40; $m++) {
-                // Use a globally unique and deterministic member number based on store id hash
-                $memberNumber = 'MBR' . strtoupper(substr(md5((string) $store->id), 0, 6)) . str_pad((string) $m, 4, '0', STR_PAD_LEFT);
+                // Use a globally unique and deterministic member number based on tenant id hash
+                $memberNumber = 'MBR' . strtoupper(substr(md5((string) $tenant->id), 0, 6)) . str_pad((string) $m, 4, '0', STR_PAD_LEFT);
                 $legacyEmail = 'member' . $m . '@arasta.coffee';
                 $memberEmail = 'member' . $m . '.b' . ($idx + 1) . '@arasta.coffee';
 
-                // Prefer updating legacy record if it exists for this store to stay idempotent
-                $member = Member::withoutStoreScope()->where('store_id', $store->id)->where('email', $legacyEmail)->first();
+                // Prefer updating legacy record if it exists for this tenant to stay idempotent
+                $member = Member::withoutGlobalScopes()
+                    ->where('tenant_id', $tenant->id)
+                    ->where('email', $legacyEmail)
+                    ->first();
                 if (!$member) {
-                    $member = Member::withoutStoreScope()->firstOrCreate(
-                        ['store_id' => $store->id, 'email' => $memberEmail],
+                    // Check if member with this member_number already exists for this tenant
+                    $existingMember = Member::withoutGlobalScopes()
+                        ->where('tenant_id', $tenant->id)
+                        ->where('member_number', $memberNumber)
+                        ->first();
+                    
+                    if ($existingMember) {
+                        // Skip if member_number already exists (member already created for another store in same tenant)
+                        continue;
+                    }
+                    
+                    $member = Member::withoutGlobalScopes()->firstOrCreate(
+                        ['tenant_id' => $tenant->id, 'email' => $memberEmail],
                         [
+                            'store_id' => $store->id,
                             'member_number' => $memberNumber,
                             'name' => 'Member ' . $m,
                             'phone' => '+62813' . rand(10000000, 99999999),
@@ -226,7 +362,8 @@ class OwnerPanelSeeder extends Seeder
             $days = now()->day; // month-to-date days
 
             $seqByDate = [];
-            for ($d = $days - 1; $d >= 0; $d--) {
+            // Maksimal hari kemarin, mulai dari hari kemarin (d = 1) sampai beberapa hari sebelumnya
+            for ($d = 1; $d <= $days; $d++) {
                 $date = now()->subDays($d);
                 $dateKey = $date->format('Ymd');
                 $seqByDate[$dateKey] = Order::withoutGlobalScopes()->where('store_id', $store->id)->whereDate('created_at', $date)->count();
@@ -256,7 +393,9 @@ class OwnerPanelSeeder extends Seeder
                     }
 
                     $order = Order::withoutGlobalScopes()->create([
+                        'tenant_id' => $store->tenant_id,
                         'store_id' => $store->id,
+                        'user_id' => $cashier->id,
                         'order_number' => $orderNumber,
                         'status' => 'completed',
                         'subtotal' => 0,
@@ -318,10 +457,10 @@ class OwnerPanelSeeder extends Seeder
                 }
             }
 
-            // Post-adjustment for Central: exact MTD revenue and transaction count target
+                // Post-adjustment for Central: exact MTD revenue and transaction count target
             if ($idx === 0) {
                 $monthStart = now()->startOfMonth();
-                $monthEnd = now()->endOfMonth();
+                $monthEnd = now()->subDay()->endOfDay(); // Maksimal hari kemarin
                 $targetRevenue = 198134650;
                 $currentRevenue = Payment::withoutStoreScope()
                     ->where('store_id', $store->id)
@@ -331,7 +470,7 @@ class OwnerPanelSeeder extends Seeder
 
                 $diff = (int) ($targetRevenue - $currentRevenue);
                 if ($diff > 0) {
-                    $today = now();
+                    $today = now()->subDay(); // Maksimal hari kemarin
                     $dateKey = $today->format('Ymd');
                     $seqByDate[$dateKey] = ($seqByDate[$dateKey] ?? 0);
                     $skuKeys = array_keys($products);
@@ -347,7 +486,9 @@ class OwnerPanelSeeder extends Seeder
                             continue;
                         }
                         $order = Order::withoutGlobalScopes()->create([
+                            'tenant_id' => $store->tenant_id,
                             'store_id' => $store->id,
+                            'user_id' => $cashier->id,
                             'order_number' => $orderNumber,
                             'status' => 'completed',
                             'subtotal' => 0,
@@ -408,7 +549,7 @@ class OwnerPanelSeeder extends Seeder
                 $targetOrders = 1429;
                 $addOrders = max(0, $targetOrders - $currentOrders);
                 if ($addOrders > 0) {
-                    $today = now();
+                    $today = now()->subDay(); // Maksimal hari kemarin
                     $dateKey = $today->format('Ymd');
                     $seqByDate[$dateKey] = ($seqByDate[$dateKey] ?? 0);
                     $skuKeys = array_keys($products);
@@ -423,7 +564,9 @@ class OwnerPanelSeeder extends Seeder
                             continue;
                         }
                         $order = Order::withoutGlobalScopes()->create([
+                            'tenant_id' => $store->tenant_id,
                             'store_id' => $store->id,
+                            'user_id' => $cashier->id,
                             'order_number' => $orderNumber,
                             'status' => 'completed',
                             'subtotal' => 0,

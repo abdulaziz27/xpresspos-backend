@@ -4,14 +4,13 @@ namespace App\Filament\Owner\Resources\Recipes\Schemas;
 
 use App\Models\Product;
 use Filament\Schemas\Components\Grid;
-use Filament\Forms\Components\Repeater;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
-use App\Support\Money;
+use App\Support\Currency;
 
 class RecipeForm
 {
@@ -27,15 +26,14 @@ class RecipeForm
                                 Select::make('product_id')
                                     ->label('Produk')
                                     ->options(function () {
-                                        $storeId = auth()->user()?->currentStoreId();
-
+                                        // Product is tenant-scoped, TenantScope will automatically filter
                                         return Product::query()
-                                            ->when($storeId, fn($query) => $query->where('store_id', $storeId))
                                             ->pluck('name', 'id');
                                     })
                                     ->searchable()
                                     ->preload()
-                                    ->required(),
+                                    ->required()
+                                    ->hidden(fn ($livewire) => $livewire instanceof \Filament\Resources\RelationManagers\RelationManager),
 
                                 TextInput::make('name')
                                     ->label('Nama Resep')
@@ -56,30 +54,18 @@ class RecipeForm
                                     ->label('Jumlah Hasil')
                                     ->numeric()
                                     ->required()
+                                    ->default(1)
                                     ->minValue(0.01)
                                     ->step(0.01)
-                                    ->reactive()
-                                    ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                        $totalCost = $get('total_cost');
-                                        if ($state && $totalCost && $state > 0) {
-                                            $set('cost_per_unit', $totalCost / $state);
-                                        }
-                                    }),
+                                    ->helperText('Jumlah hasil yang dihasilkan dari resep ini (misal: 1 porsi, 2 cup, dll)'),
 
-                                Select::make('yield_unit')
+                                TextInput::make('yield_unit')
                                     ->label('Satuan Hasil')
-                                    ->options([
-                                        'kg' => 'Kilogram',
-                                        'g' => 'Gram',
-                                        'l' => 'Liter',
-                                        'ml' => 'Mililiter',
-                                        'pcs' => 'Pcs',
-                                        'cup' => 'Cangkir',
-                                        'tbsp' => 'Sendok Makan',
-                                        'tsp' => 'Sendok Teh',
-                                    ])
                                     ->required()
-                                    ->default('pcs'),
+                                    ->maxLength(50)
+                                    ->default('porsi')
+                                    ->placeholder('porsi, cup, pcs, dll')
+                                    ->helperText('Satuan untuk jumlah hasil (misal: porsi, cup, pcs)'),
                             ]),
 
                         Toggle::make('is_active')
@@ -89,131 +75,26 @@ class RecipeForm
                     ])
                     ->columns(1),
 
-                Section::make('Bahan Resep')
-                    ->description('Tambah bahan dan jumlahnya untuk resep ini')
-                    ->schema([
-                        Repeater::make('items')
-                            ->label('Bahan')
-                            ->relationship('items')
-                            ->schema([
-                                Grid::make(3)
-                                    ->schema([
-                                        Select::make('ingredient_product_id')
-                                            ->label('Bahan')
-                                            ->options(function () {
-                                                $storeId = auth()->user()?->currentStoreId();
-
-                                                return Product::query()
-                                                    ->when($storeId, fn($query) => $query->where('store_id', $storeId))
-                                                    ->pluck('name', 'id');
-                                            })
-                                            ->searchable()
-                                            ->preload()
-                                            ->required()
-                                            ->reactive()
-                                            ->afterStateUpdated(function ($state, callable $set) {
-                                                if ($state) {
-                                                    $product = Product::find($state);
-                                                    if ($product && $product->cost_price) {
-                                                        $set('unit_cost', $product->cost_price);
-                                                    }
-                                                }
-                                            }),
-
-                                        TextInput::make('quantity')
-                                            ->label('Jumlah')
-                                            ->numeric()
-                                            ->required()
-                                            ->minValue(0.01)
-                                            ->step(0.01)
-                                            ->reactive()
-                                            ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                                $unitCost = $get('unit_cost');
-                                                if ($state && $unitCost) {
-                                                    $set('total_cost', $state * $unitCost);
-                                                }
-                                            }),
-
-                                        Select::make('unit')
-                                            ->label('Satuan')
-                                            ->options([
-                                                'kg' => 'Kilogram',
-                                                'g' => 'Gram',
-                                                'l' => 'Liter',
-                                                'ml' => 'Mililiter',
-                                                'pcs' => 'Pcs',
-                                                'cup' => 'Cangkir',
-                                                'tbsp' => 'Sendok Makan',
-                                                'tsp' => 'Sendok Teh',
-                                            ])
-                                            ->required()
-                                            ->default('pcs'),
-                                    ]),
-
-                                Grid::make(2)
-                                    ->schema([
-                                        TextInput::make('unit_cost')
-                                            ->label('Biaya per Satuan')
-                                            ->prefix('Rp')
-                                            ->required()
-                                            ->placeholder('8.000')
-                                            ->helperText('Bisa input: 8000 atau 8.000')
-                                            ->rule('required|numeric|min:0')
-                                            ->dehydrateStateUsing(fn($state) => Money::parseToDecimal($state))
-                                            ->reactive()
-                                            ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                                $quantity = $get('quantity');
-                                                if ($state && $quantity) {
-                                                    $set('total_cost', $quantity * $state);
-                                                }
-                                            }),
-
-                                        TextInput::make('total_cost')
-                                            ->label('Total Biaya')
-                                            ->numeric()
-                                            ->prefix('Rp')
-                                            ->step(0.01)
-                                            ->disabled()
-                                            ->dehydrated(false)
-                                            ->helperText('Dihitung otomatis'),
-                                    ]),
-                            ])
-                            ->columns(1)
-                            ->addActionLabel('Tambah Bahan')
-                            ->collapsible()
-                            ->itemLabel(
-                                fn(array $state): ?string =>
-                                ($state['ingredient_product_id'] ?? null) ? Product::find($state['ingredient_product_id'])?->name : null
-                            )
-                            ->reorderable()
-                            ->deleteAction(
-                                fn($action) => $action->requiresConfirmation()
-                            ),
-                    ])
-                    ->columns(1),
-
                 Section::make('Ringkasan Biaya')
-                    ->description('Perhitungan biaya resep')
+                    ->description('Perhitungan biaya resep (otomatis dari bahan)')
                     ->schema([
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('total_cost')
-                                    ->label('Total Biaya Resep')
-                                    ->numeric()
+                                    ->label('Total Cost (otomatis)')
                                     ->prefix('Rp')
-                                    ->step(0.01)
                                     ->disabled()
-                                    ->formatStateUsing(fn($state, $record) => $record?->total_cost ? number_format($record->total_cost, 0, ',', '.') : ($state ? number_format($state, 0, ',', '.') : '0'))
-                                    ->helperText('Jumlah seluruh biaya bahan'),
+                                    ->dehydrated(false)
+                                    ->formatStateUsing(fn($state, $record) => $record?->total_cost ? Currency::rupiah((float) $record->total_cost) : Currency::rupiah(0))
+                                    ->helperText('Jumlah seluruh biaya bahan (dihitung otomatis dari recipe items)'),
 
                                 TextInput::make('cost_per_unit')
-                                    ->label('Biaya per Unit')
-                                    ->numeric()
+                                    ->label('Cost per unit / HPP (otomatis)')
                                     ->prefix('Rp')
-                                    ->step(0.01)
                                     ->disabled()
-                                    ->formatStateUsing(fn($state, $record) => $record?->cost_per_unit ? number_format($record->cost_per_unit, 0, ',', '.') : ($state ? number_format($state, 0, ',', '.') : '0'))
-                                    ->helperText('Total biaya ÷ jumlah hasil'),
+                                    ->dehydrated(false)
+                                    ->formatStateUsing(fn($state, $record) => $record?->cost_per_unit ? Currency::rupiah((float) $record->cost_per_unit) : Currency::rupiah(0))
+                                    ->helperText('Total biaya ÷ jumlah hasil (dihitung otomatis). Ini yang akan jadi HPP produk.'),
                             ]),
                     ])
                     ->columns(1),

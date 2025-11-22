@@ -1,14 +1,22 @@
 <x-filament-widgets::widget>
     <x-filament::section>
+        @php($viewData = $this->getViewData())
+        @php($recommendations = $viewData['recommendations'] ?? [])
+
         <x-slot name="heading">
             <div class="flex items-center gap-2">
                 <x-heroicon-o-light-bulb class="w-5 h-5 text-yellow-500" style="width: 20px !important; height: 20px !important;" />
                 Business Recommendations
             </div>
+                @if(!empty($viewData['context']))
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {{ $viewData['context'] }}
+                    </p>
+                @endif
         </x-slot>
 
         <div class="space-y-4">
-            @forelse($this->getViewData()['recommendations'] as $recommendation)
+            @forelse($recommendations as $recommendation)
                 <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                     <div class="flex items-start gap-3">
                         <div class="flex-shrink-0" style="width: 24px; height: 24px; min-width: 24px; max-width: 24px;">

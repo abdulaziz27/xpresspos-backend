@@ -107,14 +107,14 @@ Dokumen ini berisi daftar lengkap fitur yang tersedia dalam sistem XpressPOS Bac
 
 **Modul:** Product
 **Role:** Owner, Manager, Staff
-**Deskripsi:** Manajemen opsi produk (size, color, dll)
+**Deskripsi:** Manajemen variant produk (size, color, dll)
 **Tabel Database:**
 
--   `product_options` - Opsi produk
+-   `product_variants` - Variant produk
 
 **Relasi:**
 
--   `product_options` → `products` (belongsTo)
+-   `product_variants` → `products` (belongsTo)
 
 ### 3.4 Recipe Management
 

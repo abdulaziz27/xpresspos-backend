@@ -4,7 +4,7 @@ namespace App\Filament\Owner\Resources;
 
 use App\Filament\Owner\Resources\SubscriptionPaymentResource\Pages;
 use App\Models\SubscriptionPayment;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use Filament\Forms;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
@@ -14,20 +14,20 @@ use Filament\Infolists;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use BackedEnum;
 use App\Support\Currency;
+use Filament\Support\Icons\Heroicon;
 
 class SubscriptionPaymentResource extends Resource
 {
     protected static ?string $model = SubscriptionPayment::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
 
-    protected static ?string $navigationLabel = 'Riwayat Pembayaran';
+    protected static ?string $navigationLabel = 'Pembayaran Langganan';
 
-
-
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 30;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Langganan & Billing';
 
@@ -169,17 +169,6 @@ class SubscriptionPaymentResource extends Resource
                         return static::downloadInvoice($record);
                     })
                     ->visible(fn (SubscriptionPayment $record): bool => $record->status === 'paid'),
-                
-                \Filament\Actions\Action::make('retry_payment')
-                    ->label('Coba Lagi Pembayaran')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('warning')
-                    ->action(function (SubscriptionPayment $record) {
-                        return static::retryPayment($record);
-                    })
-                    ->visible(fn (SubscriptionPayment $record): bool => 
-                        in_array($record->status, ['failed', 'expired'])
-                    ),
             ])
             ->bulkActions([
                 \Filament\Actions\BulkActionGroup::make([
@@ -283,15 +272,27 @@ class SubscriptionPaymentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $storeContext = app(StoreContext::class);
+        $query = parent::getEloquentQuery();
         
-        return parent::getEloquentQuery()
-            ->whereHas('subscription', function (Builder $query) use ($storeContext) {
-                $query->where('store_id', $storeContext->current(auth()->user()));
-            })
-            ->orWhereHas('landingSubscription', function (Builder $query) use ($storeContext) {
-                $query->whereHas('provisionedStore', function (Builder $subQuery) use ($storeContext) {
-                    $subQuery->where('id', $storeContext->current(auth()->user()));
+        // Get current tenant ID using GlobalFilterService or fallback to user's current tenant
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
+        
+        if (!$tenantId) {
+            // Fallback to user's current tenant
+            $tenantId = auth()->user()?->currentTenant()?->id;
+        }
+        
+        if (!$tenantId) {
+            return $query->whereRaw('1 = 0'); // Return empty query
+        }
+
+        return $query
+            ->where(function (Builder $query) use ($tenantId) {
+                $query->whereHas('subscription', function (Builder $subQuery) use ($tenantId) {
+                    $subQuery->where('tenant_id', $tenantId);
+                })->orWhereHas('landingSubscription', function (Builder $subQuery) use ($tenantId) {
+                    $subQuery->where('tenant_id', $tenantId);
                 });
             })
             ->with(['subscription.plan', 'landingSubscription']);
@@ -307,8 +308,6 @@ class SubscriptionPaymentResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $storeContext = app(StoreContext::class);
-        
         $pendingCount = static::getEloquentQuery()
             ->where('status', 'pending')
             ->count();
@@ -324,6 +323,29 @@ class SubscriptionPaymentResource extends Resource
     public static function canViewAny(): bool
     {
         return true;
+    }
+
+    public static function canCreate(): bool
+    {
+        // Payment dibuat dari billing engine/Xendit, bukan manual
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        // Payment tidak boleh dihapus manual
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        // Payment read-only, tidak boleh diubah manual
+        return false;
     }
 
     public static function downloadInvoice(SubscriptionPayment $payment)

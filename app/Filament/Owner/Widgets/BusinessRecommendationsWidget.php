@@ -2,11 +2,16 @@
 
 namespace App\Filament\Owner\Widgets;
 
+use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Services\FnBAnalyticsService;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\Widget;
 
 class BusinessRecommendationsWidget extends Widget
 {
+    use InteractsWithPageFilters;
+    use ResolvesOwnerDashboardFilters;
+
     protected string $view = 'filament.owner.widgets.business-recommendations';
 
     protected static ?int $sort = 4;
@@ -15,17 +20,22 @@ class BusinessRecommendationsWidget extends Widget
 
     public function getViewData(): array
     {
-        $storeId = auth()->user()?->store_id;
+        $filters = $this->dashboardFilters();
+        $storeIds = $this->dashboardStoreIds();
 
-        if (!$storeId) {
-            return ['recommendations' => []];
+        if (empty($storeIds) || ! ($filters['tenant_id'] ?? null)) {
+            return [
+                'recommendations' => [],
+                'context' => $this->dashboardFilterContextLabel(),
+            ];
         }
 
         $analyticsService = app(FnBAnalyticsService::class);
-        $recommendations = $analyticsService->getRecommendations();
+        $recommendations = $analyticsService->getRecommendationsForStores($storeIds);
 
         return [
             'recommendations' => $recommendations,
+            'context' => $this->dashboardFilterContextLabel(),
         ];
     }
 }

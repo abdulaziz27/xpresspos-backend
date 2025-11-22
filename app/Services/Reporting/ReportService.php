@@ -649,9 +649,25 @@ class ReportService
         return 'in_stock';
     }
 
+    /**
+     * @deprecated This method uses product_id for inventory_movements which is no longer valid.
+     * Use inventory_item_id instead.
+     */
     private function getRecentMovements(string $productId, int $limit): array
     {
-        return InventoryMovement::where('product_id', $productId)
+        throw new \Exception(
+            'ReportService::getRecentMovements() with product_id is deprecated. ' .
+            'Product-based inventory reports are deprecated due to inventory refactor. ' .
+            'Use inventory-item-based reports instead.'
+        );
+    }
+
+    /**
+     * Get recent movements for an inventory item.
+     */
+    private function getRecentMovementsForInventoryItem(string $inventoryItemId, int $limit): array
+    {
+        return InventoryMovement::where('inventory_item_id', $inventoryItemId)
             ->with(['user'])
             ->orderByDesc('created_at')
             ->limit($limit)

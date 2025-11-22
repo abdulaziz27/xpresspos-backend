@@ -4,7 +4,7 @@ namespace App\Filament\Owner\Resources\SubscriptionResource\Pages;
 
 use App\Filament\Owner\Resources\SubscriptionResource;
 use App\Models\Subscription;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -21,7 +21,7 @@ class ListSubscriptions extends ListRecords
                 ->label('Upgrade Plan')
                 ->icon('heroicon-o-arrow-up-circle')
                 ->color('success')
-                ->url(fn (): string => route('landing.home'))
+                ->url(fn (): string => route('pricing')) // Use fallback route 'pricing' instead of 'landing.home'
                 ->openUrlInNewTab()
                 ->visible(fn (): bool => $this->hasActiveSubscription()),
             
@@ -40,16 +40,26 @@ class ListSubscriptions extends ListRecords
 
     public function getTabs(): array
     {
-        $storeContext = app(StoreContext::class);
-        $storeId = $storeContext->current(auth()->user());
+        // Get current tenant ID using GlobalFilterService or fallback to user's current tenant
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
+        
+        if (!$tenantId) {
+            // Fallback to user's current tenant
+            $tenantId = auth()->user()?->currentTenant()?->id;
+        }
+        
+        if (!$tenantId) {
+            return [];
+        }
 
         return [
             'all' => Tab::make('All Subscriptions')
-                ->badge(Subscription::where('store_id', $storeId)->count()),
+                ->badge(Subscription::where('tenant_id', $tenantId)->count()),
             
             'active' => Tab::make('Active')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'active'))
-                ->badge(Subscription::where('store_id', $storeId)->where('status', 'active')->count())
+                ->badge(Subscription::where('tenant_id', $tenantId)->where('status', 'active')->count())
                 ->badgeColor('success'),
             
             'expiring_soon' => Tab::make('Expiring Soon')
@@ -58,17 +68,17 @@ class ListSubscriptions extends ListRecords
                           ->where('ends_at', '<=', now()->addDays(30))
                           ->where('ends_at', '>', now())
                 )
-                ->badge(Subscription::where('store_id', $storeId)
+                ->badge(Subscription::where('tenant_id', $tenantId)
                     ->where('status', 'active')
                     ->where('ends_at', '<=', now()->addDays(30))
                     ->where('ends_at', '>', now())
                     ->count())
                 ->badgeColor('warning'),
             
-            'suspended' => Tab::make('Suspended')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'suspended'))
-                ->badge(Subscription::where('store_id', $storeId)->where('status', 'suspended')->count())
-                ->badgeColor('danger'),
+            'inactive' => Tab::make('Tidak Aktif')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'inactive'))
+                ->badge(Subscription::where('tenant_id', $tenantId)->where('status', 'inactive')->count())
+                ->badgeColor('warning'),
         ];
     }
 
@@ -81,10 +91,20 @@ class ListSubscriptions extends ListRecords
 
     private function hasActiveSubscription(): bool
     {
-        $storeContext = app(StoreContext::class);
+        // Get current tenant ID using GlobalFilterService or fallback to user's current tenant
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
         
-        return Subscription::where('store_id', $storeContext->current(auth()->user()))
-            ->where('status', 'active')
-            ->exists();
+        if (!$tenantId) {
+            // Fallback to user's current tenant
+            $tenant = auth()->user()?->currentTenant();
+            if (!$tenant) {
+                return false;
+            }
+            return $tenant->activeSubscription() !== null;
+        }
+        
+        $tenant = \App\Models\Tenant::find($tenantId);
+        return $tenant && $tenant->activeSubscription() !== null;
     }
 }

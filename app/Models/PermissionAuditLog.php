@@ -12,6 +12,7 @@ class PermissionAuditLog extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
+        'tenant_id',
         'store_id',
         'user_id',
         'changed_by',
@@ -21,6 +22,40 @@ class PermissionAuditLog extends Model
         'new_value',
         'notes',
     ];
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function ($log) {
+            // Auto-set tenant_id from user or store
+            if (!$log->tenant_id) {
+                if ($log->user_id) {
+                    $user = User::find($log->user_id);
+                    if ($user) {
+                        $log->tenant_id = $user->currentTenant()?->id;
+                    }
+                }
+                
+                // Fallback to store->tenant_id if user tenant not found
+                if (!$log->tenant_id && $log->store_id) {
+                    $store = Store::find($log->store_id);
+                    if ($store) {
+                        $log->tenant_id = $store->tenant_id;
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Get the tenant that owns the permission audit log.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     public function store(): BelongsTo
     {

@@ -26,20 +26,43 @@ class CategoryForm
                                     ->required()
                                     ->maxLength(255)
                                     ->live(onBlur: true)
-                                    ->afterStateUpdated(function (string $operation, $state, callable $set) {
+                                    ->afterStateUpdated(function (string $operation, $state, callable $set, $get) {
                                         if ($operation !== 'create') {
                                             return;
                                         }
 
-                                        $set('slug', str($state)->slug());
+                                        // Auto-generate slug only if slug is empty
+                                        if (empty($get('slug'))) {
+                                            $set('slug', str($state)->slug()->toString());
+                                        }
                                     }),
 
                                 TextInput::make('slug')
                                     ->label('Slug')
                                     ->required()
                                     ->maxLength(255)
-                                    ->unique(ignoreRecord: true)
-                                    ->alphaDash(),
+                                    ->unique(ignoreRecord: true, modifyRuleUsing: function ($rule) {
+                                        // Ensure slug uniqueness within tenant scope
+                                        $tenantId = auth()->user()?->currentTenant()?->id;
+                                        if ($tenantId) {
+                                            $rule->where('tenant_id', $tenantId);
+                                        }
+                                        return $rule;
+                                    })
+                                    ->rules([
+                                        'required',
+                                        'string',
+                                        'max:255',
+                                        'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
+                                    ])
+                                    ->helperText('Slug akan di-generate otomatis dari nama. Format: huruf kecil, angka, dan tanda hubung (contoh: kopi-tubruk)')
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        // Normalize slug: ensure lowercase and remove spaces
+                                        $normalized = str($state)->slug()->toString();
+                                        if ($normalized !== $state) {
+                                            $set('slug', $normalized);
+                                        }
+                                    }),
                             ]),
 
                         Textarea::make('description')

@@ -75,8 +75,16 @@ class PaymentController extends Controller
      */
     public function store(ProcessPaymentRequest $request): JsonResponse
     {
-        $order = Order::findOrFail($request->input('order_id'));
+        // Load order with items and store (needed for calculation)
+        $order = Order::with(['items', 'store'])->findOrFail($request->input('order_id'));
         $this->authorize('update', $order);
+        
+        // Ensure order totals are calculated (in case items were added but totals not updated)
+        if ($order->items->count() > 0 && (!$order->total_amount || $order->total_amount == 0)) {
+            $calculationService = app(\App\Services\OrderCalculationService::class);
+            $calculationService->updateOrderTotals($order);
+            $order->refresh();
+        }
 
         // Check if this is a pending payment for open bill
         $isPendingPayment = $request->input('payment_method') === 'pending' 
@@ -94,6 +102,13 @@ class PaymentController extends Controller
                         'code' => 'PAYMENT_VALIDATION_FAILED',
                         'message' => 'Payment validation failed.',
                         'details' => $validation['errors']
+                    ],
+                    'data' => [
+                        'order_id' => $order->id,
+                        'order_total' => $order->total_amount ?? 0,
+                        'remaining_balance' => $validation['remaining_balance'] ?? 0,
+                        'requested_amount' => $validation['requested_amount'] ?? 0,
+                        'items_count' => $order->items->count(),
                     ],
                     'meta' => [
                         'timestamp' => now()->toISOString(),
@@ -113,11 +128,43 @@ class PaymentController extends Controller
         try {
             DB::beginTransaction();
 
+            // For cash payments, handle overpayment correctly
+            $paymentMethod = $request->input('payment_method');
+            $requestedAmount = $request->input('amount');
+            $receivedAmount = $request->input('received_amount');
+            $remainingBalance = $order->getRemainingBalance();
+            
+            // For cash payments: 
+            // - amount = jumlah yang dibayar untuk order (harus = remaining_balance, tidak boleh lebih)
+            // - received_amount = jumlah yang diterima dari customer (untuk kembalian)
+            // - change_amount = received_amount - amount (kembalian)
+            if ($paymentMethod === 'cash') {
+                // Payment amount should always be the remaining balance (not more, not less)
+                $actualPaymentAmount = $remainingBalance;
+                
+                // If received_amount is provided, use it; otherwise use requested amount as received_amount
+                if ($receivedAmount !== null && $receivedAmount > 0) {
+                    $actualReceivedAmount = $receivedAmount;
+                } else {
+                    // No received_amount provided, use requested amount as received_amount
+                    $actualReceivedAmount = $requestedAmount;
+                }
+                
+                // Ensure received_amount is at least the payment amount
+                if ($actualReceivedAmount < $actualPaymentAmount) {
+                    $actualReceivedAmount = $actualPaymentAmount;
+                }
+            } else {
+                // For non-cash payments, amount must match remaining balance
+                $actualPaymentAmount = $requestedAmount;
+                $actualReceivedAmount = $receivedAmount ?? $requestedAmount;
+            }
+            
             $payment = $order->payments()->create([
                 'store_id' => $order->store_id,
-                'payment_method' => $request->input('payment_method'),
-                'amount' => $request->input('amount'),
-                'received_amount' => $request->input('received_amount', 0),
+                'payment_method' => $paymentMethod,
+                'amount' => $actualPaymentAmount,
+                'received_amount' => $actualReceivedAmount,
                 'reference_number' => $request->input('reference_number'),
                 'status' => $isPendingPayment ? 'pending' : 'pending',
                 'notes' => $request->input('notes'),
@@ -145,14 +192,21 @@ class PaymentController extends Controller
                 'order_status' => $order->fresh()->status
             ]);
 
+            // Calculate change amount for cash payments
+            $changeAmount = 0;
+            if ($paymentMethod === 'cash' && $payment->received_amount > $payment->amount) {
+                $changeAmount = $payment->received_amount - $payment->amount;
+            }
+            
             return response()->json([
                 'success' => true,
                 'data' => new PaymentResource($payment),
                 'message' => $isPendingPayment ? 'Pending payment created for open bill' : 'Payment processed successfully',
                 'meta' => [
                     'order_total' => $order->total_amount,
-                    'total_paid' => $order->payments()->completed()->sum('amount'),
-                    'remaining_amount' => max(0, $order->total_amount - $order->payments()->completed()->sum('amount')),
+                    'total_paid' => $order->payments()->where('status', 'completed')->sum('amount'),
+                    'remaining_amount' => $order->fresh()->getRemainingBalance(),
+                    'change_amount' => $changeAmount,
                     'timestamp' => now()->toISOString(),
                     'version' => 'v1'
                 ]

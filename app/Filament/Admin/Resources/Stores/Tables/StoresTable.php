@@ -6,9 +6,9 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\ImageColumn;
+use App\Models\Tenant;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
@@ -18,11 +18,13 @@ class StoresTable
     {
         return $table
             ->columns([
-                ImageColumn::make('logo')
-                    ->label('Logo')
-                    ->circular()
-                    ->size(40)
-                    ->defaultImageUrl(url('/img/placeholder-store.png')),
+                TextColumn::make('tenant.name')
+                    ->label('Tenant')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('medium')
+                    ->badge()
+                    ->color('info'),
 
                 TextColumn::make('name')
                     ->label('Store Name')
@@ -42,19 +44,25 @@ class StoresTable
                     ->placeholder('No Phone')
                     ->copyable(),
 
-                TextColumn::make('users_count')
+                TextColumn::make('user_assignments_count')
                     ->label('Users')
-                    ->counts('users')
+                    ->counts('userAssignments')
                     ->numeric()
                     ->alignCenter()
                     ->sortable(),
 
                 TextColumn::make('products_count')
                     ->label('Products')
-                    ->counts('products')
+                    ->formatStateUsing(function ($record) {
+                        // Product tidak punya store_id, hanya tenant_id
+                        // Hitung melalui tenant (bypass TenantScope untuk admin)
+                        return \App\Models\Product::query()
+                            ->withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
+                            ->where('tenant_id', $record->tenant_id)
+                            ->count();
+                    })
                     ->numeric()
-                    ->alignCenter()
-                    ->sortable(),
+                    ->alignCenter(),
 
                 TextColumn::make('orders_count')
                     ->label('Orders')
@@ -63,13 +71,22 @@ class StoresTable
                     ->alignCenter()
                     ->sortable(),
 
-                IconColumn::make('status')
-                    ->label('Active')
-                    ->boolean()
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-x-circle')
-                    ->trueColor('success')
-                    ->falseColor('danger'),
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'active' => 'success',
+                        'inactive' => 'gray',
+                        'suspended' => 'danger',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'active' => 'Aktif',
+                        'inactive' => 'Tidak Aktif',
+                        'suspended' => 'Ditangguhkan',
+                        default => $state,
+                    })
+                    ->sortable(),
 
                 TextColumn::make('created_at')
                     ->label('Created')
@@ -77,34 +94,75 @@ class StoresTable
                     ->sortable()
                     ->since(),
 
-                TextColumn::make('activeSubscription.plan.name')
+                TextColumn::make('plan_name')
                     ->label('Plan')
                     ->badge()
                     ->color('info')
-                    ->placeholder('No Subscription'),
+                    ->getStateUsing(function ($record) {
+                        if (!$record) {
+                            return 'Tidak ada';
+                        }
+                        
+                        // Pastikan tenant ter-load
+                        if (!$record->relationLoaded('tenant')) {
+                            $record->load('tenant');
+                        }
+                        
+                        // Gunakan method activeSubscription() dari tenant
+                        $activeSubscription = $record->tenant?->activeSubscription();
+                        
+                        // Pastikan plan ter-load
+                        if ($activeSubscription && !$activeSubscription->relationLoaded('plan')) {
+                            $activeSubscription->load('plan');
+                        }
+                        
+                        return $activeSubscription?->plan?->name ?? 'Tidak ada';
+                    })
+                    ->placeholder('Tidak ada'),
             ])
             ->filters([
-                TernaryFilter::make('status')
+                SelectFilter::make('tenant_id')
+                    ->label('Tenant')
+                    ->relationship('tenant', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->multiple(),
+
+                SelectFilter::make('status')
                     ->label('Status')
-                    ->placeholder('All stores')
-                    ->trueLabel('Active only')
-                    ->falseLabel('Inactive only'),
+                    ->options([
+                        'active' => 'Aktif',
+                        'inactive' => 'Tidak Aktif',
+                        'suspended' => 'Ditangguhkan',
+                    ])
+                    ->multiple(),
 
                 TernaryFilter::make('has_subscription')
                     ->label('Has Subscription')
                     ->placeholder('All stores')
                     ->trueLabel('With subscription')
                     ->falseLabel('No subscription')
-                    ->query(fn($query) => $query->has('activeSubscription')),
+                    ->query(function ($query, array $data) {
+                        if ($data['value'] === true) {
+                            return $query->whereHas('tenant.subscriptions', function ($q) {
+                                $q->where('status', 'active')
+                                  ->where('ends_at', '>', now());
+                            });
+                        } elseif ($data['value'] === false) {
+                            return $query->whereDoesntHave('tenant.subscriptions', function ($q) {
+                                $q->where('status', 'active')
+                                  ->where('ends_at', '>', now());
+                            });
+                        }
+                        return $query;
+                    }),
             ])
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
             ])
             ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
+                // No bulk actions for admin
             ])
             ->defaultSort('created_at', 'desc')
             ->striped()

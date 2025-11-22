@@ -131,9 +131,9 @@ class LoyaltyService
     }
 
     /**
-     * Initialize default member tiers for a store.
+     * Initialize default member tiers for a tenant.
      */
-    public function initializeDefaultTiers(string $storeId): void
+    public function initializeDefaultTiers(string $tenantId): void
     {
         $defaultTiers = [
             [
@@ -199,25 +199,31 @@ class LoyaltyService
         ];
 
         foreach ($defaultTiers as $tierData) {
-            MemberTier::create([
-                'store_id' => $storeId,
+            MemberTier::query()->withoutGlobalScopes()->updateOrCreate(
+                [
+                    'tenant_id' => $tenantId,
+                    'slug' => $tierData['slug'],
+                ],
+                [
+                'tenant_id' => $tenantId,
                 ...$tierData
-            ]);
+                ]
+            );
         }
     }
 
     /**
-     * Get member tier statistics for a store.
+     * Get member tier statistics for a tenant.
      */
-    public function getTierStatistics(string $storeId): array
+    public function getTierStatistics(string $tenantId): array
     {
-        $tiers = MemberTier::where('store_id', $storeId)
+        $tiers = MemberTier::where('tenant_id', $tenantId)
             ->active()
             ->ordered()
             ->withCount('members')
             ->get();
 
-        $totalMembers = Member::where('store_id', $storeId)->active()->count();
+        $totalMembers = Member::where('tenant_id', $tenantId)->active()->count();
 
         return $tiers->map(function ($tier) use ($totalMembers) {
             return [

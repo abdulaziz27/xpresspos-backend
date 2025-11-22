@@ -8,17 +8,24 @@ use App\Models\Plan;
 trait HasSubscriptionFeatures
 {
     /**
-     * Get user's active subscription through store
+     * Get user's active subscription through tenant (via store).
+     * 
+     * Model Bisnis: Subscription per Tenant (bukan per Store)
      */
     public function activeSubscription()
     {
-        // Get subscription through user's store
+        // Get subscription through user's store -> tenant
         if (!$this->store_id) {
             return Subscription::query()->whereRaw('1 = 0'); // Return empty query
         }
         
+        $store = $this->store;
+        if (!$store || !$store->tenant_id) {
+            return Subscription::query()->whereRaw('1 = 0'); // Return empty query
+        }
+        
         return Subscription::query()
-            ->where('store_id', $this->store_id)
+            ->where('tenant_id', $store->tenant_id)
             ->where('status', 'active')
             ->where('ends_at', '>', now())
             ->latest();

@@ -46,8 +46,12 @@ class AuthController extends Controller
             ]);
         }
 
+        // Get store and tenant using helper methods
+        $store = $user->store();
+        $tenant = $user->currentTenant();
+
         // Check if user account is active
-        if ($user->store_id && $user->store && $user->store->status !== 'active') {
+        if ($store && $store->status !== 'active') {
             throw ValidationException::withMessages([
                 'email' => ['Your store account is not active. Please contact support.'],
             ]);
@@ -63,8 +67,8 @@ class AuthController extends Controller
         $deviceName = $request->device_name ?? 'API Token';
         $token = $user->createToken($deviceName, ['*'], now()->addWeek())->plainTextToken;
 
-        // Load store relationship
-        $user->load(['store']);
+        // Get tenant ID (prefer from store, fallback to user's tenant)
+        $tenantId = $store?->tenant_id ?? $tenant?->id ?? $user->currentTenantId();
 
         return response()->json([
             'success' => true,
@@ -73,11 +77,17 @@ class AuthController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'store_id' => $user->store_id,
-                    'store' => $user->store ? [
-                        'id' => $user->store->id,
-                        'name' => $user->store->name,
-                        'status' => $user->store->status,
+                    'tenant_id' => $tenantId,
+                    'tenant' => $tenant ? [
+                        'id' => $tenant->id,
+                        'name' => $tenant->name,
+                    ] : null,
+                    'store_id' => $store?->id,
+                    'store' => $store ? [
+                        'id' => $store->id,
+                        'name' => $store->name,
+                        'status' => $store->status,
+                        'tenant_id' => $store->tenant_id,
                     ] : null,
                     'roles' => $user->getRolesWithContext()->pluck('name'),
                     'permissions' => $user->getPermissionsWithContext()->pluck('name'),
@@ -142,8 +152,12 @@ class AuthController extends Controller
     {
         $user = $request->user();
         
-        // Load store relation first
-        $user->load(['store']);
+        // Get store and tenant using helper methods
+        $store = $user->store();
+        $tenant = $user->currentTenant();
+
+        // Get tenant ID (prefer from store, fallback to user's tenant)
+        $tenantId = $store?->tenant_id ?? $tenant?->id ?? $user->currentTenantId();
 
         return response()->json([
             'success' => true,
@@ -152,11 +166,17 @@ class AuthController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'store_id' => $user->store_id,
-                    'store' => $user->store ? [
-                        'id' => $user->store->id,
-                        'name' => $user->store->name,
-                        'status' => $user->store->status,
+                    'tenant_id' => $tenantId,
+                    'tenant' => $tenant ? [
+                        'id' => $tenant->id,
+                        'name' => $tenant->name,
+                    ] : null,
+                    'store_id' => $store?->id,
+                    'store' => $store ? [
+                        'id' => $store->id,
+                        'name' => $store->name,
+                        'status' => $store->status,
+                        'tenant_id' => $store->tenant_id,
                     ] : null,
                     'roles' => $user->getRolesWithContext()->pluck('name'),
                     'permissions' => $user->getPermissionsWithContext()->pluck('name'),

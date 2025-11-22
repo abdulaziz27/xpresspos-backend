@@ -2,6 +2,7 @@
 
 namespace App\Filament\Owner\Resources\LoyaltyPointTransactions\Tables;
 
+use App\Services\StoreContext;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
@@ -36,6 +37,10 @@ class LoyaltyPointTransactionsTable
                         default => 'gray',
                     })
                     ->formatStateUsing(fn($state) => ucfirst($state)),
+
+                TextColumn::make('store.name')
+                    ->label('Cabang')
+                    ->placeholder('-'),
 
                 TextColumn::make('points')
                     ->label('Points')
@@ -110,6 +115,11 @@ class LoyaltyPointTransactionsTable
                     ->searchable()
                     ->preload(),
 
+                SelectFilter::make('store_id')
+                    ->label('Cabang')
+                    ->options(self::storeOptions())
+                    ->placeholder('Semua cabang'),
+
                 Filter::make('points_range')
                     ->schema([
                         \Filament\Forms\Components\TextInput::make('points_from')
@@ -153,5 +163,19 @@ class LoyaltyPointTransactionsTable
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50, 100]);
+    }
+
+    protected static function storeOptions(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return StoreContext::instance()
+            ->accessibleStores($user)
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }
