@@ -4,7 +4,7 @@ namespace App\Filament\Owner\Resources\SubscriptionResource\Pages;
 
 use App\Filament\Owner\Resources\SubscriptionResource;
 use App\Models\Subscription;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -40,16 +40,18 @@ class ListSubscriptions extends ListRecords
 
     public function getTabs(): array
     {
-        $storeContext = app(StoreContext::class);
-        $storeId = $storeContext->current(auth()->user());
-        $store = \App\Models\Store::find($storeId);
+        // Get current tenant ID using GlobalFilterService or fallback to user's current tenant
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
         
-        if (!$store || !$store->tenant_id) {
+        if (!$tenantId) {
+            // Fallback to user's current tenant
+            $tenantId = auth()->user()?->currentTenant()?->id;
+        }
+        
+        if (!$tenantId) {
             return [];
         }
-
-        $tenant = $store->tenant;
-        $tenantId = $tenant->id;
 
         return [
             'all' => Tab::make('All Subscriptions')
@@ -73,10 +75,10 @@ class ListSubscriptions extends ListRecords
                     ->count())
                 ->badgeColor('warning'),
             
-            'suspended' => Tab::make('Suspended')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'suspended'))
-                ->badge(Subscription::where('tenant_id', $tenantId)->where('status', 'suspended')->count())
-                ->badgeColor('danger'),
+            'inactive' => Tab::make('Tidak Aktif')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'inactive'))
+                ->badge(Subscription::where('tenant_id', $tenantId)->where('status', 'inactive')->count())
+                ->badgeColor('warning'),
         ];
     }
 
@@ -89,15 +91,20 @@ class ListSubscriptions extends ListRecords
 
     private function hasActiveSubscription(): bool
     {
-        $storeContext = app(StoreContext::class);
-        $storeId = $storeContext->current(auth()->user());
-        $store = \App\Models\Store::find($storeId);
+        // Get current tenant ID using GlobalFilterService or fallback to user's current tenant
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
         
-        if (!$store || !$store->tenant_id) {
-            return false;
+        if (!$tenantId) {
+            // Fallback to user's current tenant
+            $tenant = auth()->user()?->currentTenant();
+            if (!$tenant) {
+                return false;
+            }
+            return $tenant->activeSubscription() !== null;
         }
-
-        $tenant = $store->tenant;
-        return $tenant->activeSubscription() !== null;
+        
+        $tenant = \App\Models\Tenant::find($tenantId);
+        return $tenant && $tenant->activeSubscription() !== null;
     }
 }

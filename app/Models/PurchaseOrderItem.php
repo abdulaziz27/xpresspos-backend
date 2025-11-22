@@ -45,6 +45,21 @@ class PurchaseOrderItem extends Model
                 $item->total_cost = $item->quantity_ordered * $item->unit_cost;
             }
         });
+
+        // Trigger PurchaseOrder total_amount recalculation after item is saved/deleted
+        static::saved(function (self $item): void {
+            if ($item->purchaseOrder && $item->purchaseOrder->exists) {
+                $item->purchaseOrder->recalculateTotalAmount();
+                $item->purchaseOrder->saveQuietly(); // Use saveQuietly to avoid triggering events again
+            }
+        });
+
+        static::deleted(function (self $item): void {
+            if ($item->purchaseOrder && $item->purchaseOrder->exists) {
+                $item->purchaseOrder->recalculateTotalAmount();
+                $item->purchaseOrder->saveQuietly(); // Use saveQuietly to avoid triggering events again
+            }
+        });
     }
 
     public function purchaseOrder(): BelongsTo

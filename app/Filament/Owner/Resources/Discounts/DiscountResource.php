@@ -8,7 +8,7 @@ use App\Filament\Owner\Resources\Discounts\Pages\ListDiscounts;
 use App\Filament\Owner\Resources\Discounts\Schemas\DiscountForm;
 use App\Filament\Owner\Resources\Discounts\Tables\DiscountsTable;
 use App\Models\Discount;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -22,15 +22,25 @@ class DiscountResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;
 
-    protected static ?string $navigationLabel = 'Diskon';
+    protected static ?string $navigationLabel = 'Diskon Manual';
 
-    protected static ?string $modelLabel = 'Diskon';
+    protected static ?string $modelLabel = 'Diskon Manual';
 
-    protected static ?string $pluralModelLabel = 'Diskon';
+    protected static ?string $pluralModelLabel = 'Diskon Manual';
 
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = 30;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Promo & Kampanye';
+
+    public static function canCreate(): bool
+    {
+        return true;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return true;
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -53,25 +63,32 @@ class DiscountResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $user = auth()->user();
-        $storeContext = StoreContext::instance();
-        $storeId = $storeContext->current($user);
+        $query = parent::getEloquentQuery()
+            ->with('store');
 
-        $query = parent::getEloquentQuery();
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
 
-        if ($storeId) {
-            return $query->where('store_id', $storeId);
+        if (! empty($storeIds)) {
+            // Include global discounts (store_id is null) and store-specific discounts
+            $query->where(function (Builder $query) use ($storeIds) {
+                $query
+                    ->whereNull('store_id') // Global discounts
+                    ->orWhereIn('store_id', $storeIds); // Store-specific discounts
+            });
         }
 
-        if ($user && $user->hasRole('admin_sistem')) {
-            return $query;
-        }
-
-        return $query->whereRaw('1 = 0');
+        return $query;
     }
 
-    public static function canViewAny(): bool
+    public static function storeOptions(): array
     {
-        return true;
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+
+        return $globalFilter->getAvailableStores(auth()->user())
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

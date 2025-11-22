@@ -12,12 +12,8 @@ class ListStockLevels extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\Action::make('refresh')
-                ->label('Refresh')
-                ->icon('heroicon-o-arrow-path')
-                ->action(fn () => $this->dispatchBrowserEvent('refresh')),
-        ];
+        // Read-only resource, no header actions
+        return [];
     }
 }
 

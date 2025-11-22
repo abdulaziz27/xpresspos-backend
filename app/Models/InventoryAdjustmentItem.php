@@ -33,12 +33,14 @@ class InventoryAdjustmentItem extends Model
     protected static function booted(): void
     {
         static::saving(function (self $item): void {
+            // Auto-calculate difference_qty
             if ($item->counted_qty !== null && $item->system_qty !== null) {
                 $item->difference_qty = $item->counted_qty - $item->system_qty;
             }
 
+            // Auto-calculate total_cost
             if ($item->unit_cost !== null && $item->difference_qty !== null) {
-                $item->total_cost = $item->difference_qty * $item->unit_cost;
+                $item->total_cost = abs($item->difference_qty) * $item->unit_cost;
             }
         });
     }

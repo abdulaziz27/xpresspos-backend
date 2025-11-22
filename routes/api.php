@@ -226,6 +226,13 @@ Route::prefix('v1')
         // Orders summary endpoint (moved to orders prefix)
         // Route::get('orders-summary', [OrderController::class, 'summary'])->name('api.v1.orders.summary'); // REMOVED - use orders/summary instead
 
+        // Vouchers
+        Route::prefix('vouchers')->group(function (): void {
+            Route::get('/', [\App\Http\Controllers\Api\V1\VoucherController::class, 'index'])->name('api.v1.vouchers.index');
+            Route::post('validate', [\App\Http\Controllers\Api\V1\VoucherController::class, 'validate'])->name('api.v1.vouchers.validate');
+            Route::post('redeem', [\App\Http\Controllers\Api\V1\VoucherController::class, 'redeem'])->name('api.v1.vouchers.redeem');
+        });
+
         // Tables
         Route::prefix('tables')->group(function (): void {
             Route::get('/', [TableController::class, 'index'])->name('api.v1.tables.index');

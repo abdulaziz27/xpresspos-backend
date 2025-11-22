@@ -18,15 +18,16 @@ class LoyaltyPointTransactionResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedStar;
 
-    protected static ?string $navigationLabel = 'Poin Loyalti';
+    // Navigation properties - all set to null/hidden since this resource is relation-only
+    protected static ?string $navigationLabel = null;
 
     protected static ?string $modelLabel = 'Loyalty Point Transaction';
 
     protected static ?string $pluralModelLabel = 'Loyalty Point Transactions';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = null;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Member & Loyalti';
+    protected static string|\UnitEnum|null $navigationGroup = null;
 
     public static function table(Table $table): Table
     {

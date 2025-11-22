@@ -46,7 +46,7 @@ class StaffPerformancesTable
 
                 TextColumn::make('hours_worked')
                     ->label('Hours Worked')
-                    ->numeric(decimalPlaces: 1)
+                    ->numeric(1)
                     ->sortable()
                     ->suffix(' hrs'),
 
@@ -82,7 +82,7 @@ class StaffPerformancesTable
 
                 TextColumn::make('customer_satisfaction_score')
                     ->label('Satisfaction')
-                    ->numeric(decimalPlaces: 1)
+                    ->numeric(1)
                     ->sortable()
                     ->suffix('/5.0')
                     ->color(function ($state) {

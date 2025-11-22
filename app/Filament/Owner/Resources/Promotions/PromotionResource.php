@@ -10,6 +10,10 @@ use App\Filament\Owner\Resources\Promotions\RelationManagers\RewardsRelationMana
 use App\Models\Promotion;
 use App\Services\GlobalFilterService;
 use BackedEnum;
+use Carbon\Carbon;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -21,6 +25,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -39,6 +44,16 @@ class PromotionResource extends Resource
     protected static ?int $navigationSort = 10;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Promo & Kampanye';
+
+    public static function canCreate(): bool
+    {
+        return true;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return true;
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -96,12 +111,11 @@ class PromotionResource extends Resource
                     Grid::make(2)
                         ->schema([
                             Select::make('store_id')
-                                ->label('Cabang Khusus')
+                                ->label('Berlaku untuk Toko')
                                 ->options($storeOptions)
-                                ->default(fn () => self::defaultStoreId())
                                 ->searchable()
-                                ->placeholder('Semua Cabang')
-                                ->helperText('Kosongkan jika berlaku untuk semua cabang.')
+                                ->placeholder('Semua Toko')
+                                ->helperText('Pilih toko tertentu atau kosongkan untuk semua toko.')
                                 ->native(false),
                             Toggle::make('stackable')
                                 ->label('Bisa Digabung')
@@ -113,12 +127,26 @@ class PromotionResource extends Resource
                             DateTimePicker::make('starts_at')
                                 ->label('Mulai')
                                 ->seconds(false)
-                                ->required(),
+                                ->native(false)
+                                ->required()
+                                ->dehydrateStateUsing(function ($state) {
+                                    if (!$state) {
+                                        return null;
+                                    }
+                                    return Carbon::parse($state)->setSeconds(0);
+                                }),
                             DateTimePicker::make('ends_at')
                                 ->label('Berakhir')
                                 ->seconds(false)
+                                ->native(false)
                                 ->required()
-                                ->minDate(fn (callable $get) => $get('starts_at') ?: now()),
+                                ->minDate(fn (callable $get) => $get('starts_at') ?: now())
+                                ->dehydrateStateUsing(function ($state) {
+                                    if (!$state) {
+                                        return null;
+                                    }
+                                    return Carbon::parse($state)->setSeconds(0);
+                                }),
                         ]),
                     TextInput::make('priority')
                         ->label('Prioritas')
@@ -138,8 +166,8 @@ class PromotionResource extends Resource
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('store.name')
-                    ->label('Cabang')
-                    ->placeholder('Semua Cabang'),
+                    ->label('Toko')
+                    ->placeholder('Semua Toko'),
                 Tables\Columns\TextColumn::make('type')
                     ->label('Tipe')
                     ->badge()
@@ -176,6 +204,44 @@ class PromotionResource extends Resource
                         'inactive' => 'Tidak Aktif',
                         'expired' => 'Kadaluarsa',
                     ]),
+                Tables\Filters\Filter::make('active_promotions')
+                    ->label('Promo yang Sedang Berjalan')
+                    ->query(function (Builder $query): Builder {
+                        return $query->where('status', 'active')
+                            ->where('starts_at', '<=', now())
+                            ->where('ends_at', '>=', now());
+                    }),
+                Tables\Filters\Filter::make('date_range')
+                    ->label('Periode')
+                    ->form([
+                        \Filament\Forms\Components\DatePicker::make('starts_from')
+                            ->label('Mulai Dari'),
+                        \Filament\Forms\Components\DatePicker::make('starts_until')
+                            ->label('Mulai Sampai'),
+                        \Filament\Forms\Components\DatePicker::make('ends_from')
+                            ->label('Berakhir Dari'),
+                        \Filament\Forms\Components\DatePicker::make('ends_until')
+                            ->label('Berakhir Sampai'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['starts_from'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('starts_at', '>=', $date),
+                            )
+                            ->when(
+                                $data['starts_until'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('starts_at', '<=', $date),
+                            )
+                            ->when(
+                                $data['ends_from'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('ends_at', '>=', $date),
+                            )
+                            ->when(
+                                $data['ends_until'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('ends_at', '<=', $date),
+                            );
+                    }),
                 Tables\Filters\SelectFilter::make('type')
                     ->label('Tipe Promo')
                     ->options([
@@ -183,15 +249,17 @@ class PromotionResource extends Resource
                         'CODED' => 'Kode',
                     ]),
                 Tables\Filters\SelectFilter::make('store_id')
-                    ->label('Cabang')
+                    ->label('Toko')
                     ->options(self::storeOptions())
-                    ->placeholder('Semua Cabang'),
+                    ->placeholder('Semua Toko'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
             ]);
     }
 
@@ -242,14 +310,6 @@ class PromotionResource extends Resource
             ->toArray();
     }
 
-    protected static function defaultStoreId(): ?string
-    {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-
-        return $globalFilter->getCurrentStoreId()
-            ?? ($globalFilter->getStoreIdsForCurrentTenant()[0] ?? null);
-    }
 }
 
 

@@ -30,6 +30,14 @@ class InventoryMovementResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Inventori';
 
+    /**
+     * Hide from navigation - only for audit/advanced use.
+     * Accessible via RelationManager from InventoryItemResource.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function form(Schema $schema): Schema
     {

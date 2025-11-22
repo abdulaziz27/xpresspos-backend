@@ -65,7 +65,7 @@ class InventoryMovementsTable
 
                 TextColumn::make('quantity')
                     ->label('Jumlah')
-                    ->numeric(decimalPlaces: 3)
+                    ->numeric(3)
                     ->sortable()
                     ->alignCenter()
                     ->badge()

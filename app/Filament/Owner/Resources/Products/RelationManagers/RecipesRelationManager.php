@@ -64,7 +64,7 @@ class RecipesRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('yield_quantity')
                     ->label('Yield')
-                    ->numeric(decimalPlaces: 2)
+                    ->numeric(2)
                     ->suffix(fn($record) => ' ' . ($record->yield_unit ?? 'unit'))
                     ->sortable(),
 

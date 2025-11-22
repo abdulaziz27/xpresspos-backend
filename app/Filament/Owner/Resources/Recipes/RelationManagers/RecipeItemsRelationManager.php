@@ -137,7 +137,7 @@ class RecipeItemsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('quantity')
                     ->label('Jumlah')
-                    ->numeric(decimalPlaces: 3)
+                    ->numeric(3)
                     ->sortable()
                     ->alignEnd()
                     ->suffix(fn($record) => ' ' . ($record->uom?->code ?? $record->inventoryItem?->uom?->code ?? '')),

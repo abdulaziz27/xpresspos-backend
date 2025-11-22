@@ -8,7 +8,13 @@ use App\Filament\Owner\Resources\Vouchers\Pages\ListVouchers;
 use App\Filament\Owner\Resources\Vouchers\RelationManagers\RedemptionsRelationManager;
 use App\Models\Promotion;
 use App\Models\Voucher;
+use App\Services\GlobalFilterService;
 use BackedEnum;
+use Carbon\Carbon;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -18,6 +24,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -37,18 +44,35 @@ class VoucherResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Promo & Kampanye';
 
+    public static function canCreate(): bool
+    {
+        return true;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return true;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Voucher')
+            Section::make('Informasi Voucher')
                 ->schema([
                     Grid::make(2)
                         ->schema([
                             TextInput::make('code')
-                                ->label('Kode')
+                                ->label('Kode Voucher')
                                 ->required()
                                 ->maxLength(50)
-                                ->unique(ignoreRecord: true),
+                                ->unique(ignoreRecord: true, modifyRuleUsing: function ($rule) {
+                                    $tenantId = auth()->user()?->currentTenant()?->id;
+                                    if ($tenantId) {
+                                        $rule->where('tenant_id', $tenantId);
+                                    }
+                                    return $rule;
+                                })
+                                ->helperText('Kode unik untuk voucher'),
                             Select::make('status')
                                 ->label('Status')
                                 ->options([
@@ -61,35 +85,59 @@ class VoucherResource extends Resource
                         ]),
                     Select::make('promotion_id')
                         ->label('Promo Terkait')
-                        ->options(fn () => Promotion::query()->pluck('name', 'id'))
+                        ->options(fn () => Promotion::query()
+                            ->where('tenant_id', auth()->user()?->currentTenant()?->id)
+                            ->pluck('name', 'id'))
                         ->searchable()
                         ->native(false)
-                        ->placeholder('Tidak terhubung (opsional)'),
+                        ->placeholder('Tidak terhubung (opsional)')
+                        ->helperText('Pilih promo jika voucher terkait dengan promo tertentu'),
                     Grid::make(2)
                         ->schema([
                             TextInput::make('max_redemptions')
-                                ->label('Batas Penukaran')
+                                ->label('Batas Pemakaian Total')
                                 ->numeric()
                                 ->minValue(1)
-                                ->helperText('Kosongkan untuk tanpa batas'),
+                                ->helperText('Kosongkan untuk tanpa batas')
+                                ->placeholder('Tidak terbatas'),
                             TextInput::make('redemptions_count')
-                                ->label('Telah Ditukar')
+                                ->label('Total Dipakai')
                                 ->numeric()
                                 ->disabled()
                                 ->dehydrated(false)
-                                ->default(0),
+                                ->default(0)
+                                ->afterStateHydrated(function ($component, $state, $record) {
+                                    if ($record) {
+                                        $component->state($record->redemptions()->count());
+                                    }
+                                })
+                                ->helperText('Diisi otomatis oleh sistem dari data redemptions'),
                         ]),
                     Grid::make(2)
                         ->schema([
                             DateTimePicker::make('valid_from')
-                                ->label('Berlaku Mulai')
+                                ->label('Tanggal Mulai')
                                 ->seconds(false)
-                                ->required(),
-                            DateTimePicker::make('valid_until')
-                                ->label('Berlaku Hingga')
-                                ->seconds(false)
+                                ->native(false)
                                 ->required()
-                                ->minDate(fn (callable $get) => $get('valid_from') ?: now()),
+                                ->dehydrateStateUsing(function ($state) {
+                                    if (!$state) {
+                                        return null;
+                                    }
+                                    return Carbon::parse($state)->setSeconds(0);
+                                }),
+                            DateTimePicker::make('valid_until')
+                                ->label('Tanggal Berakhir')
+                                ->seconds(false)
+                                ->native(false)
+                                ->required()
+                                ->minDate(fn (callable $get) => $get('valid_from') ?: now())
+                                ->dehydrateStateUsing(function ($state) {
+                                    if (!$state) {
+                                        return null;
+                                    }
+                                    return Carbon::parse($state)->setSeconds(0);
+                                }),
                         ]),
                 ]),
         ]);
@@ -100,12 +148,14 @@ class VoucherResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('code')
-                    ->label('Kode')
+                    ->label('Kode Voucher')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('bold'),
                 Tables\Columns\TextColumn::make('promotion.name')
-                    ->label('Promo')
-                    ->placeholder('-'),
+                    ->label('Promo Terkait')
+                    ->placeholder('-')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->label('Status')
@@ -116,33 +166,70 @@ class VoucherResource extends Resource
                     ])
                     ->sortable(),
                 Tables\Columns\TextColumn::make('redemptions_count')
-                    ->label('Penukaran')
-                    ->formatStateUsing(fn ($state, $record) => sprintf('%d / %s', $state ?? 0, $record->max_redemptions ?? '∞')),
+                    ->label('Total Dipakai')
+                    ->counts('redemptions')
+                    ->formatStateUsing(fn ($state, $record) => sprintf('%d / %s', $state, $record->max_redemptions ?? '∞'))
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('valid_from')
                     ->label('Mulai')
-                    ->dateTime(),
+                    ->dateTime('d M Y H:i')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('valid_until')
                     ->label('Berakhir')
-                    ->dateTime()
+                    ->dateTime('d M Y H:i')
+                    ->sortable()
                     ->color(fn ($state) => ($state && now()->greaterThan($state)) ? 'danger' : null),
             ])
             ->defaultSort('valid_from', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
+                    ->label('Status')
                     ->options([
                         'active' => 'Aktif',
                         'inactive' => 'Tidak Aktif',
                         'expired' => 'Kadaluarsa',
                     ]),
+                Filter::make('active_vouchers')
+                    ->label('Voucher yang Sedang Berjalan')
+                    ->query(function (Builder $query): Builder {
+                        return $query->where('status', 'active')
+                            ->where('valid_from', '<=', now())
+                            ->where('valid_until', '>=', now());
+                    }),
                 Tables\Filters\SelectFilter::make('promotion_id')
-                    ->label('Promo')
-                    ->options(fn () => Promotion::query()->pluck('name', 'id')),
+                    ->label('Promo Terkait')
+                    ->options(fn () => Promotion::query()
+                        ->where('tenant_id', auth()->user()?->currentTenant()?->id)
+                        ->pluck('name', 'id'))
+                    ->placeholder('Semua Promo'),
+                Filter::make('period')
+                    ->label('Periode')
+                    ->form([
+                        \Filament\Forms\Components\DatePicker::make('valid_from')
+                            ->label('Mulai Dari'),
+                        \Filament\Forms\Components\DatePicker::make('valid_until')
+                            ->label('Berakhir Sampai'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['valid_from'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('valid_from', '>=', $date),
+                            )
+                            ->when(
+                                $data['valid_until'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('valid_until', '<=', $date),
+                            );
+                    }),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                EditAction::make(),
+                DeleteAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
             ]);
     }
 
@@ -164,7 +251,17 @@ class VoucherResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('promotion');
+        $query = parent::getEloquentQuery()
+            ->with(['promotion', 'redemptions']);
+
+        // Tenant scope sudah otomatis via TenantScope di model
+        // Tapi kita pastikan juga filter promotion sesuai tenant
+        $tenantId = auth()->user()?->currentTenant()?->id;
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        return $query;
     }
 }
 

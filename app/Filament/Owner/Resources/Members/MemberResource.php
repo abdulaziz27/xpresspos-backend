@@ -6,6 +6,7 @@ use App\Filament\Owner\Resources\Members\Pages\CreateMember;
 use App\Filament\Owner\Resources\Members\Pages\EditMember;
 use App\Filament\Owner\Resources\Members\Pages\ListMembers;
 use App\Filament\Owner\Resources\Members\RelationManagers\LoyaltyTransactionsRelationManager;
+use App\Filament\Owner\Resources\Members\RelationManagers\OrdersRelationManager;
 use App\Filament\Owner\Resources\Members\Schemas\MemberForm;
 use App\Filament\Owner\Resources\Members\Tables\MembersTable;
 use App\Models\Member;
@@ -31,7 +32,7 @@ class MemberResource extends Resource
 
     protected static ?int $navigationSort = 0;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Member & Loyalti';
+    protected static string|\UnitEnum|null $navigationGroup = 'Member & Loyalty';
 
 
 
@@ -49,6 +50,7 @@ class MemberResource extends Resource
     public static function getRelations(): array
     {
         return [
+            OrdersRelationManager::class,
             LoyaltyTransactionsRelationManager::class,
         ];
     }
@@ -69,20 +71,23 @@ class MemberResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->with(['store', 'tier']);
+        // Start with base query (TenantScope will be applied automatically)
+        // TenantScope ensures we only see members from current tenant
+        $query = parent::getEloquentQuery();
 
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
-
-        if (! empty($storeIds)) {
-            $query->where(function (Builder $query) use ($storeIds) {
-                $query
-                    ->whereNull('store_id')
-                    ->orWhereIn('store_id', $storeIds);
-            });
-        }
+        // Debug logging
+        $user = auth()->user();
+        $tenantId = $user?->currentTenant()?->id;
+        $count = $query->count();
+        
+        \Log::info('MemberResource::getEloquentQuery', [
+            'user_id' => $user?->id,
+            'user_email' => $user?->email,
+            'tenant_id' => $tenantId,
+            'query_count' => $count,
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings(),
+        ]);
 
         return $query;
     }

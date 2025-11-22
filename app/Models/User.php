@@ -116,6 +116,14 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Get user tenant access records (for RelationManager).
+     */
+    public function tenantAccesses(): HasMany
+    {
+        return $this->hasMany(\App\Models\UserTenantAccess::class);
+    }
+
+    /**
      * Get the primary tenant for the user (first tenant with owner role).
      */
     public function currentTenant(): ?Tenant

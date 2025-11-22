@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\TenantScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,6 +17,7 @@ class Supplier extends Model
 
     protected $fillable = [
         'tenant_id',
+        'store_id', // Optional, nullable - supplier is tenant-scoped, not store-scoped
         'name',
         'email',
         'phone',
@@ -32,15 +34,20 @@ class Supplier extends Model
 
     protected static function booted(): void
     {
+        // Use TenantScope for proper tenant scoping
+        static::addGlobalScope(new TenantScope);
+
+        // Automatically set tenant_id when creating
         static::creating(function (self $supplier): void {
             if (! $supplier->tenant_id && auth()->check()) {
-                $supplier->tenant_id = auth()->user()->currentTenant()?->id;
-            }
-        });
-
-        static::addGlobalScope('tenant', function (Builder $query): void {
-            if ($tenantId = auth()->user()?->currentTenant()?->id) {
-                $query->where('tenant_id', $tenantId);
+                $user = auth()->user();
+                $tenantId = $user->currentTenant()?->id;
+                
+                if (!$tenantId) {
+                    throw new \Exception('Tidak dapat menentukan tenant aktif untuk pengguna.');
+                }
+                
+                $supplier->tenant_id = $tenantId;
             }
         });
     }
@@ -48,6 +55,14 @@ class Supplier extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    /**
+     * Get the store (optional - supplier is tenant-scoped, not store-scoped).
+     */
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
     }
 
     public function purchaseOrders(): HasMany

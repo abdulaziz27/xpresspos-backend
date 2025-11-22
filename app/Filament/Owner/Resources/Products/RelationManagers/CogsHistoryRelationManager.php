@@ -47,7 +47,7 @@ class CogsHistoryRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('quantity_sold')
                     ->label('Qty Terjual')
-                    ->numeric(decimalPlaces: 2)
+                    ->numeric(2)
                     ->sortable()
                     ->alignEnd(),
 

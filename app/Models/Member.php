@@ -87,6 +87,14 @@ class Member extends Model
     }
 
     /**
+     * Get the store where the member was registered.
+     */
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class)->withDefault();
+    }
+
+    /**
      * Generate unique member number for the tenant.
      */
     protected static function generateMemberNumber(string $tenantId): string
@@ -124,7 +132,7 @@ class Member extends Model
      */
     public function tier(): BelongsTo
     {
-        return $this->belongsTo(MemberTier::class);
+        return $this->belongsTo(MemberTier::class)->withDefault();
     }
 
     /**

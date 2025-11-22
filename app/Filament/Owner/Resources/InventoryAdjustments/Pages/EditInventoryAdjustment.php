@@ -8,6 +8,16 @@ use Filament\Resources\Pages\EditRecord;
 class EditInventoryAdjustment extends EditRecord
 {
     protected static string $resource = InventoryAdjustmentResource::class;
+
+    /**
+     * No delete action - adjustments are audit trail documents.
+     */
+    protected function getHeaderActions(): array
+    {
+        return [
+            // No delete action - adjustments cannot be deleted for audit trail
+        ];
+    }
 }
 
 

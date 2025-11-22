@@ -23,15 +23,26 @@ class StoreUserAssignmentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
 
-    protected static ?string $navigationLabel = 'Pengguna & Izin';
+    protected static ?string $navigationLabel = null;
 
     protected static ?string $modelLabel = 'Karyawan';
 
     protected static ?string $pluralModelLabel = 'Karyawan';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Toko & Tim';
+    protected static string|\UnitEnum|null $navigationGroup = null;
 
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = null;
+
+    /**
+     * Hide from navigation - functionality is available via:
+     * - StoreResource (RelationManager: Staff di Toko)
+     * - StaffResource (RelationManager: Tugas Toko)
+     * - RoleResource (Role & Hak Akses)
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function form(Schema $schema): Schema
     {

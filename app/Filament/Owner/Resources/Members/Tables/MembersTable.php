@@ -11,14 +11,25 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use App\Support\Currency;
+use Illuminate\Database\Eloquent\Builder;
 
 class MembersTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                \Log::info('MembersTable::modifyQueryUsing', [
+                    'query_count' => $query->count(),
+                    'sql' => $query->toSql(),
+                    'bindings' => $query->getBindings(),
+                ]);
+                
+                return $query;
+            })
             ->columns([
                 TextColumn::make('member_number')
                     ->label('No. Member')
@@ -37,25 +48,14 @@ class MembersTable
                     ->label('Email')
                     ->searchable()
                     ->sortable()
-                    ->placeholder('Tidak ada Email')
+                    ->placeholder('-')
                     ->copyable(),
 
                 TextColumn::make('phone')
                     ->label('Telepon')
                     ->searchable()
-                    ->placeholder('Tidak ada Telepon')
+                    ->placeholder('-')
                     ->copyable(),
-
-                TextColumn::make('tier.name')
-                    ->label('Tier')
-                    ->badge()
-                    ->color('info')
-                    ->placeholder('Tidak ada Tier'),
-
-                TextColumn::make('store.name')
-                    ->label('Cabang Registrasi')
-                    ->placeholder('Tidak ditentukan')
-                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('loyalty_points')
                     ->label('Poin')
@@ -65,18 +65,6 @@ class MembersTable
                     ->badge()
                     ->color('warning'),
 
-                TextColumn::make('total_spent')
-                    ->label('Total Belanja')
-                    ->formatStateUsing(fn($s, $record) => Currency::rupiah((float) ($s !== null && $s !== '' ? $s : ($record->total_spent ?? 0))))
-                    ->sortable()
-                    ->alignEnd(),
-
-                TextColumn::make('visit_count')
-                    ->label('Kunjungan')
-                    ->numeric()
-                    ->alignCenter()
-                    ->sortable(),
-
                 IconColumn::make('is_active')
                     ->label('Aktif')
                     ->boolean()
@@ -85,48 +73,57 @@ class MembersTable
                     ->trueColor('success')
                     ->falseColor('danger'),
 
-                TextColumn::make('last_visit_at')
-                    ->label('Kunjungan Terakhir')
-                    ->dateTime()
-                    ->sortable()
-                    ->since()
-                    ->placeholder('Belum Pernah'),
-
                 TextColumn::make('created_at')
-                    ->label('Dibuat')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->label('Tanggal Pendaftaran')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable(),
+                
+                // Kolom relasi - akan ditambahkan setelah test kolom dasar
+                // TextColumn::make('tier.name')
+                //     ->label('Tier')
+                //     ->badge()
+                //     ->color('info')
+                //     ->placeholder('-')
+                //     ->toggleable(isToggledHiddenByDefault: true),
+                // TextColumn::make('store.name')
+                //     ->label('Cabang Registrasi')
+                //     ->placeholder('-')
+                //     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('tier_id')
-                    ->label('Tier Member')
-                    ->relationship('tier', 'name'),
-
-                SelectFilter::make('store_id')
-                    ->label('Cabang')
-                    ->options(fn () => self::storeOptions())
-                    ->placeholder('Semua cabang'),
-
                 TernaryFilter::make('is_active')
                     ->label('Status')
                     ->placeholder('Semua member')
                     ->trueLabel('Hanya aktif')
                     ->falseLabel('Hanya nonaktif'),
 
-                TernaryFilter::make('has_tier')
-                    ->label('Memiliki Tier')
-                    ->placeholder('Semua member')
-                    ->trueLabel('Dengan tier')
-                    ->falseLabel('Tanpa tier')
-                    ->query(fn($query) => $query->whereNotNull('tier_id')),
-
-                TernaryFilter::make('has_loyalty_points')
-                    ->label('Memiliki Poin')
-                    ->placeholder('Semua member')
-                    ->trueLabel('Dengan poin')
-                    ->falseLabel('Tanpa poin')
-                    ->query(fn($query) => $query->where('loyalty_points', '>', 0)),
+                // Filter lainnya akan ditambahkan setelah test filter dasar
+                // SelectFilter::make('tier_id')
+                //     ->label('Tier Member')
+                //     ->relationship('tier', 'name'),
+                // SelectFilter::make('store_id')
+                //     ->label('Cabang')
+                //     ->options(fn () => self::storeOptions())
+                //     ->placeholder('Semua cabang'),
+                // Filter::make('created_at')
+                //     ->label('Tanggal Pendaftaran')
+                //     ->form([
+                //         \Filament\Forms\Components\DatePicker::make('created_from')
+                //             ->label('Dari Tanggal'),
+                //         \Filament\Forms\Components\DatePicker::make('created_until')
+                //             ->label('Sampai Tanggal'),
+                //     ])
+                //     ->query(function (Builder $query, array $data): Builder {
+                //         return $query
+                //             ->when(
+                //                 $data['created_from'],
+                //                 fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                //             )
+                //             ->when(
+                //                 $data['created_until'],
+                //                 fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
+                //             );
+                //     }),
             ])
             ->actions([
                 ViewAction::make()->label('Lihat'),
@@ -138,6 +135,8 @@ class MembersTable
                 ]),
             ])
             ->defaultSort('created_at', 'desc')
+            ->emptyStateHeading('Belum ada member')
+            ->emptyStateDescription('Member yang dibuat akan muncul di sini.')
             ->striped()
             ->paginated([10, 25, 50, 100]);
     }

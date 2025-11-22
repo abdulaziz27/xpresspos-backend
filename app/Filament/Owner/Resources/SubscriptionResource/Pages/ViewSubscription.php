@@ -49,14 +49,14 @@ class ViewSubscription extends ViewRecord
                 ->icon('heroicon-o-play')
                 ->color('success')
                 ->action('reactivateSubscription')
-                ->visible(fn (): bool => $this->record->status === 'suspended'),
+                ->visible(fn (): bool => $this->record->status === 'inactive'),
         ];
     }
 
     protected function getHeaderWidgets(): array
     {
         return [
-            SubscriptionResource\Widgets\SubscriptionStatusWidget::class,
+            // Widget removed - using infolist "Ringkasan Langganan" section instead
         ];
     }
 

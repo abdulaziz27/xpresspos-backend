@@ -3,8 +3,9 @@
 namespace App\Filament\Owner\Resources;
 
 use App\Filament\Owner\Resources\SubscriptionResource\Pages;
+use App\Filament\Owner\Resources\SubscriptionResource\RelationManagers;
 use App\Models\Subscription;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use Filament\Forms;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
@@ -14,20 +15,20 @@ use Filament\Infolists;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use BackedEnum;
 use App\Support\Currency;
+use Filament\Support\Icons\Heroicon;
 
 class SubscriptionResource extends Resource
 {
     protected static ?string $model = Subscription::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-credit-card';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
 
     protected static ?string $navigationLabel = 'Langganan';
 
-
-
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = 10;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Langganan & Billing';
 
@@ -45,7 +46,7 @@ class SubscriptionResource extends Resource
                         Forms\Components\Select::make('status')
                             ->options([
                                 'active' => 'Aktif',
-                                'suspended' => 'Ditangguhkan',
+                                'inactive' => 'Tidak Aktif',
                                 'cancelled' => 'Dibatalkan',
                                 'expired' => 'Kedaluwarsa',
                             ])
@@ -55,7 +56,7 @@ class SubscriptionResource extends Resource
                         Forms\Components\Select::make('billing_cycle')
                             ->options([
                                 'monthly' => 'Bulanan',
-                                'yearly' => 'Tahunan',
+                                'annual' => 'Tahunan',
                             ])
                             ->required()
                             ->disabled(),
@@ -93,16 +94,23 @@ class SubscriptionResource extends Resource
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'active' => 'success',
-                        'suspended' => 'warning',
+                        'inactive' => 'warning',
                         'cancelled' => 'danger',
                         'expired' => 'gray',
                         default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'active' => 'Aktif',
+                        'inactive' => 'Tidak Aktif',
+                        'cancelled' => 'Dibatalkan',
+                        'expired' => 'Kedaluwarsa',
+                        default => ucfirst($state),
                     })
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('billing_cycle')
                     ->label('Penagihan')
-                    ->formatStateUsing(fn (string $state): string => $state === 'monthly' ? 'Bulanan' : ($state === 'yearly' ? 'Tahunan' : ucfirst($state)))
+                    ->formatStateUsing(fn (string $state): string => $state === 'monthly' ? 'Bulanan' : ($state === 'annual' ? 'Tahunan' : ucfirst($state)))
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('amount')
@@ -139,7 +147,7 @@ class SubscriptionResource extends Resource
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
                         'active' => 'Aktif',
-                        'suspended' => 'Ditangguhkan',
+                        'inactive' => 'Tidak Aktif',
                         'cancelled' => 'Dibatalkan',
                         'expired' => 'Kedaluwarsa',
                     ]),
@@ -147,7 +155,7 @@ class SubscriptionResource extends Resource
                 Tables\Filters\SelectFilter::make('billing_cycle')
                     ->options([
                         'monthly' => 'Bulanan',
-                        'yearly' => 'Tahunan',
+                        'annual' => 'Tahunan',
                     ]),
             ])
             ->actions([
@@ -171,15 +179,22 @@ class SubscriptionResource extends Resource
                                     ->badge()
                                     ->color(fn (string $state): string => match ($state) {
                                         'active' => 'success',
-                                        'suspended' => 'warning',
+                                        'inactive' => 'warning',
                                         'cancelled' => 'danger',
                                         'expired' => 'gray',
                                         default => 'gray',
+                                    })
+                                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                                        'active' => 'Aktif',
+                                        'inactive' => 'Tidak Aktif',
+                                        'cancelled' => 'Dibatalkan',
+                                        'expired' => 'Kedaluwarsa',
+                                        default => ucfirst($state),
                                     }),
                                 
                                 Infolists\Components\TextEntry::make('billing_cycle')
                                     ->label('Siklus Penagihan')
-                                    ->formatStateUsing(fn (string $state): string => $state === 'monthly' ? 'Bulanan' : ($state === 'yearly' ? 'Tahunan' : ucfirst($state))),
+                                    ->formatStateUsing(fn (string $state): string => $state === 'monthly' ? 'Bulanan' : ($state === 'annual' ? 'Tahunan' : ucfirst($state))),
                                 
                                 Infolists\Components\TextEntry::make('amount')
                                     ->label('Jumlah')
@@ -240,19 +255,24 @@ class SubscriptionResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $storeContext = app(StoreContext::class);
-        $storeId = $storeContext->current(auth()->user());
-        $store = \App\Models\Store::find($storeId);
+        $query = parent::getEloquentQuery();
         
-        if (!$store || !$store->tenant_id) {
-            return parent::getEloquentQuery()->whereRaw('1 = 0'); // Return empty query
+        // Get current tenant ID using GlobalFilterService or fallback to user's current tenant
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
+        
+        if (!$tenantId) {
+            // Fallback to user's current tenant
+            $tenantId = auth()->user()?->currentTenant()?->id;
         }
-
-        $tenant = $store->tenant;
         
-        return parent::getEloquentQuery()
-            ->where('tenant_id', $tenant->id)
-            ->with(['plan', 'subscriptionPayments']);
+        if (!$tenantId) {
+            return $query->whereRaw('1 = 0'); // Return empty query
+        }
+        
+        return $query
+            ->where('tenant_id', $tenantId)
+            ->with(['plan', 'subscriptionPayments', 'invoices', 'usage']);
     }
 
     public static function getPages(): array
@@ -265,8 +285,6 @@ class SubscriptionResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $storeContext = app(StoreContext::class);
-        
         $activeCount = static::getEloquentQuery()
             ->where('status', 'active')
             ->count();
@@ -282,5 +300,37 @@ class SubscriptionResource extends Resource
     public static function canViewAny(): bool
     {
         return true;
+    }
+
+    public static function canCreate(): bool
+    {
+        // Subscription dibuat via onboarding/checkout, bukan manual
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        // Subscription tidak boleh dihapus manual
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        // Semua field read-only, tidak ada field yang aman untuk diubah
+        return false;
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\InvoicesRelationManager::class,
+            RelationManagers\SubscriptionPaymentsRelationManager::class,
+            RelationManagers\SubscriptionUsageRelationManager::class,
+        ];
     }
 }

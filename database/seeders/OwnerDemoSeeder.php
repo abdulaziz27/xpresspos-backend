@@ -6,6 +6,7 @@ use App\Models\CashSession;
 use App\Models\Category;
 use App\Models\CogsHistory;
 use App\Models\Expense;
+use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use App\Models\Member;
 use App\Models\MemberTier;
@@ -21,7 +22,9 @@ use App\Models\StoreUserAssignment;
 use App\Models\User;
 use App\Models\StaffPerformance;
 use App\Models\Table;
+use App\Models\Uom;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class OwnerDemoSeeder extends Seeder
 {
@@ -326,19 +329,39 @@ class OwnerDemoSeeder extends Seeder
             );
             foreach ($spec['ingredients'] as $ing) {
                 if (!isset($products[$ing['ref']])) continue;
-                $ingProduct = $products[$ing['ref']];
+                
+                // Get or create inventory item for this product
+                $inventoryItem = InventoryItem::withoutTenantScope()->firstOrCreate(
+                    [
+                        'tenant_id' => $store->tenant_id,
+                        'sku' => 'INV-' . $ing['ref'],
+                    ],
+                    [
+                        'name' => $products[$ing['ref']]->name . ' (Bahan)',
+                        'category' => 'ingredient',
+                        'uom_id' => $this->getUomIdByCode($ing['unit']),
+                        'default_cost' => $ing['unit_cost'],
+                        'track_stock' => true,
+                        'track_lot' => false,
+                        'status' => 'active',
+                    ]
+                );
+                
+                // Get UOM ID for the ingredient
+                $uomId = $this->getUomIdByCode($ing['unit']);
+                
                 RecipeItem::withoutTenantScope()->updateOrCreate(
                     [
                         'recipe_id' => $recipe->id,
                         'tenant_id' => $store->tenant_id,
-                        'ingredient_product_id' => $ingProduct->id
+                        'inventory_item_id' => $inventoryItem->id,
                     ],
                     [
                         'tenant_id' => $store->tenant_id,
                         'quantity' => $ing['qty'],
-                        'unit' => $ing['unit'],
+                        'uom_id' => $uomId,
                         'unit_cost' => $ing['unit_cost'],
-                        'total_cost' => $ing['unit_cost'],
+                        'total_cost' => $ing['unit_cost'] * $ing['qty'],
                     ]
                 );
             }
@@ -384,35 +407,90 @@ class OwnerDemoSeeder extends Seeder
             ]
         );
 
-        // Inventory movements (restocks)
-        InventoryMovement::updateOrCreate(
-            ['store_id' => $store->id, 'reference_id' => 'restock-001'],
-            [
-                'product_id' => $products['ESP-001']->id,
-                'user_id' => $manager?->id ?? $owner?->id,
-                'type' => 'purchase',
-                'quantity' => 50,
-                'unit_cost' => 6000,
-                'total_cost' => 300000,
-                'reason' => 'Restock beans',
-                'reference_type' => 'purchase_order',
-                'notes' => 'Restocked coffee beans from supplier',
-            ]
-        );
-        InventoryMovement::updateOrCreate(
-            ['store_id' => $store->id, 'reference_id' => 'restock-002'],
-            [
-                'product_id' => $products['CAP-001']->id,
-                'user_id' => $manager?->id ?? $owner?->id,
-                'type' => 'purchase',
-                'quantity' => 30,
-                'unit_cost' => 9000,
-                'total_cost' => 270000,
-                'reason' => 'Restock milk & beans',
-                'reference_type' => 'purchase_order',
-                'notes' => 'Restocked cappuccino ingredients',
-            ]
-        );
+        // Inventory movements (restocks) - Create initial stock via adjustments
+        // Create inventory adjustments to set initial stock levels for all inventory items
+        $this->command->info('Creating initial inventory stock via adjustments...');
+        
+        // Get all inventory items created during recipe seeding
+        $allInventoryItems = InventoryItem::withoutTenantScope()
+            ->where('tenant_id', $store->tenant_id)
+            ->get();
+        
+        // Also create inventory items for products that don't have recipes
+        foreach ($products as $sku => $product) {
+            $inventoryItem = InventoryItem::withoutTenantScope()
+                ->where('tenant_id', $store->tenant_id)
+                ->where('sku', 'INV-' . $sku)
+                ->first();
+            
+            if (!$inventoryItem) {
+                // Create inventory item if not exists
+                $inventoryItem = InventoryItem::withoutTenantScope()->create([
+                    'tenant_id' => $store->tenant_id,
+                    'sku' => 'INV-' . $sku,
+                    'name' => $product->name . ' (Bahan)',
+                    'category' => 'ingredient',
+                    'uom_id' => $this->getUomIdByCode('pcs'),
+                    'default_cost' => $product->cost_price ?? 0,
+                    'track_stock' => true,
+                    'track_lot' => false,
+                    'status' => 'active',
+                ]);
+                $allInventoryItems->push($inventoryItem);
+            }
+        }
+        
+        // Group items by adjustment (batch per adjustment for efficiency)
+        $adjustmentItems = [];
+        foreach ($allInventoryItems as $inventoryItem) {
+            // Extract SKU from inventory item (remove 'INV-' prefix)
+            $productSku = str_replace('INV-', '', $inventoryItem->sku);
+            
+            // Find corresponding product data
+            $productDataKey = array_search($productSku, array_column($productsData, 'sku'));
+            $initialStock = $productDataKey !== false ? $productsData[$productDataKey]['stock'] ?? 0 : 100; // Default 100 if not found
+            
+            if ($initialStock > 0) {
+                $adjustmentItems[] = [
+                    'inventory_item' => $inventoryItem,
+                    'initial_stock' => $initialStock,
+                ];
+            }
+        }
+        
+        // Create one adjustment for all items
+        if (!empty($adjustmentItems)) {
+            $adjustment = \App\Models\InventoryAdjustment::create([
+                'tenant_id' => $store->tenant_id,
+                'store_id' => $store->id,
+                'user_id' => $owner?->id,
+                'adjustment_number' => 'ADJ-' . now()->format('Ymd') . '-001',
+                'status' => 'approved',
+                'reason' => 'INITIAL',
+                'adjusted_at' => now()->subDays(7), // Set initial stock 7 days ago
+                'notes' => 'Initial stock from seeder',
+            ]);
+            
+            foreach ($adjustmentItems as $item) {
+                $inventoryItem = $item['inventory_item'];
+                $initialStock = $item['initial_stock'];
+                
+                // Create adjustment item
+                \App\Models\InventoryAdjustmentItem::create([
+                    'inventory_adjustment_id' => $adjustment->id,
+                    'inventory_item_id' => $inventoryItem->id,
+                    'system_qty' => 0,
+                    'counted_qty' => $initialStock,
+                    'difference_qty' => $initialStock,
+                    'unit_cost' => $inventoryItem->default_cost ?? 0,
+                    'total_cost' => ($inventoryItem->default_cost ?? 0) * $initialStock,
+                ]);
+            }
+            
+            // Generate inventory movements (this will also update stock levels)
+            $adjustment->generateInventoryMovements();
+            $this->command->info("✅ Created initial stock for " . count($adjustmentItems) . " inventory items via adjustment");
+        }
 
         // Generate recent orders for the past 5 days (total 50 orders, maksimal hari kemarin)
         // Use only enum-allowed methods from payments migration
@@ -537,5 +615,29 @@ class OwnerDemoSeeder extends Seeder
         }
 
         $this->command?->info('Owner demo data seeded for store: ' . $store->name);
+    }
+
+    /**
+     * Get UOM ID by code, fallback to 'pcs' if not found.
+     */
+    private function getUomIdByCode(string $code): string
+    {
+        $uom = Uom::where('code', strtolower($code))->first();
+        
+        if (!$uom) {
+            // Fallback to 'pcs' if UOM not found
+            $uom = Uom::where('code', 'pcs')->first();
+        }
+        
+        if (!$uom) {
+            // If still not found, get first UOM
+            $uom = Uom::first();
+        }
+        
+        if (!$uom) {
+            throw new \Exception('No UOM found in database. Please run UomSeeder first.');
+        }
+        
+        return $uom->id;
     }
 }

@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('tenant_id', 36);
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
-            $table->foreignUuid('store_id')->constrained('stores')->cascadeOnDelete();
+            $table->foreignUuid('store_id')->nullable()->constrained('stores')->nullOnDelete(); // Nullable for global discounts
             $table->string('name');
             $table->text('description')->nullable();
             $table->enum('type', ['percentage', 'fixed'])->default('percentage');

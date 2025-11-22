@@ -32,6 +32,14 @@ class InventoryLotResource extends Resource
 
     protected static ?int $navigationSort = 20;
 
+    /**
+     * Hide from navigation - accessible via RelationManager from InventoryItemResource.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema

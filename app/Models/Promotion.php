@@ -74,6 +74,78 @@ class Promotion extends Model
     {
         return $this->hasMany(Voucher::class);
     }
+
+    /**
+     * Scope to get active promotions.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
+    }
+
+    /**
+     * Scope to get promotions that are currently valid (within date range).
+     */
+    public function scopeValid($query)
+    {
+        $now = now();
+        return $query->where('status', 'active')
+            ->where(function ($q) use ($now) {
+                $q->whereNull('starts_at')
+                    ->orWhere('starts_at', '<=', $now);
+            })
+            ->where(function ($q) use ($now) {
+                $q->whereNull('ends_at')
+                    ->orWhere('ends_at', '>=', $now);
+            });
+    }
+
+    /**
+     * Scope to get promotions for a specific store.
+     * Includes promotions that apply to all stores (store_id is null).
+     */
+    public function scopeForStore($query, ?string $storeId)
+    {
+        return $query->where(function ($q) use ($storeId) {
+            $q->whereNull('store_id') // All stores
+                ->orWhere('store_id', $storeId); // Specific store
+        });
+    }
+
+    /**
+     * Check if promotion is currently valid (active and within date range).
+     */
+    public function isValid(): bool
+    {
+        if ($this->status !== 'active') {
+            return false;
+        }
+
+        $now = now();
+
+        if ($this->starts_at && $this->starts_at->isFuture()) {
+            return false;
+        }
+
+        if ($this->ends_at && $this->ends_at->isPast()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if promotion applies to a specific store.
+     */
+    public function appliesToStore(?string $storeId): bool
+    {
+        // If store_id is null, promotion applies to all stores
+        if ($this->store_id === null) {
+            return true;
+        }
+
+        return $this->store_id === $storeId;
+    }
 }
 
 

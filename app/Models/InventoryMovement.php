@@ -193,6 +193,7 @@ class InventoryMovement extends Model
         ?string $notes = null
     ): self {
         $user = auth()->user() ?? request()->user();
+        $user = auth()->user() ?? request()->user();
         $storeContext = \App\Services\StoreContext::instance();
         $storeId = $storeContext->current($user);
 

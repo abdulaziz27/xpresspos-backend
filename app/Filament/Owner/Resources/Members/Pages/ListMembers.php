@@ -16,4 +16,28 @@ class ListMembers extends ListRecords
             CreateAction::make()->label('Tambah'),
         ];
     }
+
+    public function mount(): void
+    {
+        $user = auth()->user();
+        $tenantId = $user?->currentTenant()?->id;
+        
+        \Log::info('ListMembers::mount', [
+            'user_id' => $user?->id,
+            'user_email' => $user?->email,
+            'tenant_id' => $tenantId,
+        ]);
+        
+        parent::mount();
+        
+        // Log after mount
+        $query = $this->getTableQuery();
+        $count = $query->count();
+        
+        \Log::info('ListMembers::mount - after parent::mount', [
+            'table_query_count' => $count,
+            'table_query_sql' => $query->toSql(),
+            'table_query_bindings' => $query->getBindings(),
+        ]);
+    }
 }

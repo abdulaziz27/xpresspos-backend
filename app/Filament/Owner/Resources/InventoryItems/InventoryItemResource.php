@@ -6,12 +6,15 @@ use App\Filament\Owner\Resources\InventoryItems\Pages;
 use App\Models\InventoryItem;
 use App\Models\Uom;
 use BackedEnum;
+use Illuminate\Database\Eloquent\Model;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use App\Filament\Owner\Resources\InventoryItems\RelationManagers\LotsRelationManager;
+use App\Filament\Owner\Resources\InventoryItems\RelationManagers\StockLevelsRelationManager;
+use App\Filament\Owner\Resources\InventoryItems\RelationManagers\InventoryMovementsRelationManager;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -30,7 +33,7 @@ class InventoryItemResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Inventori';
 
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 10; // 1. Bahan
 
     public static function form(Schema $schema): Schema
     {
@@ -157,7 +160,7 @@ class InventoryItemResource extends Resource
 
                 Tables\Columns\TextColumn::make('default_cost')
                     ->label('Default Cost')
-                    ->numeric(decimalPlaces: 4)
+                    ->numeric(4)
                     ->prefix('Rp ')
                     ->sortable()
                     ->alignEnd()
@@ -165,7 +168,7 @@ class InventoryItemResource extends Resource
 
                 Tables\Columns\TextColumn::make('min_stock_level')
                     ->label('Min Stok')
-                    ->numeric(decimalPlaces: 3)
+                    ->numeric(3)
                     ->sortable()
                     ->alignEnd()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -231,6 +234,31 @@ class InventoryItemResource extends Resource
             ->paginated([10, 25, 50, 100]);
     }
 
+    /**
+     * Owner can create inventory items.
+     */
+    public static function canCreate(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Owner can edit inventory items.
+     */
+    public static function canEdit(Model $record): bool
+    {
+        return true;
+    }
+
+    /**
+     * Owner can delete inventory items.
+     * FK constraints will prevent deletion if item is used in recipes, PO, etc.
+     */
+    public static function canDelete(Model $record): bool
+    {
+        return true;
+    }
+
     public static function getPages(): array
     {
         return [
@@ -243,7 +271,9 @@ class InventoryItemResource extends Resource
     public static function getRelations(): array
     {
         return [
+            StockLevelsRelationManager::class,
             LotsRelationManager::class,
+            InventoryMovementsRelationManager::class,
         ];
     }
 }

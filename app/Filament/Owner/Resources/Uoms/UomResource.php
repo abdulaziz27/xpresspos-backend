@@ -26,9 +26,21 @@ class UomResource extends Resource
 
     protected static ?string $navigationLabel = 'Satuan & Konversi';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Inventori';
+    // navigationGroup set to null since resource is hidden from Owner panel
+    // UOM is managed via seeder/superadmin, not by Owner
+    protected static string|\UnitEnum|null $navigationGroup = null;
 
     protected static ?int $navigationSort = 60;
+
+    /**
+     * Hide from navigation - only for internal/advanced use.
+     * UOM is managed via seeder or superadmin panel, not by Owner.
+     * Owner can only select UOM when creating inventory items (via dropdown).
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -85,11 +97,16 @@ class UomResource extends Resource
             ]);
     }
 
+    /**
+     * Relations disabled for Owner panel.
+     * ConversionsRelationManager is not used since UOM conversions are deprecated.
+     * If needed in future, can be re-enabled in superadmin panel.
+     */
     public static function getRelations(): array
     {
-        return [
-            ConversionsRelationManager::class,
-        ];
+        // Disable ConversionsRelationManager for Owner panel
+        // UOM conversions are deprecated and not used in runtime
+        return [];
     }
 
     public static function getPages(): array

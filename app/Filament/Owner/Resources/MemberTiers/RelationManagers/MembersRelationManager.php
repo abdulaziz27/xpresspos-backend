@@ -12,38 +12,54 @@ class MembersRelationManager extends RelationManager
 
     protected static ?string $title = 'Member dalam Tier ini';
 
+    public function canCreate(): bool
+    {
+        return false; // Read-only: members are managed through MemberResource
+    }
+
+    public function canEdit($record): bool
+    {
+        return false; // Read-only: view only
+    }
+
+    public function canDelete($record): bool
+    {
+        return false; // Read-only: members should not be deletable from here
+    }
+
     public function table(Table $table): Table
     {
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('member_number')
-                    ->label('Nomor')
+                    ->label('No. Member')
                     ->searchable()
                     ->copyable(),
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Nama')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('store.name')
-                    ->label('Cabang')
-                    ->placeholder('Tidak ditentukan'),
-                Tables\Columns\TextColumn::make('loyalty_points')
-                    ->label('Poin')
-                    ->numeric()
-                    ->alignCenter(),
-                Tables\Columns\TextColumn::make('last_visit_at')
-                    ->label('Kunjungan Terakhir')
-                    ->dateTime()
-                    ->since()
-                    ->placeholder('-'),
+                    ->label('Nama Member')
+                    ->searchable()
+                    ->weight('medium'),
+                Tables\Columns\TextColumn::make('phone')
+                    ->label('Telepon')
+                    ->searchable()
+                    ->placeholder('-')
+                    ->copyable(),
+                Tables\Columns\TextColumn::make('email')
+                    ->label('Email')
+                    ->searchable()
+                    ->placeholder('-')
+                    ->copyable(),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Tanggal Join')
+                    ->dateTime('d/m/Y')
+                    ->sortable(),
             ])
-            ->defaultSort('name')
-            ->paginated(false)
-            ->actions([
-                Tables\Actions\Action::make('view')
-                    ->label('Buka')
-                    ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn ($record) => route('filament.owner.resources.members.edit', ['record' => $record]), true),
-            ]);
+            ->defaultSort('created_at', 'desc')
+            ->paginated([10, 25, 50])
+            ->emptyStateHeading('Belum ada member di tier ini')
+            ->emptyStateDescription('Member yang memiliki tier ini akan muncul di sini.')
+            ->actions([])
+            ->bulkActions([]);
     }
 }
 

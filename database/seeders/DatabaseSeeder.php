@@ -105,6 +105,11 @@ class DatabaseSeeder extends Seeder
         }
         $this->assignUserToStore($staffUser, $storeId, 'staff');
 
+        // Seed UOMs first (required for inventory items, recipes, etc.)
+        $this->call([
+            UomSeeder::class,
+        ]);
+
         // Create Filament users (admin and owner)
         $this->call([
             FilamentUserSeeder::class,
@@ -114,6 +119,8 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             ProductSeeder::class,
             DiscountSeeder::class,
+            MemberTierSeeder::class,
+            PromotionSeeder::class,
             OwnerDemoSeeder::class,
             OwnerPanelSeeder::class,
         ]);
