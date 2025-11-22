@@ -57,9 +57,9 @@ class RecipeItemsRelationManager extends RelationManager
                                 if ($inventoryItem->uom_id) {
                                     $set('uom_id', $inventoryItem->uom_id);
                                 }
-                                // Set unit_cost from default_cost
+                                // Set unit_cost from default_cost (ensure it's a float)
                                 if ($inventoryItem->default_cost) {
-                                    $set('unit_cost', $inventoryItem->default_cost);
+                                    $set('unit_cost', (float) $inventoryItem->default_cost);
                                 }
                             }
                         }
@@ -77,7 +77,12 @@ class RecipeItemsRelationManager extends RelationManager
                             ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                 $unitCost = $get('unit_cost');
                                 if ($state && $unitCost) {
-                                    $set('total_cost', round($state * $unitCost, 2));
+                                    // Ensure both values are numeric before calculation
+                                    $quantity = is_numeric($state) ? (float) $state : 0;
+                                    $cost = is_numeric($unitCost) ? (float) $unitCost : 0;
+                                    if ($quantity > 0 && $cost > 0) {
+                                        $set('total_cost', round($quantity * $cost, 2));
+                                    }
                                 }
                             }),
 
@@ -137,7 +142,21 @@ class RecipeItemsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('quantity')
                     ->label('Jumlah')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        
+                        $value = (float) $state;
+                        
+                        // If it's a whole number, display without decimals
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        
+                        // Otherwise, display with appropriate decimal places (max 3, remove trailing zeros)
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->suffix(fn($record) => ' ' . ($record->uom?->code ?? $record->inventoryItem?->uom?->code ?? '')),

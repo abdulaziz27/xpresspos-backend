@@ -7,6 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\Uom;
 use BackedEnum;
 use Illuminate\Database\Eloquent\Model;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
@@ -223,6 +224,7 @@ class InventoryItemResource extends Resource
             ])
             ->actions([
                 EditAction::make(),
+                DeleteAction::make(),
             ])
             ->bulkActions([
                 DeleteBulkAction::make(),

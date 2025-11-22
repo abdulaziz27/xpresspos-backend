@@ -11,6 +11,7 @@ use App\Support\Currency;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -238,6 +239,7 @@ class PurchaseOrderResource extends Resource
                     }),
             ])
             ->actions([
+                ViewAction::make(),
                 EditAction::make()
                     ->visible(fn ($record) => !in_array($record->status, [PurchaseOrder::STATUS_RECEIVED, PurchaseOrder::STATUS_CLOSED, PurchaseOrder::STATUS_CANCELLED])),
             ])
@@ -298,6 +300,7 @@ class PurchaseOrderResource extends Resource
         return [
             'index' => Pages\ListPurchaseOrders::route('/'),
             'create' => Pages\CreatePurchaseOrder::route('/create'),
+            'view' => Pages\ViewPurchaseOrder::route('/{record}'),
             'edit' => Pages\EditPurchaseOrder::route('/{record}/edit'),
         ];
     }

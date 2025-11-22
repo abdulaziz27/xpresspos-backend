@@ -15,11 +15,7 @@ trait HasSubscriptionFeatures
     public function activeSubscription()
     {
         // Get subscription through user's store -> tenant
-        if (!$this->store_id) {
-            return Subscription::query()->whereRaw('1 = 0'); // Return empty query
-        }
-        
-        $store = $this->store;
+        $store = $this->store();
         if (!$store || !$store->tenant_id) {
             return Subscription::query()->whereRaw('1 = 0'); // Return empty query
         }
@@ -151,17 +147,24 @@ trait HasSubscriptionFeatures
      */
     public function getCurrentCount(string $resource): int
     {
-        // Ensure store relationship is loaded
-        if (!$this->relationLoaded('store') && $this->store_id) {
-            $this->load('store');
+        if ($resource === 'stores') {
+            return $this->storeAssignments()->count();
         }
         
-        return match($resource) {
-            'stores' => $this->storeAssignments()->count(),
-            'products' => $this->store ? $this->store->products()->count() : 0,
-            'staff' => $this->store ? $this->store->userAssignments()->count() : 0,
-            default => 0,
-        };
+        if ($resource === 'products') {
+            $store = $this->store();
+            if (!$store || !$store->tenant_id) {
+                return 0;
+            }
+            return \App\Models\Product::where('tenant_id', $store->tenant_id)->count();
+        }
+        
+        if ($resource === 'staff') {
+            $store = $this->store();
+            return $store ? $store->userAssignments()->count() : 0;
+        }
+        
+        return 0;
     }
 
     /**

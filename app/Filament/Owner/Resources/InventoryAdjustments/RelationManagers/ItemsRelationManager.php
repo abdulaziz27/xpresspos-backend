@@ -75,6 +75,16 @@ class ItemsRelationManager extends RelationManager
                         ->dehydrated(true)
                         ->default(0)
                         ->step(0.001)
+                        ->formatStateUsing(function ($state) {
+                            if ($state === null || $state === '') {
+                                return '0';
+                            }
+                            $value = (float) $state;
+                            if ($value == floor($value)) {
+                                return (string) (int) $value;
+                            }
+                            return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                        })
                         ->helperText('Jumlah stok menurut sistem (read-only)'),
 
                     Forms\Components\TextInput::make('counted_qty')
@@ -108,7 +118,16 @@ class ItemsRelationManager extends RelationManager
                         ->disabled()
                         ->dehydrated(true)
                         ->step(0.001)
-                        ->formatStateUsing(fn($state) => $state ? number_format((float) $state, 3, ',', '.') : '0')
+                        ->formatStateUsing(function ($state) {
+                            if ($state === null || $state === '') {
+                                return '0';
+                            }
+                            $value = (float) $state;
+                            if ($value == floor($value)) {
+                                return (string) (int) $value;
+                            }
+                            return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                        })
                         ->helperText('Dihitung otomatis: Qty Hitung - Qty Sistem'),
 
                     Forms\Components\TextInput::make('unit_cost')
@@ -156,21 +175,48 @@ class ItemsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('system_qty')
                     ->label('Qty Sistem')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        $value = (float) $state;
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->suffix(fn($record) => ' ' . ($record->inventoryItem?->uom?->code ?? '')),
 
                 Tables\Columns\TextColumn::make('counted_qty')
                     ->label('Qty Hitung')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        $value = (float) $state;
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->suffix(fn($record) => ' ' . ($record->inventoryItem?->uom?->code ?? '')),
 
                 Tables\Columns\TextColumn::make('difference_qty')
                     ->label('Selisih')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        $value = (float) $state;
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->color(fn ($state) => $state > 0 ? 'success' : ($state < 0 ? 'danger' : 'gray'))

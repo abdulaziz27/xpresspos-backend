@@ -229,8 +229,8 @@
                 <div class="invoice-title">INVOICE</div>
                 <div class="invoice-number"># {{ $invoice->invoice_number }}</div>
                 <div class="invoice-dates">
-                    <strong>Issue Date:</strong> {{ $invoice->issued_at->format('M j, Y') }}<br>
-                    <strong>Due Date:</strong> {{ $invoice->due_at->format('M j, Y') }}<br>
+                    <strong>Issue Date:</strong> {{ $invoice->created_at ? $invoice->created_at->format('M j, Y') : now()->format('M j, Y') }}<br>
+                    <strong>Due Date:</strong> {{ $invoice->due_date ? \Carbon\Carbon::parse($invoice->due_date)->format('M j, Y') : now()->addDays(7)->format('M j, Y') }}<br>
                     @if($invoice->paid_at)
                     <strong>Paid Date:</strong> {{ $invoice->paid_at->format('M j, Y') }}<br>
                     @endif
@@ -299,7 +299,7 @@
                     <td>
                         <strong>{{ $planName }}</strong><br>
                         <small>XpressPOS Subscription Service</small>
-                        @if($subscriptionPayment->subscription)
+                        @if($subscriptionPayment->subscription && $subscriptionPayment->subscription->starts_at && $subscriptionPayment->subscription->ends_at)
                             <br><small>Period: {{ $subscriptionPayment->subscription->starts_at->format('M j, Y') }} - {{ $subscriptionPayment->subscription->ends_at->format('M j, Y') }}</small>
                         @endif
                     </td>

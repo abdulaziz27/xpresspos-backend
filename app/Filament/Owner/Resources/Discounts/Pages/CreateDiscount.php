@@ -14,7 +14,7 @@ class CreateDiscount extends CreateRecord
         $user = auth()->user();
         
         // Auto-fill tenant_id from currentTenant (tidak boleh diinput user)
-        if (!$data['tenant_id'] && $user) {
+        if ((!isset($data['tenant_id']) || empty($data['tenant_id'])) && $user) {
             $tenantId = $user->currentTenant()?->id;
             if ($tenantId) {
                 $data['tenant_id'] = $tenantId;

@@ -37,27 +37,63 @@ class StockLevelsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('current_stock')
                     ->label('Stok Saat Ini')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        $value = (float) $state;
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->alignEnd(),
 
                 Tables\Columns\TextColumn::make('reserved_stock')
                     ->label('Stok Dipesan')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        $value = (float) $state;
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('available_stock')
                     ->label('Stok Tersedia')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        $value = (float) $state;
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->color(fn($record) => $record->isLowStock() ? 'warning' : ($record->isOutOfStock() ? 'danger' : 'success')),
 
                 Tables\Columns\TextColumn::make('min_stock_level')
                     ->label('Min Stok')
-                    ->numeric(3)
+                    ->formatStateUsing(function ($state) {
+                        if ($state === null || $state === '') {
+                            return '0';
+                        }
+                        $value = (float) $state;
+                        if ($value == floor($value)) {
+                            return (string) (int) $value;
+                        }
+                        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+                    })
                     ->sortable()
                     ->alignEnd()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -91,7 +127,9 @@ class StockLevelsRelationManager extends RelationManager
             ])
             ->modifyQueryUsing(function ($query) {
                 return $query->with('store')
-                            ->orderBy('store.name', 'asc');
+                            ->join('stores', 'stock_levels.store_id', '=', 'stores.id')
+                            ->orderBy('stores.name', 'asc')
+                            ->select('stock_levels.*');
             })
             ->striped()
             ->paginated([10, 25, 50]);

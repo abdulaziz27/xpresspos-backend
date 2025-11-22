@@ -57,8 +57,15 @@ class StoreForm
                                         table: 'stores',
                                         column: 'code',
                                         ignoreRecord: true,
-                                        modifyRuleUsing: function ($rule, $get) {
+                                        modifyRuleUsing: function ($rule, $get, $livewire) {
+                                            // Try to get tenant_id from form first (for create)
                                             $tenantId = $get('tenant_id');
+                                            
+                                            // If not in form, try to get from record (for edit)
+                                            if (!$tenantId && isset($livewire->record) && $livewire->record) {
+                                                $tenantId = $livewire->record->tenant_id ?? null;
+                                            }
+                                            
                                             if ($tenantId) {
                                                 return $rule->where('tenant_id', $tenantId);
                                             }
