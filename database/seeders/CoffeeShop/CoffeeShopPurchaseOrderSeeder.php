@@ -86,12 +86,39 @@ class CoffeeShopPurchaseOrderSeeder extends Seeder
                 $orderedAt = now()->subDays(rand(1, 30));
                 $receivedAt = $status === 'received' ? $orderedAt->copy()->addDays(rand(1, 3)) : null;
                 
+                // Generate PO number based on ordered_at date (not today's date)
+                // This ensures uniqueness and matches the order date
+                $poDate = $orderedAt->format('Ymd');
+                $existingPO = PurchaseOrder::query()->withoutGlobalScopes()
+                    ->where('store_id', $store->id)
+                    ->where('po_number', 'like', "PO-{$poDate}-%")
+                    ->orderByDesc('po_number')
+                    ->first();
+                
+                if ($existingPO && preg_match('/PO-' . $poDate . '-(\d+)/', $existingPO->po_number, $matches)) {
+                    $sequence = (int) $matches[1] + 1;
+                } else {
+                    $sequence = 1;
+                }
+                
+                $poNumber = sprintf('PO-%s-%03d', $poDate, $sequence);
+                
+                // Check if PO with this number already exists (idempotent)
+                $existingPOByNumber = PurchaseOrder::query()->withoutGlobalScopes()
+                    ->where('store_id', $store->id)
+                    ->where('po_number', $poNumber)
+                    ->first();
+                
+                if ($existingPOByNumber) {
+                    continue; // Skip if PO already exists
+                }
+                
                 // Create purchase order
                 $po = PurchaseOrder::query()->withoutGlobalScopes()->create([
                     'tenant_id' => $tenantId,
                     'store_id' => $store->id,
                     'supplier_id' => $supplier->id,
-                    'po_number' => null, // Auto-generated
+                    'po_number' => $poNumber, // Generate manually based on ordered_at date
                     'status' => $status,
                     'ordered_at' => $orderedAt,
                     'received_at' => $receivedAt,
