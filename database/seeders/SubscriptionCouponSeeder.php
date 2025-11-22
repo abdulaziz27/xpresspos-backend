@@ -177,3 +177,4 @@ class SubscriptionCouponSeeder extends Seeder
     }
 }
 
+

@@ -13,7 +13,7 @@ class EditUser extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            // Admin tidak bisa delete user
         ];
     }
 }

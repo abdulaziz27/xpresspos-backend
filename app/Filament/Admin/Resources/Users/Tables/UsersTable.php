@@ -2,14 +2,19 @@
 
 namespace App\Filament\Admin\Resources\Users\Tables;
 
+use App\Filament\Admin\Resources\Users\Pages\Actions\ResetPasswordAction;
+use App\Filament\Admin\Resources\Users\Pages\Actions\LockAccountAction;
 use App\Models\Store;
+use App\Models\Tenant;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 
 class UsersTable
@@ -30,10 +35,25 @@ class UsersTable
                     ->sortable()
                     ->copyable(),
 
+                TextColumn::make('tenants.name')
+                    ->label('Tenants')
+                    ->badge()
+                    ->color('info')
+                    ->separator(',')
+                    ->formatStateUsing(function ($record) {
+                        $tenantAccesses = DB::table('user_tenant_access')
+                            ->where('user_id', $record->id)
+                            ->join('tenants', 'user_tenant_access.tenant_id', '=', 'tenants.id')
+                            ->select('tenants.name', 'user_tenant_access.role')
+                            ->get();
+                        
+                        return $tenantAccesses->map(fn($access) => $access->name . ' (' . $access->role . ')')->join(', ');
+                    }),
+
                 TextColumn::make('stores.name')
                     ->label('Stores')
                     ->badge()
-                    ->color('info')
+                    ->color('gray')
                     ->separator(','),
 
                 TextColumn::make('roles.name')
@@ -67,8 +87,34 @@ class UsersTable
                     ->sortable()
                     ->placeholder('Not Verified')
                     ->since(),
+
+                IconColumn::make('is_locked')
+                    ->label('Status')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-lock-closed')
+                    ->falseIcon('heroicon-o-lock-open')
+                    ->trueColor('danger')
+                    ->falseColor('success')
+                    ->getStateUsing(fn ($record) => $record->email_verified_at === null || $record->password === null),
             ])
             ->filters([
+                SelectFilter::make('tenant_id')
+                    ->label('Tenant')
+                    ->options(function () {
+                        return Tenant::pluck('name', 'id');
+                    })
+                    ->searchable()
+                    ->preload()
+                    ->multiple()
+                    ->query(function ($query, array $data) {
+                        if (!empty($data['values'])) {
+                            return $query->whereHas('tenants', function ($q) use ($data) {
+                                $q->whereIn('tenants.id', $data['values']);
+                            });
+                        }
+                        return $query;
+                    }),
+
                 SelectFilter::make('roles')
                     ->label('Role')
                     ->options(function () {
@@ -96,11 +142,11 @@ class UsersTable
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
+                ResetPasswordAction::make(),
+                LockAccountAction::make(),
             ])
             ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
+                // No bulk actions for admin
             ])
             ->defaultSort('created_at', 'desc')
             ->striped()

@@ -8,13 +8,10 @@ use App\Filament\Admin\Resources\Stores\Pages\ListStores;
 use App\Filament\Admin\Resources\Stores\Schemas\StoreForm;
 use App\Filament\Admin\Resources\Stores\Tables\StoresTable;
 use App\Models\Store;
-use App\Services\PlanLimitService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 
 class StoreResource extends Resource
 {
@@ -28,35 +25,28 @@ class StoreResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Stores';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Customers';
 
     /**
-     * Check if user can create stores (gating multi-store feature & MAX_STORES limit).
+     * Admin panel: Admin can create stores and assign to tenants.
      */
     public static function canCreate(): bool
     {
-        $user = Auth::user();
-        if (!$user) {
-            return false;
-        }
+        return true; // Admin bisa create store
+    }
 
-        $tenant = $user->currentTenant();
-        if (!$tenant) {
-            return false;
-        }
+    public static function canEdit($record): bool
+    {
+        // Admin bisa edit terbatas (hanya status, dll)
+        return true;
+    }
 
-        $planLimitService = app(PlanLimitService::class);
-
-        // Check if multi-store feature is enabled
-        if (!$planLimitService->hasFeature($tenant, 'ALLOW_MULTI_STORE')) {
-            return false;
-        }
-
-        // Check MAX_STORES limit
-        $currentStoreCount = Store::where('tenant_id', $tenant->id)->count();
-        $canPerform = $planLimitService->canPerformAction($tenant, 'create_store', $currentStoreCount);
-
-        return $canPerform['allowed'];
+    public static function canDelete($record): bool
+    {
+        // Admin tidak bisa delete store
+        return false;
     }
 
 

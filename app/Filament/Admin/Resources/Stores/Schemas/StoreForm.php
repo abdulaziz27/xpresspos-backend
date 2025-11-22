@@ -2,7 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Stores\Schemas;
 
+use App\Models\Tenant;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Textarea;
@@ -20,33 +22,41 @@ class StoreForm
                 Section::make('Store Information')
                     ->description('Basic store details and contact information')
                     ->schema([
+                        Select::make('tenant_id')
+                            ->label('Tenant')
+                            ->relationship('tenant', 'name')
+                            ->required()
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Pilih tenant yang akan memiliki store ini')
+                            ->visible(fn ($operation) => $operation === 'create'),
+
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('name')
+                                    ->label('Nama Toko')
                                     ->required()
                                     ->maxLength(255)
                                     ->live(),
 
                                 TextInput::make('email')
+                                    ->label('Email')
                                     ->email()
                                     ->required()
                                     ->maxLength(255),
                             ]),
 
-                        Grid::make(2)
-                            ->schema([
-                                TextInput::make('phone')
-                                    ->tel()
-                                    ->maxLength(20),
-
-                                TextInput::make('address')
-                                    ->maxLength(500),
-                            ]),
+                        TextInput::make('phone')
+                            ->label('Nomor Telepon')
+                            ->tel()
+                            ->maxLength(20)
+                            ->placeholder('+62...'),
 
                         Textarea::make('address')
-                            ->label('Full Address')
+                            ->label('Alamat Lengkap')
                             ->rows(3)
-                            ->maxLength(1000),
+                            ->maxLength(1000)
+                            ->placeholder('Alamat lengkap toko'),
                     ])
                     ->columns(1),
 
@@ -71,16 +81,16 @@ class StoreForm
                 Section::make('Store Settings')
                     ->description('Store configuration and status')
                     ->schema([
-                        Grid::make(2)
-                            ->schema([
-                                Toggle::make('status')
-                                    ->label('Active')
-                                    ->default(true),
-
-                                Toggle::make('is_active')
-                                    ->label('Enable Store')
-                                    ->default(true),
-                            ]),
+                        Select::make('status')
+                            ->label('Status')
+                            ->options([
+                                'active' => 'Aktif',
+                                'inactive' => 'Tidak Aktif',
+                                'suspended' => 'Ditangguhkan',
+                            ])
+                            ->default('active')
+                            ->required()
+                            ->native(false),
                     ])
                     ->columns(1),
 

@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Resources\Users;
 
-use App\Filament\Admin\Resources\Users\Pages\CreateUser;
 use App\Filament\Admin\Resources\Users\Pages\EditUser;
 use App\Filament\Admin\Resources\Users\Pages\ListUsers;
 use App\Filament\Admin\Resources\Users\Schemas\UserForm;
@@ -11,7 +10,6 @@ use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 class UserResource extends Resource
@@ -26,10 +24,26 @@ class UserResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Users';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 3;
 
+    protected static string|\UnitEnum|null $navigationGroup = 'Customers';
 
     protected static ?string $recordTitleAttribute = 'name';
+
+    /**
+     * Admin panel: read-only or limited edit for users.
+     * Admin can reset password and lock accounts.
+     */
+    public static function canCreate(): bool
+    {
+        return false; // Admin tidak bisa create user langsung
+    }
+
+    public static function canDelete($record): bool
+    {
+        // Admin tidak bisa delete user, hanya lock
+        return false;
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -52,7 +66,6 @@ class UserResource extends Resource
     {
         return [
             'index' => ListUsers::route('/'),
-            'create' => CreateUser::route('/create'),
             'edit' => EditUser::route('/{record}/edit'),
         ];
     }

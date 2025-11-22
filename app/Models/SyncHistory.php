@@ -13,6 +13,8 @@ class SyncHistory extends Model
 {
     use HasFactory, HasUuids, BelongsToStore;
 
+    protected $table = 'sync_operations';
+
     protected $fillable = [
         'store_id',
         'user_id',

@@ -15,28 +15,28 @@ class CreateStore extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $user = Auth::user();
-        $tenant = $user->currentTenant();
+        // Admin can select tenant_id directly from form
+        // But we should still check plan limits if tenant is selected
+        if (isset($data['tenant_id']) && $data['tenant_id']) {
+            $tenant = \App\Models\Tenant::find($data['tenant_id']);
+            
+            if ($tenant) {
+                $planLimitService = app(PlanLimitService::class);
 
-        if ($tenant) {
-            $planLimitService = app(PlanLimitService::class);
+                // Check MAX_STORES limit before creating
+                $currentStoreCount = Store::where('tenant_id', $tenant->id)->count();
+                $canPerform = $planLimitService->canPerformAction($tenant, 'create_store', $currentStoreCount);
 
-            // Check MAX_STORES limit before creating
-            $currentStoreCount = Store::where('tenant_id', $tenant->id)->count();
-            $canPerform = $planLimitService->canPerformAction($tenant, 'create_store', $currentStoreCount);
+                if (!$canPerform['allowed']) {
+                    Notification::make()
+                        ->title('Limit tercapai')
+                        ->body($canPerform['message'] ?? 'Tenant ini telah mencapai batas maksimum store untuk plan mereka.')
+                        ->danger()
+                        ->send();
 
-            if (!$canPerform['allowed']) {
-                Notification::make()
-                    ->title('Limit tercapai')
-                    ->body($canPerform['message'] ?? 'Anda telah mencapai batas maksimum store untuk plan Anda.')
-                    ->danger()
-                    ->send();
-
-                $this->halt();
+                    $this->halt();
+                }
             }
-
-            // Ensure tenant_id is set
-            $data['tenant_id'] = $tenant->id;
         }
 
         // Merge form fields back into settings array

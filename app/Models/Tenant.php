@@ -81,8 +81,9 @@ class Tenant extends Model
     {
         return $this->subscriptions()
             ->where('status', 'active')
-            ->where('ends_at', '>', now())
-            ->latest()
+            ->whereDate('ends_at', '>', today())
+            ->with('plan')
+            ->latest('created_at')
             ->first();
     }
 }

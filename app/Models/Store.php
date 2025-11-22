@@ -47,6 +47,15 @@ class Store extends Model
     }
 
     /**
+     * Alias for assignedUsers() for backward compatibility.
+     * Some legacy code may still use $store->users()
+     */
+    public function users(): BelongsToMany
+    {
+        return $this->assignedUsers();
+    }
+
+    /**
      * Get the tenant that owns the store.
      */
     public function tenant(): BelongsTo

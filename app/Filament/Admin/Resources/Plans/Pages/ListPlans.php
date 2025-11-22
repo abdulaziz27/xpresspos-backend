@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Stores\Pages;
+namespace App\Filament\Admin\Resources\Plans\Pages;
 
-use App\Filament\Admin\Resources\Stores\StoreResource;
+use App\Filament\Admin\Resources\Plans\PlanResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
-class ListStores extends ListRecords
+class ListPlans extends ListRecords
 {
-    protected static string $resource = StoreResource::class;
+    protected static string $resource = PlanResource::class;
 
     protected function getHeaderActions(): array
     {
@@ -17,3 +17,4 @@ class ListStores extends ListRecords
         ];
     }
 }
+

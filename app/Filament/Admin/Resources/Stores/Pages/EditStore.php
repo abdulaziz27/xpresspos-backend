@@ -13,7 +13,7 @@ class EditStore extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            // Admin tidak bisa delete store
         ];
     }
 
@@ -72,7 +72,10 @@ class EditStore extends EditRecord
                 if ($settingKey === 'custom' && is_array($value)) {
                     $settings = array_merge($settings, $value);
                 } else {
-                    $settings[$settingKey] = $value;
+                    // Only set if value is not null/empty or is explicitly set
+                    if ($value !== null && $value !== '') {
+                        $settings[$settingKey] = $value;
+                    }
                 }
                 
                 // Remove from data to avoid duplicate
@@ -82,7 +85,18 @@ class EditStore extends EditRecord
         
         // Merge with existing settings to preserve any other settings
         $existingSettings = $this->record->settings ?? [];
+        if (!is_array($existingSettings)) {
+            $existingSettings = [];
+        }
+        
+        // Merge settings, with form data taking precedence
         $data['settings'] = array_merge($existingSettings, $settings);
+        
+        // Ensure status is properly set (enum value)
+        if (isset($data['status']) && !in_array($data['status'], ['active', 'inactive', 'suspended'])) {
+            // If invalid status, default to active
+            $data['status'] = 'active';
+        }
         
         return $data;
     }

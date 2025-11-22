@@ -19,7 +19,7 @@ class SystemHealthWidget extends BaseWidget
         return $table
             ->query(
                 Store::query()
-                    ->with(['subscription'])
+                    ->with(['tenant.subscriptions.plan'])
                     ->latest()
             )
             ->columns([
@@ -29,47 +29,80 @@ class SystemHealthWidget extends BaseWidget
                     ->sortable()
                     ->weight('medium'),
 
-                Tables\Columns\TextColumn::make('subscription.status')
+                Tables\Columns\TextColumn::make('subscription_status')
                     ->label('Subscription Status')
                     ->badge()
+                    ->getStateUsing(function ($record) {
+                        $subscription = $record->activeSubscription();
+                        return $subscription?->status ?? 'no_subscription';
+                    })
                     ->color(fn(string $state): string => match ($state) {
                         'active' => 'success',
                         'inactive' => 'gray',
                         'cancelled' => 'danger',
                         'expired' => 'warning',
                         'trial' => 'info',
+                        'no_subscription' => 'gray',
                         default => 'gray',
+                    })
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'active' => 'Aktif',
+                        'inactive' => 'Tidak Aktif',
+                        'cancelled' => 'Dibatalkan',
+                        'expired' => 'Kedaluwarsa',
+                        'trial' => 'Trial',
+                        'no_subscription' => 'Tidak Ada',
+                        default => ucfirst($state),
                     }),
 
-                Tables\Columns\TextColumn::make('subscription.plan.name')
+                Tables\Columns\TextColumn::make('plan_name')
                     ->label('Plan')
                     ->badge()
-                    ->color(fn($record) => match ($record->subscription?->plan?->name) {
+                    ->getStateUsing(function ($record) {
+                        $subscription = $record->activeSubscription();
+                        return $subscription?->plan?->name ?? 'Tidak ada';
+                    })
+                    ->color(fn($record) => match ($record->activeSubscription()?->plan?->name) {
                         'Basic' => 'gray',
                         'Pro' => 'info',
                         'Enterprise' => 'warning',
                         default => 'primary',
                     }),
 
-                Tables\Columns\TextColumn::make('subscription.ends_at')
+                Tables\Columns\TextColumn::make('subscription_ends_at')
                     ->label('Expires At')
                     ->date()
+                    ->getStateUsing(function ($record) {
+                        $subscription = $record->activeSubscription();
+                        return $subscription?->ends_at;
+                    })
                     ->sortable()
-                    ->color(fn($record) => $record->subscription?->hasExpired() ? 'danger' : 'success'),
+                    ->color(function ($record) {
+                        $subscription = $record->activeSubscription();
+                        return $subscription && $subscription->hasExpired() ? 'danger' : 'success';
+                    })
+                    ->placeholder('Tidak ada'),
 
-                Tables\Columns\TextColumn::make('users_count')
+                Tables\Columns\TextColumn::make('user_assignments_count')
                     ->label('Users')
-                    ->counts('users')
+                    ->counts('userAssignments')
                     ->numeric()
                     ->alignCenter(),
 
                 Tables\Columns\TextColumn::make('status')
                     ->label('Store Status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
-                        true => 'success',
-                        false => 'danger',
+                    ->color(fn (string $state): string => match ($state) {
+                        'active' => 'success',
+                        'inactive' => 'gray',
+                        'suspended' => 'danger',
                         default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'active' => 'Aktif',
+                        'inactive' => 'Tidak Aktif',
+                        'suspended' => 'Ditangguhkan',
+                        default => $state,
                     }),
             ])
             ->paginated(false);
