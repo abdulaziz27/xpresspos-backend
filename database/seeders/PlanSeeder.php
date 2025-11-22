@@ -19,8 +19,8 @@ class PlanSeeder extends Seeder
                 'name' => 'Basic',
                 'slug' => 'basic',
                 'description' => 'Perfect for small businesses just getting started with essential POS features',
-                'price' => 99000,
-                'annual_price' => 990000,
+                'price' => 69000,
+                'annual_price' => 690000,
                 'features' => [
                     'pos',
                     'basic_reports',
@@ -52,8 +52,8 @@ class PlanSeeder extends Seeder
                 'name' => 'Pro',
                 'slug' => 'pro',
                 'description' => 'Advanced features for growing businesses with inventory management',
-                'price' => 199000,
-                'annual_price' => 1990000,
+                'price' => 159000,
+                'annual_price' => 1590000,
                 'features' => [
                     'pos',
                     'basic_reports',
@@ -90,8 +90,8 @@ class PlanSeeder extends Seeder
                 'name' => 'Enterprise',
                 'slug' => 'enterprise',
                 'description' => 'Complete solution for large businesses with unlimited features',
-                'price' => 399000,
-                'annual_price' => 3990000,
+                'price' => 599000,
+                'annual_price' => 5990000,
                 'features' => [
                     'pos',
                     'basic_reports',

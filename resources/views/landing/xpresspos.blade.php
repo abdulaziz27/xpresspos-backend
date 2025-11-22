@@ -111,19 +111,37 @@
                     </svg>
                 </a>
             </div>
-            <div class="mx-auto mt-12 grid max-w-2xl grid-cols-4 gap-x-6 gap-y-4 transition-all duration-500 group-hover:opacity-50 group-hover:blur-sm md:gap-x-12 md:gap-y-8">
+            <div class="mx-auto mt-12 grid max-w-2xl grid-cols-3 gap-x-6 gap-y-6 transition-all duration-500 group-hover:opacity-50 group-hover:blur-sm md:grid-cols-6 md:gap-x-8 md:gap-y-8">
                 <!-- Partner Logos -->
-                <div class="flex items-center justify-center h-16 bg-gray-100 rounded-lg dark:bg-gray-800">
-                    <span class="text-gray-500 dark:text-gray-400 text-sm">Partner 1</span>
+                <div class="flex items-center justify-center">
+                    <div class="partner-logo-circle rounded-full overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow">
+                        <img src="{{ asset('partner-logo/harmony-mart.jpg') }}" alt="Harmony Mart" class="partner-logo-img">
+                    </div>
                 </div>
-                <div class="flex items-center justify-center h-16 bg-gray-100 rounded-lg dark:bg-gray-800">
-                    <span class="text-gray-500 dark:text-gray-400 text-sm">Partner 2</span>
+                <div class="flex items-center justify-center">
+                    <div class="partner-logo-circle rounded-full overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow">
+                        <img src="{{ asset('partner-logo/nakama.jpg') }}" alt="Nakama" class="partner-logo-img">
+                    </div>
                 </div>
-                <div class="flex items-center justify-center h-16 bg-gray-100 rounded-lg dark:bg-gray-800">
-                    <span class="text-gray-500 dark:text-gray-400 text-sm">Partner 3</span>
+                <div class="flex items-center justify-center">
+                    <div class="partner-logo-circle rounded-full overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow">
+                        <img src="{{ asset('partner-logo/orion-coffe.jpg') }}" alt="Orion Coffee" class="partner-logo-img">
+                    </div>
                 </div>
-                <div class="flex items-center justify-center h-16 bg-gray-100 rounded-lg dark:bg-gray-800">
-                    <span class="text-gray-500 dark:text-gray-400 text-sm">Partner 4</span>
+                <div class="flex items-center justify-center">
+                    <div class="partner-logo-circle rounded-full overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow">
+                        <img src="{{ asset('partner-logo/trek-coffe.jpg') }}" alt="Trek Coffee" class="partner-logo-img">
+                    </div>
+                </div>
+                <div class="flex items-center justify-center">
+                    <div class="partner-logo-circle rounded-full overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow">
+                        <img src="{{ asset('partner-logo/los-in-between.jpg') }}" alt="Los In Between" class="partner-logo-img">
+                    </div>
+                </div>
+                <div class="flex items-center justify-center">
+                    <div class="partner-logo-circle rounded-full overflow-hidden bg-white shadow-md hover:shadow-lg transition-shadow">
+                        <img src="{{ asset('partner-logo/workop-sinar-bintang.jpg') }}" alt="Workop Sinar Bintang" class="partner-logo-img">
+                    </div>
                 </div>
             </div>
         </div>
@@ -1664,6 +1682,36 @@
         .morphing {
             display: none !important;
         }
+    }
+
+    /* Partner Logo Circle Styles */
+    .partner-logo-circle {
+        width: 96px;
+        height: 96px;
+        min-width: 96px;
+        min-height: 96px;
+        max-width: 96px;
+        max-height: 96px;
+        flex-shrink: 0;
+    }
+
+    @media (min-width: 768px) {
+        .partner-logo-circle {
+            width: 112px;
+            height: 112px;
+            min-width: 112px;
+            min-height: 112px;
+            max-width: 112px;
+            max-height: 112px;
+        }
+    }
+
+    .partner-logo-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+        display: block;
     }
 </style>
 
