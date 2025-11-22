@@ -40,74 +40,17 @@ class DatabaseSeeder extends Seeder
             PermissionsAndRolesSeeder::class,
         ]);
 
-        $storeId = config('demo.store_id');
-        $store = \App\Models\Store::find($storeId);
-        $tenantId = $store?->tenant_id;
-
-        if (!$storeId || !$tenantId) {
-            $this->command->warn('⚠️ No store or tenant found. Skipping manager and staff role assignment.');
-            return;
-        }
-
-        // Create manager user
-        $managerUser = User::firstOrCreate(
-            ['email' => 'manager@xpresspos.id'],
-            [
-                'name' => 'Store Manager',
-                'password' => Hash::make('password123'),
-                'email_verified_at' => now(),
-            ]
-        );
-        $managerRole = \Spatie\Permission\Models\Role::where('name', 'manager')
-            ->where('tenant_id', $tenantId)
-            ->first();
-        if ($managerRole) {
-            // CRITICAL: Always set team context BEFORE any role operation
-            setPermissionsTeamId($tenantId);
-            
-            // Force remove any existing role assignments for this user in this tenant
-            $managerUser->roles()->wherePivot('tenant_id', $tenantId)->detach();
-            
-            // Assign role fresh
-            $managerUser->assignRole($managerRole);
-            
-            // Verify assignment
-            $managerUser->refresh();
-            setPermissionsTeamId($tenantId);
-        }
-        $this->assignUserToStore($managerUser, $storeId, 'manager');
-
-        // Create staff user
-        $staffUser = User::firstOrCreate(
-            ['email' => 'staff@xpresspos.id'],
-            [
-                'name' => 'Store Staff',
-                'password' => Hash::make('password123'),
-                'email_verified_at' => now(),
-            ]
-        );
-        $staffRole = \Spatie\Permission\Models\Role::where('name', 'staff')
-            ->where('tenant_id', $tenantId)
-            ->first();
-        if ($staffRole) {
-            // CRITICAL: Always set team context BEFORE any role operation
-            setPermissionsTeamId($tenantId);
-            
-            // Force remove any existing role assignments for this user in this tenant
-            $staffUser->roles()->wherePivot('tenant_id', $tenantId)->detach();
-            
-            // Assign role fresh
-            $staffUser->assignRole($staffRole);
-            
-            // Verify assignment
-            $staffUser->refresh();
-            setPermissionsTeamId($tenantId);
-        }
-        $this->assignUserToStore($staffUser, $storeId, 'staff');
+        // NOTE: Manager dan Staff tidak dibuat untuk demo
+        // Demo hanya menggunakan Owner dan Cashier saja
 
         // Seed UOMs first (required for inventory items, recipes, etc.)
         $this->call([
             UomSeeder::class,
+        ]);
+
+        // Seed UOM conversions (for future use, currently not used in runtime)
+        $this->call([
+            UomConversionSeeder::class,
         ]);
 
         // Create Filament users (admin and owner)
@@ -115,12 +58,20 @@ class DatabaseSeeder extends Seeder
             FilamentUserSeeder::class,
         ]);
         
+        // Seed Member Tiers (required before members)
         $this->call([
-            CategorySeeder::class,
-            ProductSeeder::class,
-            DiscountSeeder::class,
             MemberTierSeeder::class,
-            PromotionSeeder::class,
+        ]);
+        
+        // Seed comprehensive Coffee Shop data
+        $this->call([
+            \Database\Seeders\CoffeeShop\CoffeeShopSeeder::class,
+        ]);
+        
+        // Seed additional data (discounts, etc.)
+        // Note: Promotions and vouchers are already seeded in CoffeeShopSeeder
+        $this->call([
+            DiscountSeeder::class,
             OwnerDemoSeeder::class,
             OwnerPanelSeeder::class,
         ]);

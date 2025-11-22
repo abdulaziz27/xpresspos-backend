@@ -17,63 +17,112 @@ class StoreSeeder extends Seeder
     public function run(): void
     {
         // Create tenant first (subscription per tenant, bukan per store)
-        $tenant = Tenant::create([
-            'name' => 'Demo Business',
-            'email' => 'demo@posxpress.com',
+        $tenant = Tenant::firstOrCreate(
+            ['email' => 'demo@xpresspos.id'],
+            [
+                'name' => 'Xpress Business',
+                'email' => 'demo@xpresspos.id',
             'phone' => '+62812345678',
             'status' => 'active',
             'settings' => [
                 'currency' => 'IDR',
                 'timezone' => 'Asia/Jakarta',
+                    'business_type' => 'coffee_shop',
+                    'tax_id' => null,
+                    'registration_number' => null,
             ],
-        ]);
+            ]
+        );
 
-        $this->command->info("✅ Created tenant: {$tenant->name} (ID: {$tenant->id})");
+        $this->command->info("✅ Tenant ready: {$tenant->name} (ID: {$tenant->id})");
 
-        // Create demo store with tenant_id
-        $store = Store::create([
+        // Create 3 stores/cabang untuk tenant ini
+        $stores = [
+            [
+                'name' => 'Xpress Store Jakarta',
+                'email' => 'jakarta@xpresspos.id',
+                'phone' => '+62811111111',
+                'address' => 'Jl. Sudirman No. 123, Jakarta Pusat',
+                'code' => 'XP-JKT-001',
+            ],
+            [
+                'name' => 'Xpress Pos Bandung',
+                'email' => 'bandung@xpresspos.id',
+                'phone' => '+62812222222',
+                'address' => 'Jl. Dago No. 45, Bandung',
+                'code' => 'XP-BDG-001',
+            ],
+            [
+                'name' => 'Xpress Pos Purwokerto',
+                'email' => 'purwokerto@xpresspos.id',
+                'phone' => '+62813333333',
+                'address' => 'Jl. Jenderal Sudirman No. 88, Purwokerto',
+                'code' => 'XP-PWT-001',
+            ],
+        ];
+
+        $createdStores = [];
+        foreach ($stores as $storeData) {
+            $store = Store::firstOrCreate(
+                ['code' => $storeData['code']],
+                array_merge($storeData, [
             'tenant_id' => $tenant->id,
-            'name' => 'Demo Coffee Shop',
-            'email' => 'demo@posxpress.com',
-            'phone' => '+62812345678',
-            'address' => 'Jl. Sudirman No. 123, Jakarta Pusat',
-            'code' => 'DEMO-001',
             'timezone' => 'Asia/Jakarta',
             'currency' => 'IDR',
             'settings' => [
                 'tax_rate' => 10,
                 'service_charge_rate' => 5,
+                        'tax_included' => false,
+                        'website_url' => 'https://xpresspos.id',
+                        'thank_you_message' => 'Terima kasih atas kunjungan Anda! Sampai jumpa lagi!',
+                        'wifi_name' => 'XP-GUEST',
+                        'wifi_password' => 'guest123',
                 'receipt_footer' => 'Terima kasih atas kunjungan Anda!',
             ],
             'status' => 'active',
-        ]);
+                ])
+            );
 
-        $this->command->info("✅ Created store: {$store->name} (ID: {$store->id}, Tenant ID: {$store->tenant_id})");
+            // Ensure tenant_id is set even for existing stores
+            if (!$store->tenant_id) {
+                $store->update(['tenant_id' => $tenant->id]);
+            }
 
-        // Create subscription for the tenant (bukan store)
-        $proPlan = Plan::where('slug', 'pro')->first();
-        if ($proPlan) {
-            $subscription = Subscription::create([
-                'tenant_id' => $tenant->id, // Subscription per tenant, bukan store
-                'plan_id' => $proPlan->id,
+            $createdStores[] = $store;
+            $this->command->info("✅ Store ready: {$store->name} (ID: {$store->id}, Code: {$store->code})");
+        }
+
+        // Create subscription for the tenant (bukan store) - Enterprise plan
+        $enterprisePlan = Plan::where('slug', 'enterprise')->first();
+        if ($enterprisePlan) {
+            $subscription = Subscription::firstOrCreate(
+                [
+                    'tenant_id' => $tenant->id,
+                    'plan_id' => $enterprisePlan->id,
                 'status' => 'active',
+                ],
+                [
                 'billing_cycle' => 'monthly',
                 'starts_at' => now(),
                 'ends_at' => now()->addMonth(),
-                'amount' => $proPlan->price,
+                    'amount' => $enterprisePlan->price,
                 'metadata' => [
                     'payment_method' => 'bank_transfer',
                     'auto_renew' => true,
                 ],
-            ]);
+                ]
+            );
 
-            $this->command->info("✅ Created subscription: {$subscription->id} for tenant {$tenant->id} with plan {$proPlan->name}");
+            $this->command->info("✅ Subscription ready for tenant {$tenant->id} with plan {$enterprisePlan->name}");
         } else {
-            $this->command->warn("⚠️ Pro plan not found. Subscription not created.");
+            $this->command->warn("⚠️ Enterprise plan not found. Subscription not created.");
         }
 
-        // Store the store ID and tenant ID for use in other seeders
-        config(['demo.store_id' => $store->id]);
+        // Store the first store ID and tenant ID for use in other seeders (backward compatibility)
+        $firstStore = $createdStores[0];
+        config(['demo.store_id' => $firstStore->id]);
         config(['demo.tenant_id' => $tenant->id]);
+        
+        $this->command->info("✅ Created {$tenant->name} with " . count($createdStores) . " stores/cabang");
     }
 }

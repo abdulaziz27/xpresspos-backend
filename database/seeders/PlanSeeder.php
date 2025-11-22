@@ -28,14 +28,18 @@ class PlanSeeder extends Seeder
                     'member_management',
                 ],
                 'limits' => [
+                    // LEGACY: JSON limits untuk backward compatibility saja
+                    // SUMBER KEBENARAN: plan_features table (yang digunakan oleh PlanLimitService)
+                    // Nilai di sini hanya untuk backward compatibility, tidak digunakan oleh service layer
                     'products' => 20,
                     'users' => 2,
                     'outlets' => 1,
-                    'transactions' => 12000, // Annual limit with soft cap
+                    'transactions' => 12000,
                 ],
                 'is_active' => true,
                 'sort_order' => 1,
-                // Plan features untuk PlanLimitService
+                // SUMBER KEBENARAN: Plan features untuk PlanLimitService
+                // Ini yang digunakan oleh service layer untuk validasi limit dan feature flags
                 'plan_features' => [
                     // Hard Limits (MAX_*)
                     ['feature_code' => 'MAX_STORES', 'limit_value' => '1', 'is_enabled' => true],
@@ -53,7 +57,7 @@ class PlanSeeder extends Seeder
                 'slug' => 'pro',
                 'description' => 'Advanced features for growing businesses with inventory management',
                 'price' => 159000,
-                'annual_price' => 1590000,
+                'annual_price' => 1590000, // 10x monthly price
                 'features' => [
                     'pos',
                     'basic_reports',
@@ -66,10 +70,12 @@ class PlanSeeder extends Seeder
                     'report_export',
                 ],
                 'limits' => [
+                    // LEGACY: JSON limits untuk backward compatibility saja
+                    // SUMBER KEBENARAN: plan_features table
                     'products' => 300,
                     'users' => 10,
                     'outlets' => 1,
-                    'transactions' => 120000, // Annual limit with soft cap
+                    'transactions' => 120000,
                 ],
                 'is_active' => true,
                 'sort_order' => 2,
@@ -90,8 +96,8 @@ class PlanSeeder extends Seeder
                 'name' => 'Enterprise',
                 'slug' => 'enterprise',
                 'description' => 'Complete solution for large businesses with unlimited features',
-                'price' => 599000,
-                'annual_price' => 5990000,
+                'price' => 540000,
+                'annual_price' => 5400000, // 10x monthly price
                 'features' => [
                     'pos',
                     'basic_reports',
@@ -108,6 +114,8 @@ class PlanSeeder extends Seeder
                     'priority_support',
                 ],
                 'limits' => [
+                    // LEGACY: JSON limits untuk backward compatibility saja
+                    // SUMBER KEBENARAN: plan_features table
                     'products' => null, // Unlimited
                     'users' => null, // Unlimited
                     'outlets' => null, // Unlimited
@@ -115,7 +123,7 @@ class PlanSeeder extends Seeder
                 ],
                 'is_active' => true,
                 'sort_order' => 3,
-                // Plan features untuk PlanLimitService
+                // SUMBER KEBENARAN: Plan features untuk PlanLimitService
                 'plan_features' => [
                     // Hard Limits (MAX_*) - Unlimited = -1
                     ['feature_code' => 'MAX_STORES', 'limit_value' => '-1', 'is_enabled' => true],
@@ -135,20 +143,27 @@ class PlanSeeder extends Seeder
             $planFeatures = $planData['plan_features'] ?? [];
             unset($planData['plan_features']);
 
-            // Create plan
-            $plan = Plan::create($planData);
+            // Create or update plan (idempotent)
+            $plan = Plan::updateOrCreate(
+                ['slug' => $planData['slug']],
+                $planData
+            );
 
-            // Create plan features
+            // Create or update plan features (idempotent)
             foreach ($planFeatures as $featureData) {
-                PlanFeature::create([
+                PlanFeature::updateOrCreate(
+                    [
                     'plan_id' => $plan->id,
                     'feature_code' => $featureData['feature_code'],
+                    ],
+                    [
                     'limit_value' => $featureData['limit_value'],
                     'is_enabled' => $featureData['is_enabled'],
-                ]);
+                    ]
+                );
             }
 
-            $this->command->info("✅ Created plan: {$plan->name} with " . count($planFeatures) . " features");
+            $this->command->info("✅ Created/Updated plan: {$plan->name} with " . count($planFeatures) . " features");
         }
     }
 }

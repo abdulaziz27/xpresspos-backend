@@ -12,10 +12,18 @@ class DiscountSeeder extends Seeder
      */
     public function run(): void
     {
-        $storeId = config('demo.store_id');
+        $store = \App\Models\Store::first();
+        if (!$store) {
+            $this->command->warn('No store found. Skipping discount seeding.');
+            return;
+        }
+        
+        $storeId = $store->id;
+        $tenantId = $store->tenant_id;
         
         $discounts = [
             [
+                'tenant_id' => $tenantId,
                 'store_id' => $storeId,
                 'name' => 'Welcome New Customer',
                 'description' => 'Discount for new customers',
@@ -25,6 +33,7 @@ class DiscountSeeder extends Seeder
                 'expired_date' => '2025-12-31'
             ],
             [
+                'tenant_id' => $tenantId,
                 'store_id' => $storeId,
                 'name' => 'Happy Hour',
                 'description' => 'Discount during happy hour',
@@ -34,6 +43,7 @@ class DiscountSeeder extends Seeder
                 'expired_date' => '2025-12-31'
             ],
             [
+                'tenant_id' => $tenantId,
                 'store_id' => $storeId,
                 'name' => 'Student Discount',
                 'description' => 'Special discount for students',
@@ -45,7 +55,14 @@ class DiscountSeeder extends Seeder
         ];
 
         foreach ($discounts as $discount) {
-            \App\Models\Discount::create($discount);
+            \App\Models\Discount::query()->withoutGlobalScopes()->firstOrCreate(
+                [
+                    'tenant_id' => $tenantId,
+                    'store_id' => $discount['store_id'],
+                    'name' => $discount['name'],
+                ],
+                $discount
+            );
         }
     }
 }

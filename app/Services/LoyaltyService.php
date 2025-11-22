@@ -199,10 +199,16 @@ class LoyaltyService
         ];
 
         foreach ($defaultTiers as $tierData) {
-            MemberTier::create([
+            MemberTier::query()->withoutGlobalScopes()->updateOrCreate(
+                [
+                    'tenant_id' => $tenantId,
+                    'slug' => $tierData['slug'],
+                ],
+                [
                 'tenant_id' => $tenantId,
                 ...$tierData
-            ]);
+                ]
+            );
         }
     }
 

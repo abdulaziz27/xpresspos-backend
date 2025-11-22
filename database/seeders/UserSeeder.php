@@ -14,27 +14,8 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create Super Admin
-        $superAdmin = User::firstOrCreate(
-            ['email' => 'admin@xpresspos.id'],
-            [
-                'name' => 'Super Admin',
-                'password' => Hash::make('admin123'),
-                'email_verified_at' => now(),
-            ]
-        );
-        $superAdmin->assignRole('super_admin');
-
-        // Create Admin Sistem
-        $adminSistem = User::firstOrCreate(
-            ['email' => 'admin.sistem@xpresspos.id'],
-            [
-                'name' => 'Admin Sistem',
-                'password' => Hash::make('admin123'),
-                'email_verified_at' => now(),
-            ]
-        );
-        $adminSistem->assignRole('admin_sistem');
+        // NOTE: Super Admin dan Admin Sistem hanya untuk tim developer XpressPos
+        // Tidak dibuat di seeder demo untuk calon subscribers
 
         // Get first store and tenant for owner assignment
         $firstStore = \App\Models\Store::first();
@@ -52,18 +33,22 @@ class UserSeeder extends Seeder
             ]
         );
 
-        // CRITICAL: Create store_user_assignment for owner
-        if ($storeId) {
+        // CRITICAL: Create store_user_assignment for owner to ALL stores
+        $stores = \App\Models\Store::where('tenant_id', $tenantId)->get();
+        if ($stores->isNotEmpty()) {
+            foreach ($stores as $index => $store) {
             \App\Models\StoreUserAssignment::updateOrCreate(
                 [
-                    'store_id' => $storeId,
+                        'store_id' => $store->id,
                     'user_id' => $owner->id,
                 ],
                 [
                     'assignment_role' => 'owner',
-                    'is_primary' => true,
+                        'is_primary' => $index === 0, // First store is primary
                 ]
             );
+            }
+            $this->command->info("✅ Owner assigned to " . $stores->count() . " stores");
         }
 
         // CRITICAL: Create user_tenant_access for owner
@@ -129,23 +114,49 @@ class UserSeeder extends Seeder
             $this->command->warn("⚠️ No store or tenant found. Owner role assignment skipped. Run StoreSeeder first.");
         }
 
-        // Create Cashier
+        // Create Cashiers - dibagi ke beberapa stores (tidak semua)
+        $stores = \App\Models\Store::where('tenant_id', $tenantId)->get();
+        
+        if ($stores->isNotEmpty()) {
+            // Buat beberapa cashier dan distribusikan ke stores
+            $cashiers = [
+                [
+                    'email' => 'cashier1@xpresspos.id',
+                    'name' => 'Cashier Jakarta',
+                    'password' => 'cashier123',
+                ],
+                [
+                    'email' => 'cashier2@xpresspos.id',
+                    'name' => 'Cashier Bandung',
+                    'password' => 'cashier123',
+                ],
+                [
+                    'email' => 'cashier3@xpresspos.id',
+                    'name' => 'Cashier Purwokerto',
+                    'password' => 'cashier123',
+                ],
+            ];
+            
+            foreach ($cashiers as $index => $cashierData) {
+                if ($index >= $stores->count()) {
+                    break; // Jangan buat lebih banyak cashier daripada stores
+                }
+                
         $cashier = User::firstOrCreate(
-            ['email' => 'cashier@xpresspos.id'],
+                    ['email' => $cashierData['email']],
             [
-                'name' => 'Cashier',
-                'password' => Hash::make('cashier123'),
+                        'name' => $cashierData['name'],
+                        'password' => Hash::make($cashierData['password']),
                 'email_verified_at' => now(),
             ]
         );
 
-        // CRITICAL: Create store_user_assignment for cashier
-        // Note: assignment_role uses 'staff' (AssignmentRoleEnum doesn't have 'cashier')
-        // but Spatie Permission role is 'cashier' for proper permissions
-        if ($storeId) {
+                // Assign cashier ke store yang sesuai (1 cashier per store)
+                $store = $stores[$index];
+                
             \App\Models\StoreUserAssignment::updateOrCreate(
                 [
-                    'store_id' => $storeId,
+                        'store_id' => $store->id,
                     'user_id' => $cashier->id,
                 ],
                 [
@@ -153,7 +164,6 @@ class UserSeeder extends Seeder
                     'is_primary' => false,
                 ]
             );
-        }
 
         // CRITICAL: Create user_tenant_access for cashier (staff role)
         if ($tenantId) {
@@ -171,22 +181,12 @@ class UserSeeder extends Seeder
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
-                $this->command->info("✅ Created user_tenant_access for cashier@xpresspos.id → tenant {$tenantId}");
-            } else {
-                \DB::table('user_tenant_access')
-                    ->where('user_id', $cashier->id)
-                    ->where('tenant_id', $tenantId)
-                    ->update([
-                        'role' => 'staff',
-                        'updated_at' => now(),
-                    ]);
-                $this->command->info("✅ Updated user_tenant_access for cashier@xpresspos.id → tenant {$tenantId}");
+                        $this->command->info("✅ Created user_tenant_access for {$cashierData['email']} → tenant {$tenantId}");
             }
         }
 
         // CRITICAL: Set team context BEFORE assigning role
-        if ($storeId && $tenantId) {
-            // Find cashier role for this specific tenant
+                if ($tenantId) {
             $cashierRole = \Spatie\Permission\Models\Role::where('name', 'cashier')
                 ->where('tenant_id', $tenantId)
                 ->first();
@@ -205,23 +205,20 @@ class UserSeeder extends Seeder
                 setPermissionsTeamId($tenantId);
                 
                 if ($cashier->hasRole('cashier')) {
-                    $this->command->info("✅ Cashier role successfully assigned to {$cashier->email}");
+                            $this->command->info("✅ Cashier role successfully assigned to {$cashierData['email']}");
+                        }
                 } else {
-                    $this->command->error("❌ Failed to assign cashier role to {$cashier->email}");
+                        $this->command->warn("⚠️ Cashier role not found for tenant ID: {$tenantId}.");
+                        $cashier->assignRole('cashier');
+                    }
                 }
-            } else {
-                $this->command->warn("⚠️ Cashier role not found for tenant ID: {$tenantId}. Role will be assigned after PermissionsAndRolesSeeder runs.");
-                // Fallback: assign role without team context (will be fixed by PermissionsAndRolesSeeder)
-                $cashier->assignRole('cashier');
             }
-        } else {
-            $this->command->warn("⚠️ No store found. Cashier role assignment skipped. Run StoreSeeder first.");
         }
 
         $this->command->info('Users created successfully!');
-        $this->command->info('Super Admin: admin@xpresspos.id / admin123');
-        $this->command->info('Admin Sistem: admin.sistem@xpresspos.id / admin123');
         $this->command->info('Owner: owner@xpresspos.id / owner123');
-        $this->command->info('Cashier: cashier@xpresspos.id / cashier123');
+        $this->command->info('Cashier Jakarta: cashier1@xpresspos.id / cashier123');
+        $this->command->info('Cashier Bandung: cashier2@xpresspos.id / cashier123');
+        $this->command->info('Cashier Purwokerto: cashier3@xpresspos.id / cashier123');
     }
 }

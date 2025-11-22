@@ -24,11 +24,20 @@ class UomConversionSeeder extends Seeder
 
         $conversions = [];
 
+        // Mass conversions
         if ($kg && $g) {
             $conversions[] = [
                 'from_uom_id' => $kg->id,
                 'to_uom_id' => $g->id,
-                'multiplier' => 1000,
+                'multiplier' => 1000, // 1 kg = 1000 g
+            ];
+        }
+
+        if ($g && $mg) {
+            $conversions[] = [
+                'from_uom_id' => $g->id,
+                'to_uom_id' => $mg->id,
+                'multiplier' => 1000, // 1 g = 1000 mg
             ];
         }
 
@@ -36,23 +45,25 @@ class UomConversionSeeder extends Seeder
             $conversions[] = [
                 'from_uom_id' => $kg->id,
                 'to_uom_id' => $mg->id,
-                'multiplier' => 1000000,
+                'multiplier' => 1000000, // 1 kg = 1,000,000 mg
             ];
         }
 
+        // Volume conversions
         if ($l && $ml) {
             $conversions[] = [
                 'from_uom_id' => $l->id,
                 'to_uom_id' => $ml->id,
-                'multiplier' => 1000,
+                'multiplier' => 1000, // 1 L = 1000 mL
             ];
         }
 
+        // Count conversions
         if ($dozen && $pcs) {
             $conversions[] = [
                 'from_uom_id' => $dozen->id,
                 'to_uom_id' => $pcs->id,
-                'multiplier' => 12,
+                'multiplier' => 12, // 1 dozen = 12 pcs
             ];
         }
 

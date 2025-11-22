@@ -128,7 +128,7 @@ class InvoiceResource extends Resource
                     ->label('Jatuh Tempo')
                     ->date('d M Y')
                     ->sortable()
-                    ->color(fn (Invoice $record): string => 
+                    ->color(fn (Invoice $record): ?string => 
                         $record->isOverdue() ? 'danger' : 
                         ($record->isPending() && $record->due_date->diffInDays() <= 7 ? 'warning' : null)
                     ),
@@ -218,7 +218,7 @@ class InvoiceResource extends Resource
                                 Infolists\Components\TextEntry::make('due_date')
                                     ->label('Jatuh Tempo')
                                     ->date('d M Y')
-                                    ->color(fn (Invoice $record): string => 
+                                    ->color(fn (Invoice $record): ?string => 
                                         $record->isOverdue() ? 'danger' : 
                                         ($record->isPending() && $record->due_date->diffInDays() <= 7 ? 'warning' : null)
                                     ),

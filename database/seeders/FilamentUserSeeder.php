@@ -34,6 +34,9 @@ class FilamentUserSeeder extends Seeder
             ->whereNull('tenant_id')
             ->first();
         if ($adminSistemRole) {
+            // Reset team context for global role
+            setPermissionsTeamId(null);
+            
             if (!$admin->hasRole($adminSistemRole)) {
                 $admin->assignRole($adminSistemRole);
                 $this->command->info("✅ Assigned admin_sistem role to {$admin->email}");
@@ -109,6 +112,8 @@ class FilamentUserSeeder extends Seeder
             // CRITICAL: Always set team context BEFORE any role operation
             setPermissionsTeamId($primaryTenantId);
             
+            // Check if role already assigned (idempotent)
+            if (!$owner->hasRole($ownerRole)) {
             // Force remove any existing role assignments for this user in this tenant
             // to ensure clean state
             $owner->roles()->wherePivot('tenant_id', $primaryTenantId)->detach();
@@ -127,6 +132,9 @@ class FilamentUserSeeder extends Seeder
                 
                 // Debug: Show what roles the user actually has
                 $this->command->warn("Current roles for user: " . $owner->getRoleNames()->implode(', '));
+                }
+            } else {
+                $this->command->info("✅ Owner role already assigned to {$owner->email}");
             }
         } else {
             $this->command->error("❌ Owner role not found for tenant {$primaryTenantId}. Please ensure PermissionsAndRolesSeeder ran successfully.");

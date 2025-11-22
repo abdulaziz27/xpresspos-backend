@@ -110,7 +110,14 @@ class Recipe extends Model
         
         // If this recipe is active and belongs to a product, update product cost_price
         if ($this->is_active && $this->product_id) {
+            // Load product relationship if not already loaded
+            if (!$this->relationLoaded('product')) {
+                $this->load('product');
+            }
+            
+            if ($this->product) {
             $this->product->recalculateCostPriceFromRecipe();
+            }
         }
     }
 

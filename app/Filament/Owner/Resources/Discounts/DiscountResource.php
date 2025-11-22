@@ -22,11 +22,11 @@ class DiscountResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;
 
-    protected static ?string $navigationLabel = 'Diskon Manual';
+    protected static ?string $navigationLabel = 'Diskon';
 
-    protected static ?string $modelLabel = 'Diskon Manual';
+    protected static ?string $modelLabel = 'Diskon';
 
-    protected static ?string $pluralModelLabel = 'Diskon Manual';
+    protected static ?string $pluralModelLabel = 'Diskon';
 
     protected static ?int $navigationSort = 30;
 

@@ -97,6 +97,9 @@ trait HasLocalReportFilterForm
         $this->baseUpdatedFilters();
         $this->persistLocalFiltersState();
 
+        // Dispatch event to update all widgets
+        $this->dispatch('sales-report-filter-updated');
+
         if (method_exists($this, 'loadReportData')) {
             $this->loadReportData();
         }

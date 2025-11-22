@@ -12,26 +12,15 @@ class FilamentDemoSeeder extends Seeder
     public function run(): void
     {
         $this->command->info('🚀 Starting Filament Demo Data Seeding...');
+        $this->command->info('ℹ️  Using CoffeeShop seeders (replaced old seeders)...');
 
-        // Seed categories first
-        $this->command->info('📂 Seeding Categories...');
-        $this->call(CategorySeeder::class);
-
-        // Seed basic products
-        $this->command->info('📦 Seeding Basic Products...');
-        $this->call(ProductSeeder::class);
-
-        // Seed enhanced products
-        $this->command->info('✨ Seeding Enhanced Products...');
-        $this->call(EnhancedProductSeeder::class);
-
-        // Seed product variants
-        $this->command->info('🎛️ Seeding Product Variants...');
-        $this->call(ProductVariantSeeder::class);
-
-        // Seed tables (basic + enhanced)
-        $this->command->info('🪑 Seeding Tables...');
-        $this->call(TableSeeder::class);
+        // Use comprehensive CoffeeShop seeder which includes:
+        // - Categories
+        // - Products (with variants via modifier groups)
+        // - Tables
+        // - And more...
+        $this->command->info('📦 Seeding Coffee Shop Data (Categories, Products, Tables, etc.)...');
+        $this->call(\Database\Seeders\CoffeeShop\CoffeeShopSeeder::class);
 
         $this->command->info('✅ Filament Demo Data Seeding Completed!');
         $this->command->info('');
