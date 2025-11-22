@@ -41,41 +41,79 @@ class CashReceiptsTable extends BaseWidget
         $range = $this->getDateRange($datePreset, $dateStart, $dateEnd);
         $storeIds = $this->getStoreIds($tenantId, $storeId);
 
+        // If no store IDs, return empty query
+        if (empty($storeIds)) {
+            return $table
+                ->query(Payment::whereRaw('1 = 0'))
+                ->columns([
+                    TextColumn::make('transaction_date')->label('Tanggal/Waktu'),
+                    TextColumn::make('order.store.name')->label('Store'),
+                    TextColumn::make('order.order_number')->label('Order'),
+                    TextColumn::make('payment_method')->label('Metode'),
+                    TextColumn::make('amount')->label('Amount'),
+                ])
+                ->emptyStateHeading('Tidak ada data penerimaan kas')
+                ->emptyStateDescription('Pilih tenant terlebih dahulu untuk melihat data.');
+        }
+
         $query = Payment::withoutGlobalScopes()
-            ->with(['order', 'order.store', 'order.user'])
+            ->select('payments.*')
+            ->selectRaw('COALESCE(payments.received_amount, payments.amount) as effective_amount')
+            ->with([
+                'order' => function ($query) {
+                    $query->withoutGlobalScopes();
+                },
+                'order.store' => function ($query) {
+                    $query->withoutGlobalScopes();
+                },
+                'order.user'
+            ])
             ->where('status', 'completed')
             ->where('payment_method', 'cash')
             ->whereIn('store_id', $storeIds)
-            ->where(function ($q) use ($range) {
-                $q->whereNotNull('paid_at')
-                  ->whereBetween('paid_at', [$range['start'], $range['end']])
-                  ->orWhere(function ($q2) use ($range) {
-                      $q2->whereNull('paid_at')
-                         ->whereBetween('processed_at', [$range['start'], $range['end']]);
-                  });
-            });
+            ->whereNotNull('order_id')
+            ->whereHas('order') // Ensure order exists
+            ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [
+                $range['start'],
+                $range['end']
+            ]);
 
         return $table
             ->query($query)
             ->columns([
                 TextColumn::make('transaction_date')
                     ->label('Tanggal/Waktu')
-                    ->formatStateUsing(function ($record) {
+                    ->getStateUsing(function ($record) {
                         $date = $record->paid_at ?? $record->processed_at ?? $record->created_at;
-                        return $date ? $date->format('d/m/Y H:i') : '-';
+                        return $date;
                     })
+                    ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->searchable(false),
 
-                TextColumn::make('order.store.name')
+                TextColumn::make('store_name')
                     ->label('Store')
-                    ->default('-')
+                    ->getStateUsing(function ($record) {
+                        // Ensure order is loaded
+                        if (!$record->relationLoaded('order')) {
+                            $record->load('order.store');
+                        }
+                        return $record->order?->store?->name ?? null;
+                    })
+                    ->placeholder('-')
                     ->sortable()
                     ->searchable(),
 
-                TextColumn::make('order.order_number')
+                TextColumn::make('order_number')
                     ->label('Order')
-                    ->default('-')
+                    ->getStateUsing(function ($record) {
+                        // Ensure order is loaded
+                        if (!$record->relationLoaded('order')) {
+                            $record->load('order');
+                        }
+                        return $record->order?->order_number ?? null;
+                    })
+                    ->placeholder('-')
                     ->sortable()
                     ->searchable()
                     ->url(fn ($record) => $record->order_id 
@@ -89,19 +127,30 @@ class CashReceiptsTable extends BaseWidget
                     ->badge()
                     ->color('success'),
 
-                TextColumn::make('amount')
+                TextColumn::make('effective_amount')
                     ->label('Amount')
-                    ->formatStateUsing(function ($record) {
-                        $amount = $record->received_amount ?? $record->amount;
-                        return Currency::rupiah((float) $amount);
+                    ->getStateUsing(function ($record) {
+                        // Get effective_amount from selectRaw, or calculate from received_amount/amount
+                        return $record->effective_amount ?? ($record->received_amount ?? $record->amount);
                     })
-                    ->sortable()
+                    ->numeric()
+                    ->formatStateUsing(fn ($state) => Currency::rupiah((float) $state))
+                    ->sortable(query: function ($query, string $direction) {
+                        return $query->orderByRaw("COALESCE(payments.received_amount, payments.amount) {$direction}");
+                    })
                     ->alignEnd()
                     ->weight('medium'),
 
-                TextColumn::make('order.user.name')
+                TextColumn::make('staff_name')
                     ->label('Staff')
-                    ->default('-')
+                    ->getStateUsing(function ($record) {
+                        // Ensure order is loaded
+                        if (!$record->relationLoaded('order')) {
+                            $record->load('order.user');
+                        }
+                        return $record->order?->user?->name ?? null;
+                    })
+                    ->placeholder('-')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('created_at', 'desc')
