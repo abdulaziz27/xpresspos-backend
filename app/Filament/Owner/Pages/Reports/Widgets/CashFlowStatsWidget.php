@@ -62,7 +62,7 @@ class CashFlowStatsWidget extends BaseWidget
             $cashInQuery->whereIn('store_id', $storeIds);
         }
 
-        $cashIn = (float) (clone $cashInQuery)->sum('amount');
+        $cashIn = (float) (clone $cashInQuery)->sum(DB::raw('CASE WHEN received_amount > 0 THEN received_amount ELSE amount END'));
         $cashInCount = (clone $cashInQuery)->count();
 
         // Cash Out: Sum of refunds for cash payments (processed/completed)

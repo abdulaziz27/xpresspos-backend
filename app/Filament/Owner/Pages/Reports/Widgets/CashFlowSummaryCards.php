@@ -76,7 +76,7 @@ class CashFlowSummaryCards extends BaseWidget
                     });
             });
 
-        $cashIn = (float) (clone $cashInQuery)->sum(DB::raw('COALESCE(received_amount, amount)'));
+        $cashIn = (float) (clone $cashInQuery)->sum(DB::raw('CASE WHEN received_amount > 0 THEN received_amount ELSE amount END'));
 
         // 2. Refund Tunai
         // Sumber: refunds join payments

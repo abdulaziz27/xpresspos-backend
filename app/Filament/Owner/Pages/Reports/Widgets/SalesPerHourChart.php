@@ -87,7 +87,7 @@ class SalesPerHourChart extends ChartWidget
             ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$start, $end])
             ->select(
                 DB::raw('HOUR(COALESCE(paid_at, processed_at, created_at)) as hour'),
-                DB::raw('SUM(amount) as total')
+                DB::raw('SUM(CASE WHEN received_amount > 0 THEN received_amount ELSE amount END) as total')
             )
             ->groupBy('hour')
             ->get();

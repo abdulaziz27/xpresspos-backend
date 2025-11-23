@@ -64,7 +64,7 @@ class TransactionControlCard extends Widget
         }
 
         // Build base orders query
-        $ordersQuery = Order::query()
+        $ordersQuery = Order::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->whereIn('store_id', $storeIds)
             ->where('status', 'completed');
@@ -87,7 +87,7 @@ class TransactionControlCard extends Widget
         $successfulTransactions = $totalTransactions; // Same as total bills
 
         // k) Transaksi Gagal (orders dengan status selain completed)
-        $failedOrdersQuery = Order::query()
+        $failedOrdersQuery = Order::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->whereIn('store_id', $storeIds)
             ->where('status', '!=', 'completed');
@@ -108,9 +108,10 @@ class TransactionControlCard extends Widget
         }
 
         // m) Total Item Terjual
-        $totalItemsSold = OrderItem::query()
+        $totalItemsSold = OrderItem::withoutGlobalScopes()
             ->whereHas('order', function ($q) use ($tenantId, $storeIds, $range) {
-                $q->where('tenant_id', $tenantId)
+                $q->withoutGlobalScopes()
+                  ->where('tenant_id', $tenantId)
                   ->whereIn('store_id', $storeIds)
                   ->where('status', 'completed');
                 
@@ -132,7 +133,7 @@ class TransactionControlCard extends Widget
         // ===== FIELD BARU: Pembatalan & Refund =====
         
         // a) Jumlah Pembatalan
-        $cancelledOrdersQuery = Order::query()
+        $cancelledOrdersQuery = Order::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->whereIn('store_id', $storeIds)
             ->where('status', 'cancelled');
