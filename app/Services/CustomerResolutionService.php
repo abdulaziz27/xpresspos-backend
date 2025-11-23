@@ -113,13 +113,16 @@ class CustomerResolutionService
     private function resolveDefaultCustomer(Store $store, array $customerSettings): array
     {
         $defaultName = $customerSettings['default_customer_name'] ?? 'Customer';
+        $tenantId = $store->tenant_id;
         
-        // Find or create default customer
+        // Find or create default customer per tenant
+        // Note: Unique constraint is on tenant_id + member_number, so we check by tenant_id
         $defaultCustomer = Member::firstOrCreate([
-            'store_id' => $store->id,
+            'tenant_id' => $tenantId,
             'member_number' => 'DEFAULT',
-            'name' => $defaultName,
         ], [
+            'store_id' => $store->id,
+            'name' => $defaultName,
             'is_active' => true,
             'loyalty_points' => 0,
             'total_spent' => 0,

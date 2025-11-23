@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Concerns\BelongsToStore;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class Order extends Model
 {
@@ -173,6 +174,7 @@ class Order extends Model
 
     /**
      * Generate unique order number with retry mechanism to prevent race conditions.
+     * Uses MySQL advisory lock to ensure only one process generates order number at a time.
      * 
      * @param int $maxRetries Maximum number of retry attempts
      * @return string Unique order number in format ORD{YYYYMMDD}{0001-9999}
@@ -181,48 +183,101 @@ class Order extends Model
     {
         $prefix = 'ORD';
         $date = now()->format('Ymd');
+        $lockName = 'order_number_generation_' . $date;
+        $lockTimeout = 5; // 5 seconds timeout for lock acquisition
         
         for ($attempt = 0; $attempt < $maxRetries; $attempt++) {
-            // Use database transaction with lock to prevent race condition
-            $orderNumber = DB::transaction(function () use ($prefix, $date) {
-                // Lock the table/rows to prevent concurrent access
-                // Get the maximum sequence number for today
-                $maxOrder = static::lockForUpdate()
-                    ->whereDate('created_at', now())
-                    ->where('order_number', 'like', $prefix . $date . '%')
-                    ->orderByRaw('CAST(SUBSTRING(order_number, -4) AS UNSIGNED) DESC')
-                    ->first();
+            try {
+                // Use advisory lock to ensure only one process generates order number at a time
+                // GET_LOCK returns 1 if lock acquired, 0 if timeout, NULL if error
+                $lockResult = DB::selectOne(
+                    "SELECT GET_LOCK(?, ?) as lock_acquired",
+                    [$lockName, $lockTimeout]
+                );
                 
-                $maxSequence = 0;
-                if ($maxOrder && $maxOrder->order_number) {
-                    $orderNum = $maxOrder->order_number;
-                    if (str_starts_with($orderNum, $prefix . $date)) {
-                        $seqPart = substr($orderNum, -4);
-                        $maxSequence = (int) $seqPart;
-                    }
+                $lockAcquired = isset($lockResult->lock_acquired) && $lockResult->lock_acquired == 1;
+                
+                if (!$lockAcquired) {
+                    // Lock not acquired, wait and retry
+                    usleep(rand(50000, 150000)); // 50-150ms random delay
+                    continue;
                 }
                 
-                // Generate next sequence number
-                $sequence = $maxSequence + 1;
-                $orderNumber = $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
-                
-                // Verify this order number doesn't exist (double-check)
-                if (!static::where('order_number', $orderNumber)->exists()) {
+                try {
+                    // Now we have the lock, generate order number within transaction
+                    // The lock ensures only one process can generate at a time
+                    $orderNumber = DB::transaction(function () use ($prefix, $date) {
+                        // IMPORTANT: Use withoutGlobalScopes() to search GLOBALLY across all stores/tenants
+                        // Order number must be unique globally, not per store or per tenant
+                        $maxOrder = static::withoutGlobalScopes()
+                            ->lockForUpdate()
+                            ->whereDate('created_at', now())
+                            ->where('order_number', 'like', $prefix . $date . '%')
+                            ->orderByRaw('CAST(SUBSTRING(order_number, -4) AS UNSIGNED) DESC')
+                            ->first();
+                        
+                        $maxSequence = 0;
+                        if ($maxOrder && $maxOrder->order_number) {
+                            $orderNum = $maxOrder->order_number;
+                            if (str_starts_with($orderNum, $prefix . $date)) {
+                                $seqPart = substr($orderNum, -4);
+                                $maxSequence = (int) $seqPart;
+                            }
+                        }
+                        
+                        // Generate next sequence number and find first available
+                        $sequence = $maxSequence + 1;
+                        $maxAttempts = 100; // Prevent infinite loop
+                        $attemptCount = 0;
+                        
+                        while ($attemptCount < $maxAttempts) {
+                            $orderNumber = $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+                            
+                            // Check if this order number exists GLOBALLY (within transaction for consistency)
+                            // Must use withoutGlobalScopes() to check across all stores/tenants
+                            $exists = static::withoutGlobalScopes()
+                                ->where('order_number', $orderNumber)
+                                ->lockForUpdate()
+                                ->exists();
+                            
+                            if (!$exists) {
+                                return $orderNumber;
+                            }
+                            
+                            // If exists, try next sequence
+                            $sequence++;
+                            $attemptCount++;
+                        }
+                        
+                        // If we can't find a unique number in reasonable range, use timestamp fallback
+                        $timestamp = now()->format('His');
+                        $microseconds = substr((string) microtime(true), -3);
+                        return $prefix . $date . substr($timestamp . $microseconds, -4);
+                    });
+                    
+                    // Return immediately since we have the lock and checked within transaction
                     return $orderNumber;
+                } finally {
+                    // Always release the lock
+                    DB::select("SELECT RELEASE_LOCK(?)", [$lockName]);
+                }
+            } catch (\Exception $e) {
+                // Release lock on exception
+                try {
+                    DB::select("SELECT RELEASE_LOCK(?)", [$lockName]);
+                } catch (\Exception $releaseException) {
+                    // Ignore release errors
                 }
                 
-                // If exists, increment and try again
-                $sequence++;
-                return $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
-            });
-            
-            // Final check: verify the generated order number doesn't exist
-            if (!static::where('order_number', $orderNumber)->exists()) {
-                return $orderNumber;
+                // Log the error for debugging
+                Log::warning('Error generating order number', [
+                    'error' => $e->getMessage(),
+                    'attempt' => $attempt + 1,
+                ]);
+                
+                // If it's not a lock-related error, wait and retry
+                usleep(rand(50000, 150000));
             }
-            
-            // If still exists, wait a bit and retry
-            usleep(rand(10000, 50000)); // Random delay 10-50ms to reduce collision
         }
         
         // Fallback: use timestamp-based unique number if all retries fail
