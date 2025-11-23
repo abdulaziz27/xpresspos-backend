@@ -4,9 +4,14 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Services\Reporting\ReportService;
+use App\Exports\SalesReportExport;
+use App\Models\Store;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
 
 class ReportController extends Controller
@@ -54,6 +59,77 @@ class ReportController extends Controller
                 'generated_at' => now(),
             ]
         ]);
+    }
+
+    /**
+     * Export sales report to Excel.
+     */
+    public function exportSales(Request $request)
+    {
+        // Set default dates if not provided
+        $request->merge([
+            'start_date' => $request->input('start_date', now()->subDays(30)->format('Y-m-d')),
+            'end_date' => $request->input('end_date', now()->format('Y-m-d')),
+        ]);
+
+        $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'group_by' => 'sometimes|in:day,week,month',
+            'outlet_id' => 'sometimes|uuid|exists:outlets,id',
+            'user_id' => 'sometimes|uuid|exists:users,id',
+            'category_id' => 'sometimes|uuid|exists:categories,id',
+            'store_id' => 'nullable|uuid|exists:stores,id',
+            'tenant_id' => 'nullable|uuid|exists:tenants,id',
+        ]);
+
+        $storeId = $request->store_id;
+        $tenantId = $request->tenant_id ?? auth()->user()?->currentTenant()?->id;
+
+        // Get stores to export
+        if ($storeId) {
+            // Export for specific store
+            $stores = Store::where('id', $storeId)->get();
+        } else {
+            // Export for all stores in tenant
+            $stores = Store::where('tenant_id', $tenantId)
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get();
+        }
+
+        if ($stores->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada store yang ditemukan untuk di-export'
+            ], 404);
+        }
+
+        // Generate reports for all stores
+        $reports = [];
+        foreach ($stores as $store) {
+            $filters = $request->only(['outlet_id', 'user_id', 'category_id']);
+            $filters['store_id'] = $store->id;
+
+            $report = $this->reportService->generateSalesReport(
+                startDate: Carbon::parse($request->start_date),
+                endDate: Carbon::parse($request->end_date),
+                groupBy: $request->group_by ?? 'day',
+                filters: $filters
+            );
+            
+            $reports[] = [
+                'store' => $store,
+                'data' => $report
+            ];
+        }
+        
+        // Generate filename
+        $startDate = Carbon::parse($request->start_date)->format('Y-m-d');
+        $endDate = Carbon::parse($request->end_date)->format('Y-m-d');
+        $filename = "laporan_penjualan_{$startDate}_to_{$endDate}_" . now()->format('Y-m-d_H-i-s') . '.xlsx';
+
+        return Excel::download(new SalesReportExport($reports), $filename);
     }
 
     /**

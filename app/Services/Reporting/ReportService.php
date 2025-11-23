@@ -31,6 +31,10 @@ class ReportService
             ->with(['items.product', 'payments', 'user']);
 
         // Apply filters
+        if (!empty($filters['store_id'])) {
+            $query->where('store_id', $filters['store_id']);
+        }
+
         if (!empty($filters['outlet_id'])) {
             $query->where('outlet_id', $filters['outlet_id']);
         }

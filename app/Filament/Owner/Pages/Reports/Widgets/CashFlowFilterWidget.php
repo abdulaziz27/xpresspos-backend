@@ -14,6 +14,7 @@ use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\On;
+use Filament\Actions\Action;
 
 class CashFlowFilterWidget extends Widget implements HasForms
 {
@@ -85,6 +86,48 @@ class CashFlowFilterWidget extends Widget implements HasForms
                     ->visible(fn (callable $get): bool => $get('date_preset') === 'custom')
                     ->minDate(fn (callable $get) => $get('date_start')),
             ]);
+    }
+
+    protected function getFormActions(): array
+    {
+        return [
+            Action::make('export')
+                ->label('Export ke Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->outlined()
+                ->url(fn () => $this->getExportUrl())
+                ->openUrlInNewTab(),
+        ];
+    }
+    
+    public function getExportUrl(): string
+    {
+        $filters = Session::get($this->getSessionKey(), $this->getDefaultFilters());
+        $globalService = app(GlobalFilterService::class);
+        
+        // Get date range
+        $datePreset = $filters['date_preset'] ?? 'today';
+        $range = $globalService->getDateRangeForPreset($datePreset);
+        
+        $startDate = $filters['date_start'] ?? $range['start']->toDateString();
+        $endDate = $filters['date_end'] ?? $range['end']->toDateString();
+        
+        // Build export URL with store_id and tenant_id
+        $params = [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+        ];
+        
+        if (!empty($filters['tenant_id'])) {
+            $params['tenant_id'] = $filters['tenant_id'];
+        }
+        
+        if (!empty($filters['store_id'])) {
+            $params['store_id'] = $filters['store_id'];
+        }
+        
+        return route('api.v1.reports.cash-flow.daily.export', $params);
     }
 
     public function updatedData(): void
