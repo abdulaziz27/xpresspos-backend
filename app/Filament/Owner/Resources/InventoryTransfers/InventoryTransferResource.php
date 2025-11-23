@@ -343,12 +343,13 @@ class InventoryTransferResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->with(['fromStore', 'toStore']);
-
         /** @var GlobalFilterService $globalFilter */
         $globalFilter = app(GlobalFilterService::class);
         $tenantId = $globalFilter->getCurrentTenantId();
+
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->with(['fromStore', 'toStore']);
 
         // Only filter by tenant - store filtering is handled by table filters
         // This ensures page independence from dashboard store filter

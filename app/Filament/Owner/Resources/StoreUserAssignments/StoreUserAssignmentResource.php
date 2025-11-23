@@ -68,16 +68,17 @@ class StoreUserAssignmentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
+
         $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
             ->with(['user', 'store'])
             ->select([
                 'id', 'store_id', 'user_id', 'assignment_role', 
                 'is_primary', 'created_at', 'updated_at',
             ]);
-
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $tenantId = $globalFilter->getCurrentTenantId();
 
         // Only filter by tenant - store filtering is handled by table filters
         // This ensures page independence from dashboard store filter

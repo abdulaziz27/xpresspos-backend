@@ -44,7 +44,18 @@ class BestBranchesWidget extends BaseWidget
         try {
             $summary = $this->dashboardFilterSummary();
 
-            // Use subquery to ensure proper date filtering
+            // Use subquery to ensure proper date filtering and tenant filtering
+            // Payment doesn't have tenant_id column, so we filter via store_id which is already filtered by tenant
+            // Use received_amount if > 0, otherwise use amount (for revenue calculation)
+            $paymentStatsSubquery = DB::table('payments')
+                ->select('store_id')
+                ->selectRaw('COALESCE(SUM(CASE WHEN received_amount > 0 THEN received_amount ELSE amount END), 0) as revenue')
+                ->selectRaw('COUNT(id) as transactions')
+                ->where('status', 'completed')
+                ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$dateRange['start'], $dateRange['end']])
+                ->whereIn('store_id', $storeIds) // Already filtered by tenant via dashboardStoreIds()
+                ->groupBy('store_id');
+
             $query = Store::query()
                 ->select([
                     DB::raw('stores.id as id'),
@@ -54,14 +65,7 @@ class BestBranchesWidget extends BaseWidget
                     DB::raw('COALESCE(payment_stats.transactions, 0) as transactions'),
                 ])
                 ->leftJoinSub(
-                    DB::table('payments')
-                        ->select('store_id')
-                        ->selectRaw('SUM(COALESCE(received_amount, amount)) as revenue')
-                        ->selectRaw('COUNT(id) as transactions')
-                        ->where('status', 'completed')
-                        ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$dateRange['start'], $dateRange['end']])
-                        ->whereIn('store_id', $storeIds)
-                        ->groupBy('store_id'),
+                    $paymentStatsSubquery,
                     'payment_stats',
                     'payment_stats.store_id',
                     '=',

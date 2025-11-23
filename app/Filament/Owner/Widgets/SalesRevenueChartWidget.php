@@ -63,7 +63,7 @@ class SalesRevenueChartWidget extends ChartWidget
                     ->whereIn('store_id', $storeIds)
                     ->where('status', 'completed')
                     ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$hourStart, $hourEnd])
-                    ->sum(DB::raw('COALESCE(received_amount, amount)'));
+                    ->sum(DB::raw('CASE WHEN received_amount > 0 THEN received_amount ELSE amount END'));
 
                 $labels[] = str_pad((string) $h, 2, '0', STR_PAD_LEFT) . ':00';
                 $data[] = (float) $sum;
@@ -78,7 +78,7 @@ class SalesRevenueChartWidget extends ChartWidget
                     ->whereIn('store_id', $storeIds)
                     ->where('status', 'completed')
                     ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$dayStart, $dayEnd])
-                    ->sum(DB::raw('COALESCE(received_amount, amount)'));
+                    ->sum(DB::raw('CASE WHEN received_amount > 0 THEN received_amount ELSE amount END'));
 
                 $labels[] = $date->format('d M');
                 $data[] = (float) $sum;

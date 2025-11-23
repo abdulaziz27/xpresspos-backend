@@ -68,7 +68,7 @@ class OwnerStatsWidget extends BaseWidget
         $revenue = (clone $paymentsQuery)
             ->where('status', 'completed')
             ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$dateRange['start'], $dateRange['end']])
-            ->sum(DB::raw('COALESCE(received_amount, amount)'));
+            ->sum(DB::raw('CASE WHEN received_amount > 0 THEN received_amount ELSE amount END'));
 
         $totalProducts = $productsQuery->count();
         $totalMembers = $membersQuery->where('is_active', true)->count();

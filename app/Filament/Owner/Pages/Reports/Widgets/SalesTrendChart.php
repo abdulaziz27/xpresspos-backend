@@ -83,7 +83,7 @@ class SalesTrendChart extends ChartWidget
                 ->whereIn('store_id', $storeIds)
                 ->where('status', 'completed')
                 ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$dayStart, $dayEnd])
-                ->sum('amount');
+                ->sum(DB::raw('CASE WHEN received_amount > 0 THEN received_amount ELSE amount END'));
 
             $labels[] = $date->format('d M');
             $data[] = (float) $sum;
