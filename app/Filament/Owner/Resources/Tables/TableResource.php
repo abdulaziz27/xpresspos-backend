@@ -75,20 +75,17 @@ class TableResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $tenantId = $globalFilter->getCurrentTenantId();
-
         $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes()
             ->with(['store', 'currentOrder']);
 
-        // Only filter by tenant - store filtering is handled by table filters
-        // This ensures page independence from dashboard store filter
-        if ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        }
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
 
-        return $query;
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+                }
+
+                return $query;
     }
 }

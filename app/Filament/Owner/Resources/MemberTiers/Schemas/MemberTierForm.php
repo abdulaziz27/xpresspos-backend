@@ -2,6 +2,7 @@
 
 namespace App\Filament\Owner\Resources\MemberTiers\Schemas;
 
+use App\Services\StoreContext;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -123,15 +124,8 @@ class MemberTierForm
             return [];
         }
 
-        $tenantId = $user->currentTenant()?->id;
-
-        if (! $tenantId) {
-            return [];
-        }
-
-        return \App\Models\Store::where('tenant_id', $tenantId)
-            ->where('status', 'active')
-            ->orderBy('name')
+        return StoreContext::instance()
+            ->accessibleStores($user)
             ->pluck('name', 'id')
             ->toArray();
     }

@@ -87,8 +87,7 @@ class RecipePerformanceWidget extends BaseWidget
                             $monthStart = Carbon::now()->startOfMonth();
                             $monthEnd = Carbon::now()->endOfMonth();
 
-                            $usageQuery = CogsHistory::withoutGlobalScopes()
-                                ->where('product_id', $record->product_id)
+                            $usageQuery = CogsHistory::where('product_id', $record->product_id)
                                 ->whereBetween('created_at', [$monthStart, $monthEnd]);
 
                             if (! empty($storeIds)) {

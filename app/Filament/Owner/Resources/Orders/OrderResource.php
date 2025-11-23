@@ -102,22 +102,20 @@ class OrderResource extends Resource
     }
 
     /**
-     * Apply tenant filter only - store filtering is handled by table filters
+     * Apply Global Filter to Orders query
      * 
-     * This ensures page independence from dashboard filters.
-     * Users can filter by store using the table filter instead.
+     * Unified Multi-Store Dashboard: Filter by tenant + store + date
      */
     public static function getEloquentQuery(): Builder
     {
         $globalFilter = app(GlobalFilterService::class);
-        $tenantId = $globalFilter->getCurrentTenantId();
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
 
-        $query = parent::getEloquentQuery()->withoutGlobalScopes();
+        $query = parent::getEloquentQuery();
 
-        // Only filter by tenant - store filtering is handled by table filters
-        // This ensures page independence from dashboard store filter
-        if ($tenantId) {
-            $query->where('tenant_id', $tenantId);
+        // Apply store filter (multi-store support)
+        if (!empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
         }
 
         return $query;

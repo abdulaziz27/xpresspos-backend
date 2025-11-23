@@ -304,7 +304,9 @@ class PaymentMethodResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        /** @var GlobalFilterService $globalFilter */
+        $query = parent::getEloquentQuery();
+        
+        // Get current tenant ID using GlobalFilterService or fallback to user's current tenant
         $globalFilter = app(GlobalFilterService::class);
         $tenantId = $globalFilter->getCurrentTenantId();
         
@@ -313,15 +315,10 @@ class PaymentMethodResource extends Resource
             $tenantId = auth()->user()?->currentTenant()?->id;
         }
         
-        $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes();
-        
         if (!$tenantId) {
             return $query->whereRaw('1 = 0'); // Return empty query
         }
         
-        // Only filter by tenant - store filtering is handled by table filters
-        // This ensures page independence from dashboard store filter
         // Filter payment methods by users that have access to current tenant
         // Payment methods belong to users, and users belong to tenants via user_tenant_access
         return $query

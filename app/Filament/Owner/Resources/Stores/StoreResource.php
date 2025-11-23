@@ -88,11 +88,9 @@ class StoreResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes();
+        $query = parent::getEloquentQuery();
 
-        // Filter by current tenant - store filtering is handled by table filters
-        // This ensures page independence from dashboard store filter
+        // Filter by current tenant
         $user = auth()->user();
         if ($user) {
             $tenantId = $user->currentTenant()?->id;

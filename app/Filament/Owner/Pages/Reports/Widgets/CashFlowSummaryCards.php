@@ -96,7 +96,7 @@ class CashFlowSummaryCards extends BaseWidget
         // Sumber: expenses table
         // Filter: store_id sesuai filter, expense_date dalam rentang filter
         // Nilai: SUM(expenses.amount)
-        $expenseQuery = Expense::withoutGlobalScopes()
+        $expenseQuery = Expense::query()
             ->whereIn('store_id', $storeIds)
             ->whereBetween('expense_date', [
                 $range['start']->toDateString(), 

@@ -282,18 +282,19 @@ class PromotionResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $tenantId = $globalFilter->getCurrentTenantId();
-
         $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes()
             ->with('store');
 
-        // Only filter by tenant - store filtering is handled by table filters
-        // This ensures page independence from dashboard store filter
-        if ($tenantId) {
-            $query->where('tenant_id', $tenantId);
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+
+        if (! empty($storeIds)) {
+            $query->where(function (Builder $query) use ($storeIds) {
+                $query
+                    ->whereNull('store_id')
+                    ->orWhereIn('store_id', $storeIds);
+            });
         }
 
         return $query;

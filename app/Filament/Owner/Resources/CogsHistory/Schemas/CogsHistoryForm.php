@@ -141,11 +141,14 @@ class CogsHistoryForm
             return [];
         }
 
-        // Query all orders for tenant - no store filtering in form
-        // Store filtering is handled by table filters when viewing the resource
         $query = Order::query()
             ->where('tenant_id', $tenantId)
             ->where('status', 'completed');
+
+        $storeIds = static::currentStoreIds();
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
 
         return $query
             ->latest('created_at')
