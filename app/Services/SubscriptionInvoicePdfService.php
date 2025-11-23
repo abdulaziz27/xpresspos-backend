@@ -16,76 +16,20 @@ class SubscriptionInvoicePdfService
     public function generateInvoicePdf(SubscriptionPayment $subscriptionPayment): ?string
     {
         try {
-            // Reload to ensure we have latest data
-            $subscriptionPayment->refresh();
-            
-            // Get or create invoice (will return null if subscription_id is missing and can't create)
+            // Get or create invoice
             $invoice = $this->getOrCreateInvoice($subscriptionPayment);
-            
-            // If invoice creation failed, create a temporary invoice object for PDF generation
-            if (!$invoice) {
-                \Log::warning('Could not create invoice in database, creating temporary invoice for PDF', [
-                    'subscription_payment_id' => $subscriptionPayment->id,
-                    'subscription_id' => $subscriptionPayment->subscription_id,
-                ]);
-                
-                // Create temporary invoice object (not saved to database)
-                $invoice = new Invoice();
-                $invoice->id = \Illuminate\Support\Str::uuid();
-                $invoice->subscription_id = $subscriptionPayment->subscription_id;
-                $invoice->invoice_number = $this->generateInvoiceNumber();
-                $invoice->amount = (float) $subscriptionPayment->amount;
-                $invoice->tax_amount = 0;
-                $invoice->total_amount = (float) $subscriptionPayment->amount;
-                $invoice->status = $subscriptionPayment->isPaid() ? 'paid' : 'pending';
-                $invoice->due_date = $subscriptionPayment->expires_at 
-                    ? $subscriptionPayment->expires_at->toDateString() 
-                    : now()->addDays(7)->toDateString();
-                $invoice->paid_at = $subscriptionPayment->paid_at;
-                $invoice->line_items = [
-                    [
-                        'description' => $this->getPlanName($subscriptionPayment),
-                        'quantity' => 1,
-                        'unit_price' => (float) $subscriptionPayment->amount,
-                        'total' => (float) $subscriptionPayment->amount,
-                    ],
-                ];
-                $invoice->metadata = [
-                    'subscription_payment_id' => $subscriptionPayment->id,
-                    'xendit_invoice_id' => $subscriptionPayment->xendit_invoice_id,
-                    'payment_method' => $subscriptionPayment->payment_method,
-                    'landing_subscription_id' => $subscriptionPayment->landing_subscription_id,
-                ];
-                $invoice->created_at = now();
-                $invoice->updated_at = now();
-            }
             
             // Generate PDF content
             $pdfContent = $this->generatePdfContent($subscriptionPayment, $invoice);
             
-            if (empty($pdfContent)) {
-                \Log::error('Failed to generate PDF content', [
-                    'subscription_payment_id' => $subscriptionPayment->id,
-                ]);
-                return null;
-            }
-            
             // Save PDF to storage
             $pdfPath = $this->savePdfToStorage($subscriptionPayment, $pdfContent);
-            
-            if (!$pdfPath) {
-                \Log::error('Failed to save PDF to storage', [
-                    'subscription_payment_id' => $subscriptionPayment->id,
-                ]);
-                return null;
-            }
             
             return $pdfPath;
         } catch (\Exception $e) {
             \Log::error('Failed to generate subscription invoice PDF', [
                 'subscription_payment_id' => $subscriptionPayment->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
             ]);
             
             return null;
@@ -95,188 +39,81 @@ class SubscriptionInvoicePdfService
     /**
      * Get existing invoice or create new one for subscription payment.
      */
-    private function getOrCreateInvoice(SubscriptionPayment $subscriptionPayment): ?Invoice
+    private function getOrCreateInvoice(SubscriptionPayment $subscriptionPayment): Invoice
     {
-        try {
-            // Reload to ensure we have latest data
-            $subscriptionPayment->refresh();
-            
-            if ($subscriptionPayment->invoice) {
-                return $subscriptionPayment->invoice;
-            }
-
-            // Get subscription_id (could be null for landing subscriptions)
-            $subscriptionId = $subscriptionPayment->subscription_id;
-            
-            // Check if subscription_id is required by database constraint
-            // If subscription_id is null and required, we'll return null and create temp invoice in generateInvoicePdf
-            if (!$subscriptionId) {
-                \Log::info('Subscription payment has no subscription_id, will create temporary invoice', [
-                    'subscription_payment_id' => $subscriptionPayment->id,
-                    'landing_subscription_id' => $subscriptionPayment->landing_subscription_id,
-                ]);
-                return null; // Will be handled in generateInvoicePdf
-            }
-
-            // Create new invoice
-            $invoiceData = [
-                'subscription_id' => $subscriptionId,
-                'invoice_number' => $this->generateInvoiceNumber(),
-                'amount' => (float) $subscriptionPayment->amount,
-                'tax_amount' => 0,
-                'total_amount' => (float) $subscriptionPayment->amount,
-                'status' => $subscriptionPayment->isPaid() ? 'paid' : 'pending',
-                'due_date' => $subscriptionPayment->expires_at 
-                    ? $subscriptionPayment->expires_at->toDateString() 
-                    : now()->addDays(7)->toDateString(),
-                'paid_at' => $subscriptionPayment->paid_at,
-                'line_items' => [
-                    [
-                        'description' => $this->getPlanName($subscriptionPayment),
-                        'quantity' => 1,
-                        'unit_price' => (float) $subscriptionPayment->amount,
-                        'total' => (float) $subscriptionPayment->amount,
-                    ],
-                ],
-                'metadata' => [
-                    'subscription_payment_id' => $subscriptionPayment->id,
-                    'xendit_invoice_id' => $subscriptionPayment->xendit_invoice_id,
-                    'payment_method' => $subscriptionPayment->payment_method,
-                    'landing_subscription_id' => $subscriptionPayment->landing_subscription_id,
-                ],
-            ];
-
-            $invoice = Invoice::create($invoiceData);
-
-            if (!$invoice) {
-                \Log::error('Failed to create invoice', [
-                    'subscription_payment_id' => $subscriptionPayment->id,
-                    'invoice_data' => $invoiceData,
-                ]);
-                return null;
-            }
-
-            // Link invoice to subscription payment
-            try {
-                $subscriptionPayment->update(['invoice_id' => $invoice->id]);
-            } catch (\Exception $e) {
-                \Log::warning('Failed to link invoice to subscription payment', [
-                    'subscription_payment_id' => $subscriptionPayment->id,
-                    'invoice_id' => $invoice->id,
-                    'error' => $e->getMessage(),
-                ]);
-                // Continue anyway, invoice is created
-            }
-
-            return $invoice;
-        } catch (\Exception $e) {
-            \Log::error('Failed to get or create invoice', [
-                'subscription_payment_id' => $subscriptionPayment->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            
-            return null;
+        if ($subscriptionPayment->invoice) {
+            return $subscriptionPayment->invoice;
         }
+
+        // Create new invoice
+        $invoice = Invoice::create([
+            'subscription_id' => $subscriptionPayment->subscription_id,
+            'invoice_number' => $this->generateInvoiceNumber(),
+            'amount' => $subscriptionPayment->amount,
+            'tax_amount' => 0, // Configure as needed
+            'total_amount' => $subscriptionPayment->amount,
+            'currency' => 'IDR',
+            'status' => $subscriptionPayment->isPaid() ? 'paid' : 'pending',
+            'issued_at' => now(),
+            'due_at' => $subscriptionPayment->expires_at ?? now()->addDays(7),
+            'paid_at' => $subscriptionPayment->paid_at,
+            'metadata' => [
+                'subscription_payment_id' => $subscriptionPayment->id,
+                'xendit_invoice_id' => $subscriptionPayment->xendit_invoice_id,
+                'payment_method' => $subscriptionPayment->payment_method,
+            ],
+        ]);
+
+        // Link invoice to subscription payment
+        $subscriptionPayment->update(['invoice_id' => $invoice->id]);
+
+        return $invoice;
     }
 
     /**
      * Generate PDF content using view template.
      */
-    private function generatePdfContent(SubscriptionPayment $subscriptionPayment, Invoice $invoice): ?string
+    private function generatePdfContent(SubscriptionPayment $subscriptionPayment, Invoice $invoice): string
     {
-        try {
-            $data = [
-                'subscriptionPayment' => $subscriptionPayment,
-                'invoice' => $invoice,
-                'customerName' => $this->getCustomerName($subscriptionPayment),
-                'customerEmail' => $this->getCustomerEmail($subscriptionPayment),
-                'customerAddress' => $this->getCustomerAddress($subscriptionPayment),
-                'planName' => $this->getPlanName($subscriptionPayment),
-                'companyInfo' => $this->getCompanyInfo(),
-                'generatedAt' => now(),
-            ];
+        $data = [
+            'subscriptionPayment' => $subscriptionPayment,
+            'invoice' => $invoice,
+            'customerName' => $this->getCustomerName($subscriptionPayment),
+            'customerEmail' => $this->getCustomerEmail($subscriptionPayment),
+            'customerAddress' => $this->getCustomerAddress($subscriptionPayment),
+            'planName' => $this->getPlanName($subscriptionPayment),
+            'companyInfo' => $this->getCompanyInfo(),
+            'generatedAt' => now(),
+        ];
 
-            // Check if view exists
-            if (!View::exists('invoices.subscription-payment')) {
-                \Log::error('Invoice view template not found', [
-                    'view' => 'invoices.subscription-payment',
-                ]);
-                return null;
-            }
-
-            $html = View::make('invoices.subscription-payment', $data)->render();
-            
-            if (empty($html)) {
-                \Log::error('Generated HTML is empty', [
-                    'subscription_payment_id' => $subscriptionPayment->id,
-                ]);
-                return null;
-            }
-            
-            $pdf = Pdf::loadHTML($html)
-                ->setPaper('a4', 'portrait')
-                ->setOptions([
-                    'defaultFont' => 'sans-serif',
-                    'isRemoteEnabled' => true,
-                    'isHtml5ParserEnabled' => true,
-                ]);
-
-            $output = $pdf->output();
-            
-            if (empty($output)) {
-                \Log::error('PDF output is empty', [
-                    'subscription_payment_id' => $subscriptionPayment->id,
-                ]);
-                return null;
-            }
-
-            return $output;
-        } catch (\Exception $e) {
-            \Log::error('Failed to generate PDF content', [
-                'subscription_payment_id' => $subscriptionPayment->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+        $html = View::make('invoices.subscription-payment', $data)->render();
+        
+        $pdf = Pdf::loadHTML($html)
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'sans-serif',
+                'isRemoteEnabled' => true,
+                'isHtml5ParserEnabled' => true,
             ]);
-            
-            return null;
-        }
+
+        return $pdf->output();
     }
 
     /**
      * Save PDF content to storage and return path.
      */
-    private function savePdfToStorage(SubscriptionPayment $subscriptionPayment, string $pdfContent): ?string
+    private function savePdfToStorage(SubscriptionPayment $subscriptionPayment, string $pdfContent): string
     {
-        try {
-            $directory = sprintf(
-                'subscription-invoices/%s',
-                $subscriptionPayment->created_at->format('Y/m')
-            );
-            
-            // Ensure directory exists
-            if (!Storage::exists($directory)) {
-                Storage::makeDirectory($directory);
-            }
-            
-            $fileName = sprintf(
-                '%s/invoice_%s_%s.pdf',
-                $directory,
-                $subscriptionPayment->id,
-                now()->format('YmdHis')
-            );
+        $fileName = sprintf(
+            'subscription-invoices/%s/invoice_%s_%s.pdf',
+            $subscriptionPayment->created_at->format('Y/m'),
+            $subscriptionPayment->id,
+            now()->format('YmdHis')
+        );
 
-            Storage::put($fileName, $pdfContent);
+        Storage::put($fileName, $pdfContent);
 
-            return $fileName;
-        } catch (\Exception $e) {
-            \Log::error('Failed to save PDF to storage', [
-                'subscription_payment_id' => $subscriptionPayment->id,
-                'error' => $e->getMessage(),
-            ]);
-            
-            return null;
-        }
+        return $fileName;
     }
 
     /**
@@ -284,33 +121,11 @@ class SubscriptionInvoicePdfService
      */
     private function generateInvoiceNumber(): string
     {
-        try {
-            $prefix = 'INV-SUB';
-            $date = now()->format('Ymd');
-            
-            // Get count of invoices created today
-            $count = Invoice::whereDate('created_at', today())->count();
-            $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-            
-            $invoiceNumber = "{$prefix}-{$date}-{$sequence}";
-            
-            // Ensure uniqueness
-            $attempts = 0;
-            while (Invoice::where('invoice_number', $invoiceNumber)->exists() && $attempts < 10) {
-                $count++;
-                $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-                $invoiceNumber = "{$prefix}-{$date}-{$sequence}";
-                $attempts++;
-            }
-            
-            return $invoiceNumber;
-        } catch (\Exception $e) {
-            \Log::error('Failed to generate invoice number', [
-                'error' => $e->getMessage(),
-            ]);
-            // Fallback to timestamp-based number
-            return 'INV-SUB-' . now()->format('Ymd') . '-' . now()->format('His');
-        }
+        $prefix = 'INV-SUB';
+        $date = now()->format('Ymd');
+        $sequence = str_pad(Invoice::whereDate('created_at', today())->count() + 1, 4, '0', STR_PAD_LEFT);
+        
+        return "{$prefix}-{$date}-{$sequence}";
     }
 
     /**
@@ -414,7 +229,16 @@ class SubscriptionInvoicePdfService
      */
     public function pdfExists(SubscriptionPayment $subscriptionPayment): bool
     {
-        return $this->getExistingPdfPath($subscriptionPayment) !== null;
+        $pattern = "subscription-invoices/{$subscriptionPayment->created_at->format('Y/m')}/invoice_{$subscriptionPayment->id}_*.pdf";
+        $files = Storage::files(dirname($pattern));
+        
+        foreach ($files as $file) {
+            if (str_contains($file, "invoice_{$subscriptionPayment->id}_")) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -422,17 +246,9 @@ class SubscriptionInvoicePdfService
      */
     public function getExistingPdfPath(SubscriptionPayment $subscriptionPayment): ?string
     {
-        $directory = "subscription-invoices/{$subscriptionPayment->created_at->format('Y/m')}";
+        $pattern = "subscription-invoices/{$subscriptionPayment->created_at->format('Y/m')}/invoice_{$subscriptionPayment->id}_*.pdf";
+        $files = Storage::files(dirname($pattern));
         
-        // Check if directory exists
-        if (!Storage::exists($directory)) {
-            return null;
-        }
-        
-        // Get all files in directory
-        $files = Storage::files($directory);
-        
-        // Find file that matches the pattern
         foreach ($files as $file) {
             if (str_contains($file, "invoice_{$subscriptionPayment->id}_")) {
                 return $file;
