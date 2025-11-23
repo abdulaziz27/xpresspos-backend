@@ -384,6 +384,7 @@ Route::prefix('v1')
         // Cash Flow Reports (alternative routes)
         Route::prefix('reports/cash-flow')->group(function (): void {
             Route::get('daily', [CashFlowReportController::class, 'dailyCashFlow'])->name('api.v1.reports.cash-flow.daily');
+            Route::get('daily/export', [CashFlowReportController::class, 'exportDailyCashFlow'])->name('api.v1.reports.cash-flow.daily.export');
             Route::get('payment-methods', [CashFlowReportController::class, 'paymentMethodBreakdown'])->name('api.v1.reports.cash-flow.payment-methods');
             Route::get('variance-analysis', [CashFlowReportController::class, 'cashVarianceAnalysis'])->name('api.v1.reports.cash-flow.variance-analysis');
             Route::get('shift-summary', [CashFlowReportController::class, 'shiftSummary'])->name('api.v1.reports.cash-flow.shift-summary');
@@ -402,6 +403,7 @@ Route::prefix('v1')
         Route::prefix('reports')->group(function (): void {
             Route::get('dashboard', [ReportController::class, 'dashboard'])->name('api.v1.reports.dashboard');
             Route::get('sales', [ReportController::class, 'sales'])->name('api.v1.reports.sales');
+            Route::get('sales/export', [ReportController::class, 'exportSales'])->name('api.v1.reports.sales.export');
             Route::get('sales-recap', [ReportController::class, 'salesRecap'])->name('api.v1.reports.sales-recap');
             Route::get('best-sellers', [ReportController::class, 'bestSellers'])->name('api.v1.reports.best-sellers');
             Route::get('sales-summary', [ReportController::class, 'salesSummary'])->name('api.v1.reports.sales-summary');
