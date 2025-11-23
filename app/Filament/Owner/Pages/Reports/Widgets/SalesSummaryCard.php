@@ -65,7 +65,7 @@ class SalesSummaryCard extends Widget
         }
 
         // Build base orders query
-        $ordersQuery = Order::query()
+        $ordersQuery = Order::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->whereIn('store_id', $storeIds)
             ->where('status', 'completed');
@@ -87,7 +87,8 @@ class SalesSummaryCard extends Widget
         // b) Diskon Nota
         $orderDiscounts = OrderDiscount::query()
             ->whereHas('order', function ($q) use ($tenantId, $storeIds, $range) {
-                $q->where('tenant_id', $tenantId)
+                $q->withoutGlobalScopes()
+                  ->where('tenant_id', $tenantId)
                   ->whereIn('store_id', $storeIds)
                   ->where('status', 'completed');
                 
@@ -104,12 +105,14 @@ class SalesSummaryCard extends Widget
             ->sum('discount_amount');
 
         // c) Diskon Menu
-        $itemDiscounts = OrderItemDiscount::query()
+        $itemDiscounts = OrderItemDiscount::withoutGlobalScopes()
             ->join('order_items', 'order_item_discounts.order_item_id', '=', 'order_items.id')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->where('orders.tenant_id', $tenantId)
             ->whereIn('orders.store_id', $storeIds)
             ->where('orders.status', 'completed')
+            // Note: Using join, we filter explicitly by tenant_id and store_id
+            // OrderItemDiscount doesn't have global scopes, but added withoutGlobalScopes() for consistency
             ->when($range['start'] && $range['end'], function ($q) use ($range) {
                 $q->where(function ($q2) use ($range) {
                     $q2->whereBetween('orders.completed_at', [$range['start'], $range['end']])

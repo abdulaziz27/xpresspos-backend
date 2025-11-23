@@ -59,10 +59,16 @@ class SalesReportStatsWidget extends BaseWidget
             ];
         }
 
-        $ordersQuery = Order::query()
+        $ordersQuery = Order::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
-            ->whereBetween('created_at', [$range['start'], $range['end']])
-            ->where('status', 'completed');
+            ->where('status', 'completed')
+            ->where(function ($q) use ($range) {
+                $q->whereBetween('completed_at', [$range['start'], $range['end']])
+                  ->orWhere(function ($q2) use ($range) {
+                      $q2->whereNull('completed_at')
+                         ->whereBetween('created_at', [$range['start'], $range['end']]);
+                  });
+            });
 
         if (!empty($storeIds)) {
             $ordersQuery->whereIn('store_id', $storeIds);

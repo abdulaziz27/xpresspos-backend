@@ -58,7 +58,7 @@ class CashReceiptsTable extends BaseWidget
 
         $query = Payment::withoutGlobalScopes()
             ->select('payments.*')
-            ->selectRaw('COALESCE(payments.received_amount, payments.amount) as effective_amount')
+            ->selectRaw('CASE WHEN payments.received_amount > 0 THEN payments.received_amount ELSE payments.amount END as effective_amount')
             ->with([
                 'order' => function ($query) {
                     $query->withoutGlobalScopes();
@@ -131,12 +131,16 @@ class CashReceiptsTable extends BaseWidget
                     ->label('Amount')
                     ->getStateUsing(function ($record) {
                         // Get effective_amount from selectRaw, or calculate from received_amount/amount
-                        return $record->effective_amount ?? ($record->received_amount ?? $record->amount);
+                        if (isset($record->effective_amount)) {
+                            return $record->effective_amount;
+                        }
+                        // Fallback: use received_amount if > 0, otherwise use amount
+                        return ($record->received_amount > 0) ? $record->received_amount : $record->amount;
                     })
                     ->numeric()
                     ->formatStateUsing(fn ($state) => Currency::rupiah((float) $state))
                     ->sortable(query: function ($query, string $direction) {
-                        return $query->orderByRaw("COALESCE(payments.received_amount, payments.amount) {$direction}");
+                        return $query->orderByRaw("CASE WHEN payments.received_amount > 0 THEN payments.received_amount ELSE payments.amount END {$direction}");
                     })
                     ->alignEnd()
                     ->weight('medium'),
