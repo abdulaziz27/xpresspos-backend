@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Store;
 use App\Models\Member;
 use App\Models\Customer;
-use Illuminate\Support\Facades\Auth;
 
 class CustomerResolutionService
 {
@@ -115,36 +114,17 @@ class CustomerResolutionService
     {
         $defaultName = $customerSettings['default_customer_name'] ?? 'Customer';
         
-        // Get tenant_id from store
-        $tenantId = $store->tenant_id;
-        
-        if (!$tenantId) {
-            // Fallback: try to get from authenticated user
-            /** @var \App\Models\User|null $user */
-            $user = Auth::user();
-            if ($user) {
-                $tenantId = $user->currentTenantId();
-            }
-        }
-        
-        if (!$tenantId) {
-            throw new \RuntimeException('Cannot resolve default customer: tenant_id is missing');
-        }
-        
-        // Find or create default customer using tenant_id and member_number (matching unique constraint)
-        // Use withoutGlobalScope to bypass TenantScope during creation
-        $defaultCustomer = Member::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
-            ->firstOrCreate([
-                'tenant_id' => $tenantId,
-                'member_number' => 'DEFAULT',
-            ], [
-                'store_id' => $store->id,
-                'name' => $defaultName,
-                'is_active' => true,
-                'loyalty_points' => 0,
-                'total_spent' => 0,
-                'visit_count' => 0,
-            ]);
+        // Find or create default customer
+        $defaultCustomer = Member::firstOrCreate([
+            'store_id' => $store->id,
+            'member_number' => 'DEFAULT',
+            'name' => $defaultName,
+        ], [
+            'is_active' => true,
+            'loyalty_points' => 0,
+            'total_spent' => 0,
+            'visit_count' => 0,
+        ]);
         
         return [
             'customer_id' => $defaultCustomer->id,
