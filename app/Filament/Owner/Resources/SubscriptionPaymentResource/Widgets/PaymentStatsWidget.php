@@ -28,11 +28,12 @@ class PaymentStatsWidget extends BaseWidget
         $tenant = $store->tenant;
         $tenantId = $tenant->id;
 
-        $baseQuery = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        });
+        $baseQuery = SubscriptionPayment::withoutGlobalScopes()
+            ->whereHas('subscription', function (Builder $query) use ($tenantId) {
+                $query->where('tenant_id', $tenantId);
+            })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
+                $query->where('tenant_id', $tenantId);
+            });
 
         $totalPaid = (int) $baseQuery->clone()->where('status', 'paid')->sum('amount');
         $thisMonthPaid = (int) $baseQuery->clone()

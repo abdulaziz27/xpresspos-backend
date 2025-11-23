@@ -35,7 +35,7 @@ class CogsHistoryForm
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, callable $set) {
                                         if ($state) {
-                                            $product = Product::find($state);
+                                            $product = Product::withoutGlobalScopes()->find($state);
                                             if ($product && $product->cost_price) {
                                                 $set('unit_cost', $product->cost_price);
                                             }

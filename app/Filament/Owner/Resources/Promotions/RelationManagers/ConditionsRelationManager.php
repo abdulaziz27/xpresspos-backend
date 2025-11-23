@@ -346,7 +346,9 @@ class ConditionsRelationManager extends RelationManager
         }
         $count = count($productIds);
         if ($count <= 3) {
-            $products = Product::whereIn('id', $productIds)->pluck('name');
+            $products = Product::withoutGlobalScopes()
+                ->whereIn('id', $productIds)
+                ->pluck('name');
             if ($products->isEmpty()) {
                 return '<span class="text-warning-500 text-xs">⚠ Produk tidak ditemukan</span>';
             }
