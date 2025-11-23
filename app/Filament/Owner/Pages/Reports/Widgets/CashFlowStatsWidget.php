@@ -68,7 +68,8 @@ class CashFlowStatsWidget extends BaseWidget
         // Cash Out: Sum of refunds for cash payments (processed/completed)
         $cashOutQuery = Refund::withoutGlobalScopes()
             ->whereHas('payment', function ($query) {
-                $query->where('payment_method', PaymentMethodEnum::CASH->value);
+                $query->withoutGlobalScopes()
+                    ->where('payment_method', PaymentMethodEnum::CASH->value);
             })
             ->whereIn('status', ['processed', 'completed'])
             ->whereBetween(DB::raw('COALESCE(processed_at, created_at)'), [$range['start'], $range['end']]);
