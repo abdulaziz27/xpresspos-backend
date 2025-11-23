@@ -76,58 +76,168 @@ class PaymentController extends Controller
     public function store(ProcessPaymentRequest $request): JsonResponse
     {
         try {
-            // Load order with items and store (needed for calculation)
-            // Use withoutGlobalScope temporarily to check if order exists, then verify access
             $orderId = $request->input('order_id');
-            $user = auth()->user();
-            $storeContext = \App\Services\StoreContext::instance();
-            $currentStoreId = $storeContext->current($user);
+            // Get user from request (should be set by middleware)
+            $user = $request->user() ?? auth()->user();
             
-            // First, try to find order with global scope (respects store context)
-            $order = Order::with(['items', 'store'])->find($orderId);
-            
-            // If not found with scope, check if order exists at all (for better error message)
-            if (!$order) {
-                $orderExists = Order::withoutGlobalScope(\App\Models\Scopes\StoreScope::class)
-                    ->where('id', $orderId)
-                    ->exists();
-                
-                if ($orderExists) {
-                    Log::warning('Order found but not accessible due to store scope', [
-                        'order_id' => $orderId,
-                        'user_id' => $user?->id,
-                        'current_store_id' => $currentStoreId,
-                        'order_store_id' => Order::withoutGlobalScope(\App\Models\Scopes\StoreScope::class)
-                            ->where('id', $orderId)
-                            ->value('store_id'),
-                    ]);
-                    
-                    return response()->json([
-                        'success' => false,
-                        'error' => [
-                            'code' => 'ORDER_ACCESS_DENIED',
-                            'message' => 'Order not found or you do not have access to this order.',
-                            'details' => 'The order may belong to a different store. Please check your store context.',
-                        ],
-                        'meta' => [
-                            'timestamp' => now()->toISOString(),
-                            'version' => 'v1'
-                        ]
-                    ], 403);
-                }
-                
-                // Order doesn't exist at all
+            if (!$user) {
+                Log::warning('Payment creation attempted without authentication', [
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'has_token' => $request->bearerToken() !== null,
+                ]);
                 return response()->json([
                     'success' => false,
                     'error' => [
-                        'code' => 'ORDER_NOT_FOUND',
-                        'message' => 'Order not found.',
+                        'code' => 'UNAUTHENTICATED',
+                        'message' => 'User not authenticated. Please provide a valid authentication token.',
                     ],
                     'meta' => [
                         'timestamp' => now()->toISOString(),
                         'version' => 'v1'
                     ]
-                ], 404);
+                ], 401);
+            }
+            
+            $storeContext = \App\Services\StoreContext::instance();
+            $currentStoreId = $storeContext->current($user);
+            $userStores = $user->stores()->pluck('stores.id')->toArray();
+            
+            // Check if user is owner
+            $hasOwnerRole = $user->hasRole('owner');
+            $hasOwnerAssignment = $user->storeAssignments()
+                ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+                ->exists();
+            $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+            
+            // Find order - for owner, bypass StoreScope; for others, use normal scope
+            if ($isOwner && !empty($userStores)) {
+                // Owner: query without StoreScope, then verify access
+                $order = Order::withoutGlobalScopes()
+                    ->where('id', $orderId)
+                    ->whereIn('store_id', $userStores)
+                    ->with(['items', 'store'])
+                    ->first();
+                
+                // Also filter by tenant_id for security
+                if ($order) {
+                    $tenantId = $user->currentTenantId();
+                    if ($tenantId && $order->tenant_id !== $tenantId) {
+                        $order = null;
+                    }
+                }
+            } else {
+                // Non-owner: use normal StoreScope
+                // But first, ensure StoreContext is set correctly
+                if (!$currentStoreId || !in_array($currentStoreId, $userStores)) {
+                    $primaryStore = $user->primaryStore();
+                    if ($primaryStore) {
+                        $storeContext->setForUser($user, $primaryStore->id);
+                        $currentStoreId = $primaryStore->id;
+                    } elseif (!empty($userStores)) {
+                        $storeContext->setForUser($user, $userStores[0]);
+                        $currentStoreId = $userStores[0];
+                    }
+                }
+                
+                $order = Order::with(['items', 'store'])->find($orderId);
+            }
+            
+            // If order not found, provide helpful error message
+            if (!$order) {
+                // Check if order exists at all (for better error message)
+                $orderExists = Order::withoutGlobalScopes()
+                    ->where('id', $orderId)
+                    ->first();
+                
+                if ($orderExists) {
+                    $orderStoreId = $orderExists->store_id;
+                    $hasAccess = in_array($orderStoreId, $userStores);
+                    
+                    Log::warning('Order found but not accessible', [
+                        'order_id' => $orderId,
+                        'user_id' => $user->id,
+                        'is_owner' => $isOwner,
+                        'current_store_id' => $currentStoreId,
+                        'order_store_id' => $orderStoreId,
+                        'user_stores' => $userStores,
+                        'has_access' => $hasAccess,
+                    ]);
+                    
+                    if (!$hasAccess) {
+                        return response()->json([
+                            'success' => false,
+                            'error' => [
+                                'code' => 'ORDER_ACCESS_DENIED',
+                                'message' => 'Order not found or you do not have access to this order.',
+                                'details' => 'The order belongs to a different store. Please check your store context.',
+                            ],
+                            'meta' => [
+                                'timestamp' => now()->toISOString(),
+                                'version' => 'v1'
+                            ]
+                        ], 403);
+                    }
+                    
+                    // Order exists and user has access, but StoreContext might be wrong
+                    // Set StoreContext to order's store and retry
+                    $storeContext->setForUser($user, $orderStoreId);
+                    $order = Order::with(['items', 'store'])->find($orderId);
+                    
+                    if (!$order) {
+                        return response()->json([
+                            'success' => false,
+                            'error' => [
+                                'code' => 'ORDER_ACCESS_DENIED',
+                                'message' => 'Order not found or you do not have access to this order.',
+                                'details' => 'Unable to access order. Please try again.',
+                            ],
+                            'meta' => [
+                                'timestamp' => now()->toISOString(),
+                                'version' => 'v1'
+                            ]
+                        ], 403);
+                    }
+                } else {
+                    // Order doesn't exist at all
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'ORDER_NOT_FOUND',
+                            'message' => 'Order not found.',
+                        ],
+                        'meta' => [
+                            'timestamp' => now()->toISOString(),
+                            'version' => 'v1'
+                        ]
+                    ], 404);
+                }
+            }
+            
+            // Verify user has access to this order's store
+            if (!in_array($order->store_id, $userStores)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'ORDER_ACCESS_DENIED',
+                        'message' => 'Order not found or you do not have access to this order.',
+                        'details' => 'The order belongs to a different store.',
+                    ],
+                    'meta' => [
+                        'timestamp' => now()->toISOString(),
+                        'version' => 'v1'
+                    ]
+                ], 403);
+            }
+            
+            // Set StoreContext to order's store to ensure consistency
+            if ($storeContext->current($user) !== $order->store_id) {
+                $storeContext->setForUser($user, $order->store_id);
+                Log::info('StoreContext set to order store for payment', [
+                    'user_id' => $user->id,
+                    'order_id' => $order->id,
+                    'store_id' => $order->store_id,
+                ]);
             }
             
             $this->authorize('update', $order);
@@ -199,7 +309,7 @@ class PaymentController extends Controller
             Log::info('Creating pending payment for open bill', [
                 'order_id' => $order->id,
                 'amount' => $request->input('amount'),
-                'user_id' => auth()->id()
+                'user_id' => $user->id
             ]);
         }
 
@@ -292,12 +402,13 @@ class PaymentController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            $userId = $user->id ?? (auth()->check() ? auth()->id() : null);
             Log::error('Payment processing failed', [
                 'order_id' => $order->id,
                 'payment_method' => $request->input('payment_method'),
                 'amount' => $request->input('amount'),
                 'error' => $e->getMessage(),
-                'user_id' => auth()->id()
+                'user_id' => $userId
             ]);
 
             return response()->json([
@@ -320,7 +431,54 @@ class PaymentController extends Controller
      */
     public function show(string $id): JsonResponse
     {
-        $payment = Payment::with(['order', 'refunds'])->findOrFail($id);
+        $user = request()->user() ?? auth()->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated. Please provide a valid authentication token.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 401);
+        }
+        
+        $userStores = $user->stores()->pluck('stores.id')->toArray();
+        $hasOwnerRole = $user->hasRole('owner');
+        $hasOwnerAssignment = $user->storeAssignments()
+            ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+            ->exists();
+        $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+        
+        // Find payment - for owner, bypass StoreScope; for others, use normal scope
+        if ($isOwner && !empty($userStores)) {
+            $payment = Payment::withoutGlobalScopes()
+                ->where('id', $id)
+                ->whereIn('store_id', $userStores)
+                ->with(['order', 'refunds'])
+                ->first();
+        } else {
+            $payment = Payment::with(['order', 'refunds'])->find($id);
+        }
+        
+        if (!$payment || !in_array($payment->store_id, $userStores)) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'PAYMENT_NOT_FOUND',
+                    'message' => 'Payment not found.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('view', $payment);
 
         $payment->load(['order', 'refunds']);
@@ -394,7 +552,55 @@ class PaymentController extends Controller
      */
     public function receipt(Request $request): JsonResponse
     {
-        $order = Order::findOrFail($request->input('order_id'));
+        $orderId = $request->input('order_id');
+        // Get user from request (should be set by middleware)
+        $user = $request->user() ?? auth()->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated. Please provide a valid authentication token.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 401);
+        }
+        
+        // Find order with proper store context handling
+        $userStores = $user->stores()->pluck('stores.id')->toArray();
+        $hasOwnerRole = $user->hasRole('owner');
+        $hasOwnerAssignment = $user->storeAssignments()
+            ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+            ->exists();
+        $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+        
+        if ($isOwner && !empty($userStores)) {
+            $order = Order::withoutGlobalScopes()
+                ->where('id', $orderId)
+                ->whereIn('store_id', $userStores)
+                ->first();
+        } else {
+            $order = Order::find($orderId);
+        }
+        
+        if (!$order || !in_array($order->store_id, $userStores)) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('view', $order);
 
         if ($order->status !== 'completed') {
@@ -557,7 +763,55 @@ class PaymentController extends Controller
             'notes' => 'nullable|string|max:500',
         ]);
 
-        $order = Order::findOrFail($request->input('order_id'));
+        $orderId = $request->input('order_id');
+        // Get user from request (should be set by middleware)
+        $user = $request->user() ?? auth()->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated. Please provide a valid authentication token.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 401);
+        }
+        
+        // Find order with proper store context handling
+        $userStores = $user->stores()->pluck('stores.id')->toArray();
+        $hasOwnerRole = $user->hasRole('owner');
+        $hasOwnerAssignment = $user->storeAssignments()
+            ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+            ->exists();
+        $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+        
+        if ($isOwner && !empty($userStores)) {
+            $order = Order::withoutGlobalScopes()
+                ->where('id', $orderId)
+                ->whereIn('store_id', $userStores)
+                ->first();
+        } else {
+            $order = Order::find($orderId);
+        }
+        
+        if (!$order || !in_array($order->store_id, $userStores)) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('update', $order);
 
         // Find pending payment (only one should exist per order)
@@ -587,7 +841,7 @@ class PaymentController extends Controller
                 'order_id' => $order->id,
                 'payment_id' => $pendingPayment->id,
                 'payment_method' => $request->input('payment_method'),
-                'user_id' => auth()->id()
+                'user_id' => $user->id
             ]);
 
             // Update pending payment with actual payment method and details
@@ -615,7 +869,7 @@ class PaymentController extends Controller
             Log::info('Open bill payment completed successfully', [
                 'payment_id' => $pendingPayment->id,
                 'order_status' => $order->status,
-                'user_id' => auth()->id()
+                'user_id' => $user->id
             ]);
 
             return response()->json([
@@ -644,7 +898,7 @@ class PaymentController extends Controller
                 'amount' => $request->input('amount'),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'user_id' => auth()->id()
+                'user_id' => $user->id ?? null
             ]);
 
             return response()->json([
@@ -684,7 +938,151 @@ class PaymentController extends Controller
             ], 401);
         }
         
-        $payment = Payment::findOrFail($id);
+        $storeContext = \App\Services\StoreContext::instance();
+        $userStores = $user->stores()->pluck('stores.id')->toArray();
+        
+        // Check if user is owner
+        $hasOwnerRole = $user->hasRole('owner');
+        $hasOwnerAssignment = $user->storeAssignments()
+            ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+            ->exists();
+        $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+        
+        // Find payment - for owner, bypass StoreScope; for others, use normal scope
+        if ($isOwner && !empty($userStores)) {
+            // Owner: query without StoreScope, then verify access
+            $payment = Payment::withoutGlobalScopes()
+                ->where('id', $id)
+                ->whereIn('store_id', $userStores)
+                ->first();
+            
+            // Also filter by tenant_id for security
+            if ($payment) {
+                $tenantId = $user->currentTenantId();
+                if ($tenantId) {
+                    // Get order to check tenant_id
+                    $order = Order::withoutGlobalScopes()
+                        ->where('id', $payment->order_id)
+                        ->first();
+                    if ($order && $order->tenant_id !== $tenantId) {
+                        $payment = null;
+                    }
+                }
+            }
+        } else {
+            // Non-owner: use normal StoreScope
+            // But first, ensure StoreContext is set correctly
+            $currentStoreId = $storeContext->current($user);
+            if (!$currentStoreId || !in_array($currentStoreId, $userStores)) {
+                $primaryStore = $user->primaryStore();
+                if ($primaryStore) {
+                    $storeContext->setForUser($user, $primaryStore->id);
+                    $currentStoreId = $primaryStore->id;
+                } elseif (!empty($userStores)) {
+                    $storeContext->setForUser($user, $userStores[0]);
+                    $currentStoreId = $userStores[0];
+                }
+            }
+            
+            $payment = Payment::find($id);
+        }
+        
+        // If payment not found, provide helpful error message
+        if (!$payment) {
+            // Check if payment exists at all (for better error message)
+            $paymentExists = Payment::withoutGlobalScopes()
+                ->where('id', $id)
+                ->first();
+            
+            if ($paymentExists) {
+                $paymentStoreId = $paymentExists->store_id;
+                $hasAccess = in_array($paymentStoreId, $userStores);
+                
+                Log::warning('Payment found but not accessible', [
+                    'payment_id' => $id,
+                    'user_id' => $user->id,
+                    'is_owner' => $isOwner,
+                    'payment_store_id' => $paymentStoreId,
+                    'user_stores' => $userStores,
+                    'has_access' => $hasAccess,
+                ]);
+                
+                if (!$hasAccess) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'PAYMENT_ACCESS_DENIED',
+                            'message' => 'Payment not found or you do not have access to this payment.',
+                            'details' => 'The payment belongs to a different store.',
+                        ],
+                        'meta' => [
+                            'timestamp' => now()->toISOString(),
+                            'version' => 'v1'
+                        ]
+                    ], 403);
+                }
+                
+                // Payment exists and user has access, but StoreContext might be wrong
+                // Set StoreContext to payment's store and retry
+                $storeContext->setForUser($user, $paymentStoreId);
+                $payment = Payment::find($id);
+                
+                if (!$payment) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'PAYMENT_ACCESS_DENIED',
+                            'message' => 'Payment not found or you do not have access to this payment.',
+                            'details' => 'Unable to access payment. Please try again.',
+                        ],
+                        'meta' => [
+                            'timestamp' => now()->toISOString(),
+                            'version' => 'v1'
+                        ]
+                    ], 403);
+                }
+            } else {
+                // Payment doesn't exist at all
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'PAYMENT_NOT_FOUND',
+                        'message' => 'Payment not found.',
+                    ],
+                    'meta' => [
+                        'timestamp' => now()->toISOString(),
+                        'version' => 'v1'
+                    ]
+                ], 404);
+            }
+        }
+        
+        // Verify user has access to this payment's store
+        if (!in_array($payment->store_id, $userStores)) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'PAYMENT_ACCESS_DENIED',
+                    'message' => 'Payment not found or you do not have access to this payment.',
+                    'details' => 'The payment belongs to a different store.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 403);
+        }
+        
+        // Set StoreContext to payment's store to ensure consistency
+        if ($storeContext->current($user) !== $payment->store_id) {
+            $storeContext->setForUser($user, $payment->store_id);
+            Log::info('StoreContext set to payment store for refund', [
+                'user_id' => $user->id,
+                'payment_id' => $payment->id,
+                'store_id' => $payment->store_id,
+            ]);
+        }
+        
         $this->authorize('update', $payment);
 
         $request->validate([

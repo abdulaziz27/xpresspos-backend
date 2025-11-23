@@ -69,15 +69,101 @@ class OrderController extends Controller
 
         $filters = $validator->validated();
 
-        // Build query with eager loading - ✅ WAJIB: Load items dan product untuk setiap item
-        $query = Order::with([
-            'items',           // ✅ WAJIB: Load order items
-            'items.product',   // ✅ WAJIB: Load product details untuk setiap item
-            'member',
-            'table',
-            'user:id,name',
-            'payments'
-        ]);
+        // Get user and ensure StoreContext is set correctly
+        $user = $request->user() ?? auth()->user();
+        $storeContext = \App\Services\StoreContext::instance();
+        
+        // CRITICAL: For owner users, ensure StoreContext is set to their primary store
+        // This ensures StoreScope filters correctly
+        if ($user) {
+            $currentStoreId = $storeContext->current($user);
+            $userStores = $user->stores()->pluck('stores.id')->toArray();
+            
+            // If no store context or current store not in user's stores, set to primary store
+            if (!$currentStoreId || !in_array($currentStoreId, $userStores)) {
+                $primaryStore = $user->primaryStore();
+                if ($primaryStore) {
+                    $storeContext->setForUser($user, $primaryStore->id);
+                    $currentStoreId = $primaryStore->id;
+                    Log::info('StoreContext set to primary store for order listing', [
+                        'user_id' => $user->id,
+                        'store_id' => $primaryStore->id,
+                    ]);
+                } elseif (!empty($userStores)) {
+                    // Fallback to first store
+                    $firstStoreId = $userStores[0];
+                    $storeContext->setForUser($user, $firstStoreId);
+                    $currentStoreId = $firstStoreId;
+                    Log::info('StoreContext set to first store for order listing', [
+                        'user_id' => $user->id,
+                        'store_id' => $firstStoreId,
+                    ]);
+                }
+            }
+            
+            // For owner users, query all stores they own, not just one store
+            // This ensures orders from all stores are visible
+            $hasOwnerRole = $user->hasRole('owner');
+            $hasOwnerAssignment = $user->storeAssignments()
+                ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+                ->exists();
+            $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+            
+            if ($isOwner && !empty($userStores)) {
+                // Owner can see orders from all their stores
+                // Use withoutGlobalScopes to bypass StoreScope, then filter manually
+                $query = Order::withoutGlobalScopes()
+                    ->whereIn('store_id', $userStores)
+                    ->with([
+                        'items',
+                        'items.product',
+                        'member',
+                        'table',
+                        'user:id,name',
+                        'payments'
+                    ]);
+                
+                // Also filter by tenant_id if available to ensure data isolation
+                $tenantId = $user->currentTenantId();
+                if ($tenantId) {
+                    $query->where('tenant_id', $tenantId);
+                }
+                
+                Log::info('Owner querying orders from multiple stores', [
+                    'user_id' => $user->id,
+                    'has_owner_role' => $hasOwnerRole,
+                    'has_owner_assignment' => $hasOwnerAssignment,
+                    'store_ids' => $userStores,
+                    'tenant_id' => $tenantId,
+                ]);
+            } else {
+                // For non-owner users (cashier, etc.), use normal scoped query
+                // StoreScope will automatically filter by current store
+                $query = Order::with([
+                    'items',
+                    'items.product',
+                    'member',
+                    'table',
+                    'user:id,name',
+                    'payments'
+                ]);
+                
+                Log::info('Non-owner querying orders (using StoreScope)', [
+                    'user_id' => $user->id,
+                    'current_store_id' => $currentStoreId,
+                ]);
+            }
+        } else {
+            // Fallback if no user (shouldn't happen due to auth middleware)
+            $query = Order::with([
+                'items',
+                'items.product',
+                'member',
+                'table',
+                'user:id,name',
+                'payments'
+            ]);
+        }
 
         // Apply filters
         if ($request->filled('status')) {
@@ -187,6 +273,9 @@ class OrderController extends Controller
      */
     public function store(StoreOrderRequest $request): JsonResponse
     {
+        // Authorization check
+        $this->authorize('create', Order::class);
+
         try {
             DB::beginTransaction();
 
@@ -220,6 +309,17 @@ class OrderController extends Controller
                         'message' => 'User does not have an associated store',
                     ],
                 ], 404);
+            }
+
+            // CRITICAL: Set StoreContext to ensure global scope works correctly
+            // This ensures the order can be queried later without being filtered out
+            $storeContext = \App\Services\StoreContext::instance();
+            if (!$storeContext->current($user) || $storeContext->current($user) !== $store->id) {
+                $storeContext->setForUser($user, $store->id);
+                Log::info('StoreContext set for order creation', [
+                    'user_id' => $user->id,
+                    'store_id' => $store->id,
+                ]);
             }
 
             // Validate tenant context (required for tenant-centric architecture)
@@ -325,12 +425,55 @@ class OrderController extends Controller
             }
 
             // Add items if provided
-            if ($request->has('items')) {
+            if ($request->has('items') && !empty($request->input('items'))) {
                 $calculationService = app(OrderCalculationService::class);
+                $itemsAdded = 0;
+                $itemsFailed = 0;
+                
                 foreach ($request->input('items') as $itemData) {
-                    $this->addItemToOrder($order, $itemData);
+                    try {
+                        $this->addItemToOrder($order, $itemData);
+                        $itemsAdded++;
+                    } catch (\Exception $e) {
+                        $itemsFailed++;
+                        Log::error('Failed to add item to order', [
+                            'order_id' => $order->id,
+                            'item_data' => $itemData,
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                        ]);
+                        // Re-throw to trigger rollback
+                        throw new \Exception("Failed to add item to order: {$e->getMessage()}", 0, $e);
+                    }
                 }
+                
+                if ($itemsAdded === 0 && $itemsFailed > 0) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'ITEMS_ADDITION_FAILED',
+                            'message' => 'Failed to add items to order. Please check product IDs and try again.',
+                        ],
+                        'meta' => [
+                            'timestamp' => now()->toISOString(),
+                            'version' => 'v1'
+                        ]
+                    ], 422);
+                }
+                
+                // Refresh order to get latest items
+                $order->refresh();
                 $calculationService->updateOrderTotals($order);
+                
+                Log::info('Items added to order', [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'items_added' => $itemsAdded,
+                    'items_failed' => $itemsFailed,
+                    'total_items' => $order->items->count(),
+                    'user_id' => $user->id
+                ]);
                 
                 // Deduct inventory if flag is true
                 if ($request->input('deduct_inventory', false)) {
@@ -375,7 +518,41 @@ class OrderController extends Controller
 
             DB::commit();
 
+            // Refresh order to ensure we have latest data
+            $order->refresh();
             $order->load(['items.product', 'member', 'table', 'user:id,name']);
+
+            // Verify order was actually saved
+            $savedOrder = Order::find($order->id);
+            if (!$savedOrder) {
+                Log::error('Order not found after commit', [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'store_id' => $store->id,
+                    'user_id' => $user->id,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'ORDER_SAVE_FAILED',
+                        'message' => 'Order was not saved properly. Please try again.',
+                    ],
+                    'meta' => [
+                        'timestamp' => now()->toISOString(),
+                        'version' => 'v1'
+                    ]
+                ], 500);
+            }
+
+            Log::info('Order created successfully', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'store_id' => $store->id,
+                'tenant_id' => $tenantId,
+                'user_id' => $user->id,
+                'items_count' => $order->items->count(),
+                'total_amount' => $order->total_amount,
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -415,7 +592,162 @@ class OrderController extends Controller
      */
     public function show(string $id): JsonResponse
     {
-        $order = Order::with(['items.product', 'member', 'table', 'user:id,name', 'payments'])->findOrFail($id);
+        $user = request()->user() ?? auth()->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated. Please provide a valid authentication token.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 401);
+        }
+        
+        $storeContext = \App\Services\StoreContext::instance();
+        $userStores = $user->stores()->pluck('stores.id')->toArray();
+        
+        // Check if user is owner
+        $hasOwnerRole = $user->hasRole('owner');
+        $hasOwnerAssignment = $user->storeAssignments()
+            ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+            ->exists();
+        $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+        
+        // Find order - for owner, bypass StoreScope; for others, use normal scope
+        if ($isOwner && !empty($userStores)) {
+            // Owner: query without StoreScope, then verify access
+            $order = Order::withoutGlobalScopes()
+                ->where('id', $id)
+                ->whereIn('store_id', $userStores)
+                ->with(['items.product', 'member', 'table', 'user:id,name', 'payments'])
+                ->first();
+            
+            // Also filter by tenant_id for security
+            if ($order) {
+                $tenantId = $user->currentTenantId();
+                if ($tenantId && $order->tenant_id !== $tenantId) {
+                    $order = null;
+                }
+            }
+        } else {
+            // Non-owner: use normal StoreScope
+            // But first, ensure StoreContext is set correctly
+            $currentStoreId = $storeContext->current($user);
+            if (!$currentStoreId || !in_array($currentStoreId, $userStores)) {
+                $primaryStore = $user->primaryStore();
+                if ($primaryStore) {
+                    $storeContext->setForUser($user, $primaryStore->id);
+                    $currentStoreId = $primaryStore->id;
+                } elseif (!empty($userStores)) {
+                    $storeContext->setForUser($user, $userStores[0]);
+                    $currentStoreId = $userStores[0];
+                }
+            }
+            
+            $order = Order::with(['items.product', 'member', 'table', 'user:id,name', 'payments'])->find($id);
+        }
+        
+        // If order not found, provide helpful error message
+        if (!$order) {
+            // Check if order exists at all (for better error message)
+            $orderExists = Order::withoutGlobalScopes()
+                ->where('id', $id)
+                ->first();
+            
+            if ($orderExists) {
+                $orderStoreId = $orderExists->store_id;
+                $hasAccess = in_array($orderStoreId, $userStores);
+                
+                Log::warning('Order found but not accessible', [
+                    'order_id' => $id,
+                    'user_id' => $user->id,
+                    'is_owner' => $isOwner,
+                    'order_store_id' => $orderStoreId,
+                    'user_stores' => $userStores,
+                    'has_access' => $hasAccess,
+                ]);
+                
+                if (!$hasAccess) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'ORDER_ACCESS_DENIED',
+                            'message' => 'Order not found or you do not have access to this order.',
+                            'details' => 'The order belongs to a different store.',
+                        ],
+                        'meta' => [
+                            'timestamp' => now()->toISOString(),
+                            'version' => 'v1'
+                        ]
+                    ], 403);
+                }
+                
+                // Order exists and user has access, but StoreContext might be wrong
+                // Set StoreContext to order's store and retry
+                $storeContext->setForUser($user, $orderStoreId);
+                $order = Order::with(['items.product', 'member', 'table', 'user:id,name', 'payments'])->find($id);
+                
+                if (!$order) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'ORDER_ACCESS_DENIED',
+                            'message' => 'Order not found or you do not have access to this order.',
+                            'details' => 'Unable to access order. Please try again.',
+                        ],
+                        'meta' => [
+                            'timestamp' => now()->toISOString(),
+                            'version' => 'v1'
+                        ]
+                    ], 403);
+                }
+            } else {
+                // Order doesn't exist at all
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'ORDER_NOT_FOUND',
+                        'message' => 'Order not found.',
+                    ],
+                    'meta' => [
+                        'timestamp' => now()->toISOString(),
+                        'version' => 'v1'
+                    ]
+                ], 404);
+            }
+        }
+        
+        // Verify user has access to this order's store
+        if (!in_array($order->store_id, $userStores)) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_ACCESS_DENIED',
+                    'message' => 'Order not found or you do not have access to this order.',
+                    'details' => 'The order belongs to a different store.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 403);
+        }
+        
+        // Set StoreContext to order's store to ensure consistency
+        if ($storeContext->current($user) !== $order->store_id) {
+            $storeContext->setForUser($user, $order->store_id);
+            Log::info('StoreContext set to order store for show', [
+                'user_id' => $user->id,
+                'order_id' => $order->id,
+                'store_id' => $order->store_id,
+            ]);
+        }
+        
         $this->authorize('view', $order);
 
         $order->load(['items.product.options', 'member', 'table', 'user:id,name', 'payments', 'refunds']);
@@ -435,7 +767,23 @@ class OrderController extends Controller
      */
     public function update(UpdateOrderRequest $request, string $id): JsonResponse
     {
-        $order = Order::findOrFail($id);
+        $user = $request->user() ?? auth()->user();
+        $order = $this->findOrderForUser($id, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('update', $order);
 
         if (!$order->canBeModified()) {
@@ -566,7 +914,23 @@ class OrderController extends Controller
      */
     public function destroy(string $id): JsonResponse
     {
-        $order = Order::findOrFail($id);
+        $user = request()->user() ?? auth()->user();
+        $order = $this->findOrderForUser($id, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('delete', $order);
 
         if (!$order->canBeModified()) {
@@ -639,7 +1003,23 @@ class OrderController extends Controller
      */
     public function addItem(AddOrderItemRequest $request, string $id): JsonResponse
     {
-        $order = Order::findOrFail($id);
+        $user = $request->user() ?? auth()->user();
+        $order = $this->findOrderForUser($id, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('update', $order);
 
         if (!$order->canBeModified()) {
@@ -707,7 +1087,23 @@ class OrderController extends Controller
      */
     public function updateItem(Request $request, string $orderId, string $itemId): JsonResponse
     {
-        $order = Order::findOrFail($orderId);
+        $user = $request->user() ?? auth()->user();
+        $order = $this->findOrderForUser($orderId, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $item = $order->items()->findOrFail($itemId);
         $this->authorize('update', $order);
 
@@ -813,7 +1209,23 @@ class OrderController extends Controller
      */
     public function removeItem(string $orderId, string $itemId): JsonResponse
     {
-        $order = Order::findOrFail($orderId);
+        $user = request()->user() ?? auth()->user();
+        $order = $this->findOrderForUser($orderId, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $item = $order->items()->findOrFail($itemId);
         $this->authorize('update', $order);
 
@@ -897,7 +1309,23 @@ class OrderController extends Controller
      */
     public function complete(string $id): JsonResponse
     {
-        $order = Order::findOrFail($id);
+        $user = request()->user() ?? auth()->user();
+        $order = $this->findOrderForUser($id, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('update', $order);
 
         if ($order->status === 'completed') {
@@ -1005,11 +1433,117 @@ class OrderController extends Controller
     }
 
     /**
+     * Helper method to find order with proper store context handling.
+     * Handles owner users (bypass StoreScope) and non-owner users (use StoreScope).
+     */
+    private function findOrderForUser(string $orderId, $user = null): ?Order
+    {
+        if (!$user) {
+            $user = request()->user() ?? auth()->user();
+        }
+        
+        if (!$user) {
+            return null;
+        }
+        
+        $storeContext = \App\Services\StoreContext::instance();
+        $userStores = $user->stores()->pluck('stores.id')->toArray();
+        
+        // Check if user is owner
+        $hasOwnerRole = $user->hasRole('owner');
+        $hasOwnerAssignment = $user->storeAssignments()
+            ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+            ->exists();
+        $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+        
+        // Find order - for owner, bypass StoreScope; for others, use normal scope
+        if ($isOwner && !empty($userStores)) {
+            // Owner: query without StoreScope, then verify access
+            $order = Order::withoutGlobalScopes()
+                ->where('id', $orderId)
+                ->whereIn('store_id', $userStores)
+                ->first();
+            
+            // Also filter by tenant_id for security
+            if ($order) {
+                $tenantId = $user->currentTenantId();
+                if ($tenantId && $order->tenant_id !== $tenantId) {
+                    $order = null;
+                }
+            }
+        } else {
+            // Non-owner: use normal StoreScope
+            // But first, ensure StoreContext is set correctly
+            $currentStoreId = $storeContext->current($user);
+            if (!$currentStoreId || !in_array($currentStoreId, $userStores)) {
+                $primaryStore = $user->primaryStore();
+                if ($primaryStore) {
+                    $storeContext->setForUser($user, $primaryStore->id);
+                    $currentStoreId = $primaryStore->id;
+                } elseif (!empty($userStores)) {
+                    $storeContext->setForUser($user, $userStores[0]);
+                    $currentStoreId = $userStores[0];
+                }
+            }
+            
+            $order = Order::find($orderId);
+        }
+        
+        // Verify user has access to this order's store
+        if ($order && !in_array($order->store_id, $userStores)) {
+            return null;
+        }
+        
+        // Set StoreContext to order's store to ensure consistency
+        if ($order && $storeContext->current($user) !== $order->store_id) {
+            $storeContext->setForUser($user, $order->store_id);
+        }
+        
+        return $order;
+    }
+
+    /**
      * Helper method to add item to order.
      */
     private function addItemToOrder(Order $order, array $itemData): OrderItem
     {
-        $product = Product::findOrFail($itemData['product_id']);
+        Log::info('Adding item to order', [
+            'order_id' => $order->id,
+            'product_id' => $itemData['product_id'] ?? null,
+            'quantity' => $itemData['quantity'] ?? null,
+        ]);
+
+        // Validate product_id is provided
+        if (empty($itemData['product_id'])) {
+            throw new \InvalidArgumentException('Product ID is required');
+        }
+
+        // Find product - use withoutGlobalScopes to ensure we can find products across tenants
+        // The product should still be validated against tenant_id in the request validation
+        $product = Product::withoutGlobalScopes()->find($itemData['product_id']);
+        
+        if (!$product) {
+            Log::error('Product not found', [
+                'product_id' => $itemData['product_id'],
+                'order_id' => $order->id,
+            ]);
+            throw new \Illuminate\Database\Eloquent\ModelNotFoundException(
+                "Product with ID {$itemData['product_id']} not found"
+            );
+        }
+
+        // Validate product belongs to the same tenant as the order
+        if ($product->tenant_id !== $order->tenant_id) {
+            Log::error('Product tenant mismatch', [
+                'product_id' => $product->id,
+                'product_tenant_id' => $product->tenant_id,
+                'order_tenant_id' => $order->tenant_id,
+                'order_id' => $order->id,
+            ]);
+            throw new \InvalidArgumentException(
+                "Product does not belong to the same tenant as the order"
+            );
+        }
 
         // Validate product options if provided
         if (!empty($itemData['product_options'])) {
@@ -1033,6 +1567,14 @@ class OrderController extends Controller
             'notes' => $itemData['notes'] ?? null,
         ]);
 
+        Log::info('Item added to order successfully', [
+            'order_id' => $order->id,
+            'order_item_id' => $orderItem->id,
+            'product_id' => $product->id,
+            'quantity' => $itemData['quantity'],
+            'unit_price' => $priceCalculation['total_price'],
+        ]);
+
         // NOTE: Inventory is now managed explicitly via deduct_inventory flag
         // The automatic inventory deduction has been removed to give explicit control
 
@@ -1044,7 +1586,23 @@ class OrderController extends Controller
      */
     public function cancel(Request $request, string $id): JsonResponse
     {
-        $order = Order::findOrFail($id);
+        $user = $request->user() ?? auth()->user();
+        $order = $this->findOrderForUser($id, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('update', $order);
 
         $request->validate([
