@@ -8,7 +8,7 @@
         </x-slot>
         {{ $this->form }}
         
-        <div class="flex justify-end" style="margin-top: 2rem;">
+        {{-- <div class="flex justify-end" style="margin-top: 2rem;">
             <a 
                 href="{{ $this->getExportUrl() }}" 
                 target="_blank"
@@ -16,7 +16,7 @@
             >
                 Export ke Excel
             </a>
-        </div>
+        </div> --}}
     </x-filament::section>
 </x-filament-widgets::widget>
 
