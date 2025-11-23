@@ -47,10 +47,12 @@ class OwnerStatsWidget extends BaseWidget
 
         $dateRange = $filters['range'];
 
-        $ordersQuery = Order::whereIn('store_id', $storeIds);
-        $paymentsQuery = Payment::whereIn('store_id', $storeIds);
-        $productsQuery = Product::where('tenant_id', $tenantId)->where('status', true);
-        $membersQuery = Member::query()
+        $ordersQuery = Order::withoutGlobalScopes()->whereIn('store_id', $storeIds);
+        $paymentsQuery = Payment::withoutGlobalScopes()->whereIn('store_id', $storeIds);
+        $productsQuery = Product::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('status', true);
+        $membersQuery = Member::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->where(function ($query) use ($filters, $storeIds) {
         if (! empty($filters['store_id'])) {

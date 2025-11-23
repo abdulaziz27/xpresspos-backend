@@ -35,7 +35,7 @@ class CogsHistoryForm
                                     ->reactive()
                                     ->afterStateUpdated(function ($state, callable $set) {
                                         if ($state) {
-                                            $product = Product::find($state);
+                                            $product = Product::withoutGlobalScopes()->find($state);
                                             if ($product && $product->cost_price) {
                                                 $set('unit_cost', $product->cost_price);
                                             }
@@ -123,7 +123,7 @@ class CogsHistoryForm
             return [];
         }
 
-        return Product::query()
+        return Product::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->orderBy('name')
             ->pluck('name', 'id')
@@ -141,7 +141,9 @@ class CogsHistoryForm
             return [];
         }
 
-        $query = Order::query()
+        // Query all orders for tenant - no store filtering in form
+        // Store filtering is handled by table filters when viewing the resource
+        $query = Order::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->where('status', 'completed');
 

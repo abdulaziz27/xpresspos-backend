@@ -95,7 +95,7 @@ class RewardsRelationManager extends RelationManager
                         ->searchable()
                         ->preload()
                         ->options(function () {
-                            return Product::query()
+                            return Product::withoutGlobalScopes()
                                 ->where('status', true)
                                 ->pluck('name', 'id');
                         })
@@ -324,7 +324,7 @@ class RewardsRelationManager extends RelationManager
         $text = "Beli {$buyQty} Dapat {$getQty}";
         
         if ($productId) {
-            $product = Product::find($productId);
+            $product = Product::withoutGlobalScopes()->find($productId);
             if ($product) {
                 $text .= ' (' . $product->name . ')';
             } else {

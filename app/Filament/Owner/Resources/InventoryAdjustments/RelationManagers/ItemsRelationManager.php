@@ -50,7 +50,8 @@ class ItemsRelationManager extends RelationManager
                 ->afterStateUpdated(function ($state, callable $set, callable $get) use ($adjustment) {
                     if ($state && $adjustment && $adjustment->store_id) {
                         // Get system_qty from StockLevel
-                        $stockLevel = StockLevel::where('store_id', $adjustment->store_id)
+                        $stockLevel = StockLevel::withoutGlobalScopes()
+                            ->where('store_id', $adjustment->store_id)
                             ->where('inventory_item_id', $state)
                             ->first();
                         

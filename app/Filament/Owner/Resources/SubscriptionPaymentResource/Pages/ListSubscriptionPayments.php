@@ -130,10 +130,10 @@ class ListSubscriptionPayments extends ListRecords
         $tenant = $this->resolveTenant();
 
         if (!$tenant) {
-            return SubscriptionPayment::query()->whereRaw('1 = 0');
+            return SubscriptionPayment::withoutGlobalScopes()->whereRaw('1 = 0');
         }
 
-        return SubscriptionPayment::query()
+        return SubscriptionPayment::withoutGlobalScopes()
             ->where(function (Builder $query) use ($tenant) {
                 $query->whereHas('subscription', function (Builder $subQuery) use ($tenant) {
                     $subQuery->where('tenant_id', $tenant->id);

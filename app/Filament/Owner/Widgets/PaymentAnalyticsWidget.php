@@ -33,11 +33,12 @@ class PaymentAnalyticsWidget extends ChartWidget
         $tenant = $store->tenant;
         $tenantId = $tenant->id;
 
-        $baseQuery = SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        });
+        $baseQuery = SubscriptionPayment::withoutGlobalScopes()
+            ->whereHas('subscription', function (Builder $query) use ($tenantId) {
+                $query->where('tenant_id', $tenantId);
+            })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
+                $query->where('tenant_id', $tenantId);
+            });
 
         $period = match ($this->filter) {
             'last_3_months' => 3,
@@ -186,10 +187,11 @@ class PaymentAnalyticsWidget extends ChartWidget
         $tenantId = $tenant->id;
 
         // Show widget only if tenant has payment data
-        return SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        })->exists();
+        return SubscriptionPayment::withoutGlobalScopes()
+            ->whereHas('subscription', function (Builder $query) use ($tenantId) {
+                $query->where('tenant_id', $tenantId);
+            })->orWhereHas('landingSubscription', function (Builder $query) use ($tenantId) {
+                $query->where('tenant_id', $tenantId);
+            })->exists();
     }
 }

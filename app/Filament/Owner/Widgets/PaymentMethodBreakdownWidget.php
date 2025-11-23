@@ -30,7 +30,8 @@ class PaymentMethodBreakdownWidget extends ChartWidget
             ];
         }
 
-        $baseQuery = SubscriptionPayment::where(function (Builder $query) use ($tenant) {
+        $baseQuery = SubscriptionPayment::withoutGlobalScopes()
+            ->where(function (Builder $query) use ($tenant) {
             $query->whereHas('subscription', function (Builder $subQuery) use ($tenant) {
                 $subQuery->where('tenant_id', $tenant->id);
             })->orWhereHas('landingSubscription', function (Builder $subQuery) use ($tenant) {
@@ -150,7 +151,8 @@ class PaymentMethodBreakdownWidget extends ChartWidget
         }
 
         // Show widget only if tenant has payment data
-        return SubscriptionPayment::whereHas('subscription', function (Builder $query) use ($tenant) {
+        return SubscriptionPayment::withoutGlobalScopes()
+            ->whereHas('subscription', function (Builder $query) use ($tenant) {
             $query->where('tenant_id', $tenant->id);
         })->orWhereHas('landingSubscription', function (Builder $query) use ($tenant) {
             $query->where('tenant_id', $tenant->id);

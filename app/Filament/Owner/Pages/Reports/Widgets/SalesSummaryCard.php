@@ -85,7 +85,7 @@ class SalesSummaryCard extends Widget
         $grossSales = (clone $ordersQuery)->sum('subtotal');
 
         // b) Diskon Nota
-        $orderDiscounts = OrderDiscount::query()
+        $orderDiscounts = OrderDiscount::withoutGlobalScopes()
             ->whereHas('order', function ($q) use ($tenantId, $storeIds, $range) {
                 $q->withoutGlobalScopes()
                   ->where('tenant_id', $tenantId)

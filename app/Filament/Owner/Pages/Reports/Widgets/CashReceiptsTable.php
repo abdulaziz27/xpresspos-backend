@@ -72,7 +72,9 @@ class CashReceiptsTable extends BaseWidget
             ->where('payment_method', 'cash')
             ->whereIn('store_id', $storeIds)
             ->whereNotNull('order_id')
-            ->whereHas('order') // Ensure order exists
+            ->whereHas('order', function ($query) {
+                $query->withoutGlobalScopes(); // Ensure order exists and bypass global scopes
+            })
             ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [
                 $range['start'],
                 $range['end']

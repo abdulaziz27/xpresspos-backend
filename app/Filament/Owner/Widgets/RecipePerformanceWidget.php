@@ -33,7 +33,7 @@ class RecipePerformanceWidget extends BaseWidget
             $query = Recipe::query()->whereRaw('1 = 0');
 
             if ($tenantId) {
-                $query = Recipe::query()
+                $query = Recipe::withoutGlobalScopes()
                     ->with(['product', 'items'])
                     ->where('tenant_id', $tenantId)
                     ->where('is_active', true);

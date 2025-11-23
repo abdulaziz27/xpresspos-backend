@@ -130,19 +130,19 @@ class CashFlowTableWidget extends BaseWidget
         // Build payments query
         $paymentsQuery = Payment::withoutGlobalScopes()
             ->select([
-                DB::raw('COALESCE(payments.processed_at, payments.created_at) as transaction_date'),
+                DB::raw('COALESCE(payments.paid_at, payments.processed_at, payments.created_at) as transaction_date'),
                 'payments.store_id',
                 DB::raw("'Cash In' as type"),
                 'payments.order_id',
                 DB::raw('COALESCE(orders.order_number, CAST(payments.id AS TEXT)) as reference'),
-                'payments.amount',
+                DB::raw('CASE WHEN payments.received_amount > 0 THEN payments.received_amount ELSE payments.amount END as amount'),
                 'payments.notes',
                 DB::raw("NULL::uuid as refund_id"),
             ])
             ->leftJoin('orders', 'payments.order_id', '=', 'orders.id')
             ->where('payments.payment_method', PaymentMethodEnum::CASH->value)
             ->where('payments.status', 'completed')
-            ->whereBetween(DB::raw('COALESCE(payments.processed_at, payments.created_at)'), [$range['start'], $range['end']]);
+            ->whereBetween(DB::raw('COALESCE(payments.paid_at, payments.processed_at, payments.created_at)'), [$range['start'], $range['end']]);
 
         if (!empty($storeIds)) {
             $paymentsQuery->whereIn('payments.store_id', $storeIds);
