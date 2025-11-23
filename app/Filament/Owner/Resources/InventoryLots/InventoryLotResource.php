@@ -5,7 +5,7 @@ namespace App\Filament\Owner\Resources\InventoryLots;
 use App\Filament\Owner\Resources\InventoryLots\Pages;
 use App\Models\InventoryItem;
 use App\Models\InventoryLot;
-use App\Services\GlobalFilterService;
+use App\Services\StoreContext;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -19,7 +19,6 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 class InventoryLotResource extends Resource
 {
@@ -50,6 +49,7 @@ class InventoryLotResource extends Resource
                         Select::make('store_id')
                             ->label('Toko')
                             ->options(self::storeOptions())
+                            ->default(fn () => StoreContext::instance()->current(auth()->user()))
                             ->required()
                             ->searchable()
                             ->disabled(fn () => ! auth()->user()?->hasRole('admin_sistem')),
@@ -158,36 +158,10 @@ class InventoryLotResource extends Resource
             return [];
         }
 
-        $tenantId = $user->currentTenant()?->id;
-
-        if (! $tenantId) {
-            return [];
-        }
-
-        return \App\Models\Store::where('tenant_id', $tenantId)
-            ->where('status', 'active')
-            ->orderBy('name')
+        return StoreContext::instance()
+            ->accessibleStores($user)
             ->pluck('name', 'id')
             ->toArray();
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $tenantId = $globalFilter->getCurrentTenantId();
-
-        $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes()
-            ->with(['item', 'store']);
-
-        // Only filter by tenant - store filtering is handled by table filters
-        // This ensures page independence from dashboard store filter
-        if ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        }
-
-        return $query;
     }
 }
 

@@ -8,13 +8,11 @@ use App\Filament\Owner\Resources\InventoryMovements\Pages\ListInventoryMovements
 use App\Filament\Owner\Resources\InventoryMovements\Schemas\InventoryMovementForm;
 use App\Filament\Owner\Resources\InventoryMovements\Tables\InventoryMovementsTable;
 use App\Models\InventoryMovement;
-use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 class InventoryMovementResource extends Resource
 {
@@ -70,24 +68,5 @@ class InventoryMovementResource extends Resource
     public static function canViewAny(): bool
     {
         return true;
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $tenantId = $globalFilter->getCurrentTenantId();
-
-        $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes()
-            ->with(['inventoryItem', 'store', 'user']);
-
-        // Only filter by tenant - store filtering is handled by table filters
-        // This ensures page independence from dashboard store filter
-        if ($tenantId) {
-            $query->where('tenant_id', $tenantId);
-        }
-
-        return $query;
     }
 }

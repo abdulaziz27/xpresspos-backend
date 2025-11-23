@@ -21,29 +21,30 @@ class OrderCalculationService
         }
         
         // Calculate tax (configurable per store, default 0)
-        // Ensure store is loaded
-        if (!$order->relationLoaded('store')) {
-            $order->load('store');
+        // Support both structures: settings['tax_rate'] and settings['tax_settings']['tax_rate']
+        $settings = $order->store->settings ?? [];
+        $taxSettings = $settings['tax_settings'] ?? [];
+        
+        // Try to get tax_rate from direct settings first, then from tax_settings
+        $taxRate = $settings['tax_rate'] ?? $taxSettings['tax_rate'] ?? 0;
+        $taxInclusive = $settings['tax_inclusive'] ?? $taxSettings['tax_inclusive'] ?? false;
+        
+        // Convert percentage to decimal if needed (e.g., 10% = 0.10)
+        // If taxRate > 1, assume it's a percentage and convert to decimal
+        if ($taxRate > 1) {
+            $taxRate = $taxRate / 100;
         }
         
-        $settings = $order->store->settings ?? [];
-        $taxRate = isset($settings['tax_rate']) ? (float) $settings['tax_rate'] : 0;
-        $taxIncluded = isset($settings['tax_included']) ? (bool) $settings['tax_included'] : false;
-        
-        // Convert tax rate from percentage to decimal (e.g., 10% -> 0.10)
-        $taxRateDecimal = $taxRate / 100;
-        
-        if ($taxRateDecimal == 0) {
+        if ($taxRate == 0) {
             $taxAmount = 0;
         } else {
-            if ($taxIncluded) {
+            if ($taxInclusive) {
                 // Tax sudah termasuk dalam harga
-                // Formula: tax = subtotal - (subtotal / (1 + tax_rate))
-                $taxAmount = $subtotal - ($subtotal / (1 + $taxRateDecimal));
+                $taxAmount = $subtotal - ($subtotal / (1 + $taxRate));
                 $subtotal = $subtotal - $taxAmount;
             } else {
                 // Tax ditambahkan ke harga
-                $taxAmount = $subtotal * $taxRateDecimal;
+                $taxAmount = $subtotal * $taxRate;
             }
         }
         
@@ -127,16 +128,6 @@ class OrderCalculationService
      */
     public function updateOrderTotals(Order $order): Order
     {
-        // Ensure store relationship is loaded for tax calculation
-        if (!$order->relationLoaded('store')) {
-            $order->load('store');
-        }
-        
-        // Ensure items are loaded for subtotal calculation
-        if (!$order->relationLoaded('items')) {
-            $order->load('items');
-        }
-        
         $calculations = $this->calculateOrderTotals($order);
         
         $order->update($calculations);

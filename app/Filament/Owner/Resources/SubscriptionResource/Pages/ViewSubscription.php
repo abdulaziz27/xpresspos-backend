@@ -60,7 +60,7 @@ class ViewSubscription extends ViewRecord
         ];
     }
 
-    public function downloadLatestInvoice()
+    public function downloadLatestInvoice(): void
     {
         $latestPayment = $this->record->subscriptionPayments()
             ->where('status', 'paid')
@@ -69,7 +69,7 @@ class ViewSubscription extends ViewRecord
 
         if (!$latestPayment) {
             Notification::make()
-                ->title('Tidak ada invoice yang dibayar')
+                ->title('No paid invoices found')
                 ->warning()
                 ->send();
             return;
@@ -86,20 +86,15 @@ class ViewSubscription extends ViewRecord
 
         if (!$pdfPath || !Storage::exists($pdfPath)) {
             Notification::make()
-                ->title('Invoice PDF tidak tersedia')
-                ->body('Tidak dapat menghasilkan atau menemukan PDF invoice.')
+                ->title('Invoice PDF not available')
+                ->body('Unable to generate or find the invoice PDF.')
                 ->danger()
                 ->send();
             return;
         }
 
         // Download the PDF
-        $fullPath = Storage::path($pdfPath);
-        $fileName = "Invoice_{$latestPayment->id}.pdf";
-
-        return response()->download($fullPath, $fileName, [
-            'Content-Type' => 'application/pdf',
-        ]);
+        Storage::download($pdfPath, "Invoice_{$latestPayment->id}.pdf");
     }
 
     public function renewSubscription(): void

@@ -39,7 +39,7 @@ class CashExpensesTable extends BaseWidget
         $range = $this->getDateRange($datePreset, $dateStart, $dateEnd);
         $storeIds = $this->getStoreIds($tenantId, $storeId);
 
-        $query = Expense::withoutGlobalScopes()
+        $query = Expense::query()
             ->with(['store', 'user'])
             ->whereBetween('expense_date', [$range['start']->toDateString(), $range['end']->toDateString()]);
 

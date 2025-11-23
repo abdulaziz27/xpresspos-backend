@@ -139,7 +139,7 @@ class AiAnalyticsService
      */
     protected function getSalesSummary(string $tenantId, ?string $storeId, Carbon $from, Carbon $to): array
     {
-        $ordersQuery = Order::withoutGlobalScopes()
+        $ordersQuery = Order::query()
             ->where('tenant_id', $tenantId)
             ->where('status', 'completed');
 
@@ -209,7 +209,7 @@ class AiAnalyticsService
      */
     protected function getSalesByDay(string $tenantId, ?string $storeId, Carbon $from, Carbon $to): array
     {
-        $ordersQuery = Order::withoutGlobalScopes()
+        $ordersQuery = Order::query()
             ->where('tenant_id', $tenantId)
             ->where('status', 'completed');
 
@@ -258,7 +258,7 @@ class AiAnalyticsService
      */
     protected function getTopProducts(string $tenantId, ?string $storeId, Carbon $from, Carbon $to): array
     {
-        $ordersQuery = Order::withoutGlobalScopes()
+        $ordersQuery = Order::query()
             ->where('tenant_id', $tenantId)
             ->where('status', 'completed');
 
@@ -315,7 +315,7 @@ class AiAnalyticsService
     protected function getCogsSummary(string $tenantId, ?string $storeId, Carbon $from, Carbon $to): array
     {
         // Get orders in date range
-        $ordersQuery = Order::withoutGlobalScopes()
+        $ordersQuery = Order::query()
             ->where('tenant_id', $tenantId)
             ->where('status', 'completed');
 
@@ -335,7 +335,7 @@ class AiAnalyticsService
         $orderIds = (clone $ordersQuery)->pluck('id');
 
         // Get total COGS from cogs_history
-        $totalCogsQuery = CogsHistory::withoutGlobalScopes()
+        $totalCogsQuery = CogsHistory::query()
             ->where('tenant_id', $tenantId)
             ->whereNotNull('order_id')
             ->whereIn('order_id', $orderIds);
@@ -371,7 +371,7 @@ class AiAnalyticsService
      */
     protected function getLowStockItems(string $tenantId, ?string $storeId): array
     {
-        $stockLevelQuery = StockLevel::withoutGlobalScopes()
+        $stockLevelQuery = StockLevel::query()
             ->join('inventory_items', 'stock_levels.inventory_item_id', '=', 'inventory_items.id')
             ->join('stores', 'stock_levels.store_id', '=', 'stores.id')
             ->where('stock_levels.tenant_id', $tenantId)

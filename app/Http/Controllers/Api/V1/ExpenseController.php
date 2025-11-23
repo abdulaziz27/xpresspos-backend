@@ -86,9 +86,28 @@ class ExpenseController extends Controller
         try {
             DB::beginTransaction();
 
+            $user = $request->user();
+            $store = $user->store();
+            
+            if (!$store) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User does not have an associated store. Please contact support.',
+                ], 400);
+            }
+
             // Validate cash session if provided
             if ($request->cash_session_id) {
                 $cashSession = CashSession::find($request->cash_session_id);
+                
+                // If not found, try without store scope
+                if (!$cashSession) {
+                    $cashSession = CashSession::withoutGlobalScopes()
+                        ->where('id', $request->cash_session_id)
+                        ->where('store_id', $store->id)
+                        ->first();
+                }
+                
                 if (!$cashSession || $cashSession->status === 'closed') {
                     return response()->json([
                         'success' => false,
@@ -97,18 +116,6 @@ class ExpenseController extends Controller
                 }
             }
 
-            $user = $request->user();
-            $store = $user->store();
-            
-            if (!$store) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User is not assigned to any store or store context is missing.',
-                    'error' => 'STORE_CONTEXT_MISSING'
-                ], 400);
-            }
-            
             $expense = Expense::create([
                 'store_id' => $store->id,
                 'user_id' => $user->id,
@@ -122,8 +129,8 @@ class ExpenseController extends Controller
                 'notes' => $request->notes,
             ]);
 
-            // Expected balance is automatically calculated by model's saving event
-            // Just refresh the cash session to get the latest calculated values
+            // Expected balance is automatically recalculated via accessor when accessed
+            // Just refresh if linked to a session
             if ($expense->cash_session_id) {
                 $expense->cashSession->refresh();
             }
@@ -181,8 +188,8 @@ class ExpenseController extends Controller
 
             $expense->update($request->validated());
 
-            // Expected balance is automatically calculated by model's saving event
-            // Just refresh the cash sessions to get the latest calculated values
+            // Expected balance is automatically recalculated via accessor when accessed
+            // Just refresh if linked to a session
             if ($oldCashSessionId && $oldCashSessionId !== $expense->cash_session_id) {
                 $oldCashSession = CashSession::find($oldCashSessionId);
                 if ($oldCashSession && $oldCashSession->status === 'open') {
@@ -190,6 +197,7 @@ class ExpenseController extends Controller
                 }
             }
 
+            // Refresh new session if linked
             if ($expense->cash_session_id) {
                 $expense->cashSession->refresh();
             }
@@ -233,8 +241,8 @@ class ExpenseController extends Controller
 
             $expense->delete();
 
-            // Expected balance is automatically calculated by model's saving event
-            // Just refresh the cash session to get the latest calculated values
+            // Expected balance is automatically recalculated via accessor when accessed
+            // Just refresh if linked to a session
             if ($cashSessionId) {
                 $cashSession = CashSession::find($cashSessionId);
                 if ($cashSession && $cashSession->status === 'open') {
@@ -356,20 +364,17 @@ class ExpenseController extends Controller
             $store = $user->store();
             
             if (!$store) {
-                DB::rollBack();
                 return response()->json([
                     'success' => false,
-                    'message' => 'User is not assigned to any store or store context is missing.',
-                    'error' => 'STORE_CONTEXT_MISSING'
+                    'message' => 'User does not have an associated store. Please contact support.',
                 ], 400);
             }
 
-            // Validate cash session exists and is open
-            // Use find() and then check store_id to handle global scope issues
+            // Try to find cash session with store scope first
             $cashSession = CashSession::find($sessionId);
             
-            if (!$cashSession || $cashSession->store_id !== $store->id) {
-                // If not found with scope, try without scope but ensure it belongs to the user's store
+            // If not found, try without store scope (in case of store context issue)
+            if (!$cashSession) {
                 $cashSession = CashSession::withoutGlobalScopes()
                     ->where('id', $sessionId)
                     ->where('store_id', $store->id)
@@ -377,21 +382,25 @@ class ExpenseController extends Controller
             }
             
             if (!$cashSession) {
-                DB::rollBack();
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cash session not found or not accessible.',
-                    'error' => 'CASH_SESSION_NOT_FOUND'
+                    'message' => 'Cash session not found'
                 ], 404);
             }
             
             if ($cashSession->status === 'closed') {
-                DB::rollBack();
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cannot add expense to a closed cash session',
-                    'error' => 'CASH_SESSION_CLOSED'
+                    'message' => 'Cannot add expense to a closed cash session'
                 ], 422);
+            }
+
+            // Verify session belongs to user's store
+            if ($cashSession->store_id !== $store->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access to this cash session'
+                ], 403);
             }
 
             $expense = Expense::create([
@@ -407,8 +416,9 @@ class ExpenseController extends Controller
                 'notes' => $request->notes,
             ]);
 
-            // Expected balance is automatically calculated by model's saving event
-            // Just refresh the cash session to get the latest calculated values
+            // Expected balance is automatically recalculated via accessor when accessed
+            // For open sessions, it recalculates real-time from current data
+            // Just refresh to ensure we have the latest data
             $cashSession->refresh();
 
             DB::commit();

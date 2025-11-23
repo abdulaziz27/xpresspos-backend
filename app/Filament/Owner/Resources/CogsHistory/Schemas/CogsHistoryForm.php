@@ -147,6 +147,11 @@ class CogsHistoryForm
             ->where('tenant_id', $tenantId)
             ->where('status', 'completed');
 
+        $storeIds = static::currentStoreIds();
+        if (! empty($storeIds)) {
+            $query->whereIn('store_id', $storeIds);
+        }
+
         return $query
             ->latest('created_at')
             ->limit(200)

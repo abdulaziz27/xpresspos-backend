@@ -166,10 +166,7 @@ class SubscriptionPaymentResource extends Resource
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('success')
                     ->action(function (SubscriptionPayment $record) {
-                        $response = static::downloadInvoice($record);
-                        if ($response) {
-                            return $response;
-                        }
+                        return static::downloadInvoice($record);
                     })
                     ->visible(fn (SubscriptionPayment $record): bool => $record->status === 'paid'),
             ])
@@ -275,7 +272,9 @@ class SubscriptionPaymentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        /** @var GlobalFilterService $globalFilter */
+        $query = parent::getEloquentQuery();
+        
+        // Get current tenant ID using GlobalFilterService or fallback to user's current tenant
         $globalFilter = app(GlobalFilterService::class);
         $tenantId = $globalFilter->getCurrentTenantId();
         
@@ -284,15 +283,10 @@ class SubscriptionPaymentResource extends Resource
             $tenantId = auth()->user()?->currentTenant()?->id;
         }
         
-        $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes();
-        
         if (!$tenantId) {
             return $query->whereRaw('1 = 0'); // Return empty query
         }
 
-        // Only filter by tenant - store filtering is handled by table filters
-        // This ensures page independence from dashboard store filter
         return $query
             ->where(function (Builder $query) use ($tenantId) {
                 $query->whereHas('subscription', function (Builder $subQuery) use ($tenantId) {
@@ -356,54 +350,23 @@ class SubscriptionPaymentResource extends Resource
 
     public static function downloadInvoice(SubscriptionPayment $payment)
     {
-        try {
-            $invoicePdfService = app(\App\Services\SubscriptionInvoicePdfService::class);
-            
-            // Try to get existing PDF first
-            $pdfPath = $invoicePdfService->getExistingPdfPath($payment);
+        $invoicePdfService = app(\App\Services\SubscriptionInvoicePdfService::class);
+        $pdfPath = $invoicePdfService->getExistingPdfPath($payment);
 
-            // If not exists, generate new one
-            if (!$pdfPath) {
-                $pdfPath = $invoicePdfService->generateInvoicePdf($payment);
-            }
+        if (!$pdfPath) {
+            $pdfPath = $invoicePdfService->generateInvoicePdf($payment);
+        }
 
-            if (!$pdfPath) {
-                \Filament\Notifications\Notification::make()
-                    ->title('Invoice tidak tersedia')
-                    ->body('Tidak dapat menghasilkan PDF invoice. Silakan coba lagi atau hubungi support.')
-                    ->danger()
-                    ->send();
-                return;
-            }
-
-            if (!\Illuminate\Support\Facades\Storage::exists($pdfPath)) {
-                \Filament\Notifications\Notification::make()
-                    ->title('File invoice tidak ditemukan')
-                    ->body('File PDF invoice tidak ditemukan di storage. Silakan coba generate ulang.')
-                    ->danger()
-                    ->send();
-                return;
-            }
-
-            $fullPath = \Illuminate\Support\Facades\Storage::path($pdfPath);
-            $fileName = "Invoice_{$payment->external_id}.pdf";
-
-            return response()->download($fullPath, $fileName, [
-                'Content-Type' => 'application/pdf',
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Failed to download invoice', [
-                'subscription_payment_id' => $payment->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
+        if (!$pdfPath || !\Illuminate\Support\Facades\Storage::exists($pdfPath)) {
             \Filament\Notifications\Notification::make()
-                ->title('Error saat mengunduh invoice')
-                ->body('Terjadi kesalahan saat mengunduh invoice: ' . $e->getMessage())
+                ->title('Invoice not available')
+                ->body('Unable to generate or find the invoice PDF.')
                 ->danger()
                 ->send();
+            return;
         }
+
+        return \Illuminate\Support\Facades\Storage::download($pdfPath, "Invoice_{$payment->external_id}.pdf");
     }
 
     public static function retryPayment(SubscriptionPayment $payment)

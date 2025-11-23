@@ -27,7 +27,7 @@ class RecentOrdersWidget extends BaseWidget
         $query = Order::query()->whereRaw('1 = 0');
 
         if (! empty($storeIds)) {
-            $query = Order::withoutGlobalScopes()
+            $query = Order::query()
                 ->with(['member'])
                 ->whereIn('store_id', $storeIds)
                 ->whereBetween('created_at', [$filters['range']['start'], $filters['range']['end']])

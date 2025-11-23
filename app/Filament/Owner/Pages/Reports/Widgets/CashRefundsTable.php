@@ -43,7 +43,7 @@ class CashRefundsTable extends BaseWidget
         $storeIds = $this->getStoreIds($tenantId, $storeId);
 
         $query = Refund::withoutGlobalScopes()
-            ->with(['store', 'order', 'payment', 'processedBy'])
+            ->with(['store', 'order', 'payment', 'user', 'approver'])
             ->join('payments', 'refunds.payment_id', '=', 'payments.id')
             ->select('refunds.*') // Select only refunds columns to avoid ambiguity
             ->where('payments.payment_method', PaymentMethodEnum::CASH->value)
@@ -95,8 +95,9 @@ class CashRefundsTable extends BaseWidget
                     ->tooltip(fn ($record) => $record->reason ?? '')
                     ->default('-'),
 
-                TextColumn::make('processedBy.name')
+                TextColumn::make('user.name')
                     ->label('Staff')
+                    ->default('-')
                     ->default('-')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

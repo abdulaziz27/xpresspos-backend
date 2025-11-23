@@ -94,8 +94,7 @@ class ProfitAnalysisWidget extends BaseWidget
 
         $dateRange = $globalFilter->getCurrentDateRange();
 
-        return \App\Models\CogsHistory::withoutGlobalScopes()
-            ->whereIn('store_id', $storeIds)
+        return \App\Models\CogsHistory::whereIn('store_id', $storeIds)
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->where('quantity_sold', '>', 0)
             ->exists();

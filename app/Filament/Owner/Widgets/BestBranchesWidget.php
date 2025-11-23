@@ -73,7 +73,7 @@ class BestBranchesWidget extends BaseWidget
                 )
                 ->where('stores.tenant_id', $tenantId)
                 ->whereIn('stores.id', $storeIds)
-                ->groupBy('stores.id', 'stores.name', 'payment_stats.revenue', 'payment_stats.transactions')
+                ->groupBy('stores.id', 'stores.name')
                 ->orderByDesc('revenue');
 
             return $table

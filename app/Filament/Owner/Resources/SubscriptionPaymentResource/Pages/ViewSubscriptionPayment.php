@@ -18,7 +18,7 @@ class ViewSubscriptionPayment extends ViewRecord
     {
         return [
             Actions\Action::make('download_invoice')
-                ->label('Unduh Invoice')
+                ->label('Download Invoice')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
                 ->action('downloadInvoice')
@@ -52,56 +52,25 @@ class ViewSubscriptionPayment extends ViewRecord
         ];
     }
 
-    public function downloadInvoice()
+    public function downloadInvoice(): void
     {
-        try {
-            $invoicePdfService = app(\App\Services\SubscriptionInvoicePdfService::class);
-            
-            // Try to get existing PDF first
-            $pdfPath = $invoicePdfService->getExistingPdfPath($this->record);
+        $invoicePdfService = app(\App\Services\SubscriptionInvoicePdfService::class);
+        $pdfPath = $invoicePdfService->getExistingPdfPath($this->record);
 
-            // If not exists, generate new one
-            if (!$pdfPath) {
-                $pdfPath = $invoicePdfService->generateInvoicePdf($this->record);
-            }
+        if (!$pdfPath) {
+            $pdfPath = $invoicePdfService->generateInvoicePdf($this->record);
+        }
 
-            if (!$pdfPath) {
-                Notification::make()
-                    ->title('Invoice tidak tersedia')
-                    ->body('Tidak dapat menghasilkan PDF invoice. Silakan coba lagi atau hubungi support.')
-                    ->danger()
-                    ->send();
-                return;
-            }
-
-            if (!Storage::exists($pdfPath)) {
-                Notification::make()
-                    ->title('File invoice tidak ditemukan')
-                    ->body('File PDF invoice tidak ditemukan di storage. Silakan coba generate ulang.')
-                    ->danger()
-                    ->send();
-                return;
-            }
-
-            $fullPath = Storage::path($pdfPath);
-            $fileName = "Invoice_{$this->record->external_id}.pdf";
-
-            return response()->download($fullPath, $fileName, [
-                'Content-Type' => 'application/pdf',
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Failed to download invoice', [
-                'subscription_payment_id' => $this->record->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
+        if (!$pdfPath || !Storage::exists($pdfPath)) {
             Notification::make()
-                ->title('Error saat mengunduh invoice')
-                ->body('Terjadi kesalahan saat mengunduh invoice: ' . $e->getMessage())
+                ->title('Invoice not available')
+                ->body('Unable to generate or find the invoice PDF.')
                 ->danger()
                 ->send();
+            return;
         }
+
+        Storage::download($pdfPath, "Invoice_{$this->record->external_id}.pdf");
     }
 
     public function retryPayment(): void

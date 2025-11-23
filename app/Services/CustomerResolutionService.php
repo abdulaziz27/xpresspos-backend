@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Store;
 use App\Models\Member;
 use App\Models\Customer;
-use Illuminate\Support\Facades\Auth;
 
 class CustomerResolutionService
 {
@@ -114,37 +113,21 @@ class CustomerResolutionService
     private function resolveDefaultCustomer(Store $store, array $customerSettings): array
     {
         $defaultName = $customerSettings['default_customer_name'] ?? 'Customer';
-        
-        // Get tenant_id from store
         $tenantId = $store->tenant_id;
         
-        if (!$tenantId) {
-            // Fallback: try to get from authenticated user
-            /** @var \App\Models\User|null $user */
-            $user = Auth::user();
-            if ($user) {
-                $tenantId = $user->currentTenantId();
-            }
-        }
-        
-        if (!$tenantId) {
-            throw new \RuntimeException('Cannot resolve default customer: tenant_id is missing');
-        }
-        
-        // Find or create default customer using tenant_id and member_number (matching unique constraint)
-        // Use withoutGlobalScope to bypass TenantScope during creation
-        $defaultCustomer = Member::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
-            ->firstOrCreate([
-                'tenant_id' => $tenantId,
-                'member_number' => 'DEFAULT',
-            ], [
-                'store_id' => $store->id,
-                'name' => $defaultName,
-                'is_active' => true,
-                'loyalty_points' => 0,
-                'total_spent' => 0,
-                'visit_count' => 0,
-            ]);
+        // Find or create default customer per tenant
+        // Note: Unique constraint is on tenant_id + member_number, so we check by tenant_id
+        $defaultCustomer = Member::firstOrCreate([
+            'tenant_id' => $tenantId,
+            'member_number' => 'DEFAULT',
+        ], [
+            'store_id' => $store->id,
+            'name' => $defaultName,
+            'is_active' => true,
+            'loyalty_points' => 0,
+            'total_spent' => 0,
+            'visit_count' => 0,
+        ]);
         
         return [
             'customer_id' => $defaultCustomer->id,

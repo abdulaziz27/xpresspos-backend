@@ -14,7 +14,10 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Member;
 use App\Models\Table;
+use App\Models\StockLevel;
+use App\Models\InventoryItem;
 use App\Services\OrderCalculationService;
+use App\Services\InventoryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -66,15 +69,101 @@ class OrderController extends Controller
 
         $filters = $validator->validated();
 
-        // Build query with eager loading - ✅ WAJIB: Load items dan product untuk setiap item
-        $query = Order::with([
-            'items',           // ✅ WAJIB: Load order items
-            'items.product',   // ✅ WAJIB: Load product details untuk setiap item
-            'member',
-            'table',
-            'user:id,name',
-            'payments'
-        ]);
+        // Get user and ensure StoreContext is set correctly
+        $user = $request->user() ?? auth()->user();
+        $storeContext = \App\Services\StoreContext::instance();
+        
+        // CRITICAL: For owner users, ensure StoreContext is set to their primary store
+        // This ensures StoreScope filters correctly
+        if ($user) {
+            $currentStoreId = $storeContext->current($user);
+            $userStores = $user->stores()->pluck('stores.id')->toArray();
+            
+            // If no store context or current store not in user's stores, set to primary store
+            if (!$currentStoreId || !in_array($currentStoreId, $userStores)) {
+                $primaryStore = $user->primaryStore();
+                if ($primaryStore) {
+                    $storeContext->setForUser($user, $primaryStore->id);
+                    $currentStoreId = $primaryStore->id;
+                    Log::info('StoreContext set to primary store for order listing', [
+                        'user_id' => $user->id,
+                        'store_id' => $primaryStore->id,
+                    ]);
+                } elseif (!empty($userStores)) {
+                    // Fallback to first store
+                    $firstStoreId = $userStores[0];
+                    $storeContext->setForUser($user, $firstStoreId);
+                    $currentStoreId = $firstStoreId;
+                    Log::info('StoreContext set to first store for order listing', [
+                        'user_id' => $user->id,
+                        'store_id' => $firstStoreId,
+                    ]);
+                }
+            }
+            
+            // For owner users, query all stores they own, not just one store
+            // This ensures orders from all stores are visible
+            $hasOwnerRole = $user->hasRole('owner');
+            $hasOwnerAssignment = $user->storeAssignments()
+                ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+                ->exists();
+            $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+            
+            if ($isOwner && !empty($userStores)) {
+                // Owner can see orders from all their stores
+                // Use withoutGlobalScopes to bypass StoreScope, then filter manually
+                $query = Order::withoutGlobalScopes()
+                    ->whereIn('store_id', $userStores)
+                    ->with([
+                        'items',
+                        'items.product',
+                        'member',
+                        'table',
+                        'user:id,name',
+                        'payments'
+                    ]);
+                
+                // Also filter by tenant_id if available to ensure data isolation
+                $tenantId = $user->currentTenantId();
+                if ($tenantId) {
+                    $query->where('tenant_id', $tenantId);
+                }
+                
+                Log::info('Owner querying orders from multiple stores', [
+                    'user_id' => $user->id,
+                    'has_owner_role' => $hasOwnerRole,
+                    'has_owner_assignment' => $hasOwnerAssignment,
+                    'store_ids' => $userStores,
+                    'tenant_id' => $tenantId,
+                ]);
+            } else {
+                // For non-owner users (cashier, etc.), use normal scoped query
+                // StoreScope will automatically filter by current store
+                $query = Order::with([
+                    'items',
+                    'items.product',
+                    'member',
+                    'table',
+                    'user:id,name',
+                    'payments'
+                ]);
+                
+                Log::info('Non-owner querying orders (using StoreScope)', [
+                    'user_id' => $user->id,
+                    'current_store_id' => $currentStoreId,
+                ]);
+            }
+        } else {
+            // Fallback if no user (shouldn't happen due to auth middleware)
+            $query = Order::with([
+                'items',
+                'items.product',
+                'member',
+                'table',
+                'user:id,name',
+                'payments'
+            ]);
+        }
 
         // Apply filters
         if ($request->filled('status')) {
@@ -184,6 +273,9 @@ class OrderController extends Controller
      */
     public function store(StoreOrderRequest $request): JsonResponse
     {
+        // Authorization check
+        $this->authorize('create', Order::class);
+
         try {
             DB::beginTransaction();
 
@@ -219,6 +311,17 @@ class OrderController extends Controller
                 ], 404);
             }
 
+            // CRITICAL: Set StoreContext to ensure global scope works correctly
+            // This ensures the order can be queried later without being filtered out
+            $storeContext = \App\Services\StoreContext::instance();
+            if (!$storeContext->current($user) || $storeContext->current($user) !== $store->id) {
+                $storeContext->setForUser($user, $store->id);
+                Log::info('StoreContext set for order creation', [
+                    'user_id' => $user->id,
+                    'store_id' => $store->id,
+                ]);
+            }
+
             // Validate tenant context (required for tenant-centric architecture)
             $tenantId = $store->tenant_id ?? $user->currentTenantId();
             if (!$tenantId) {
@@ -236,29 +339,141 @@ class OrderController extends Controller
             $customerService = app(\App\Services\CustomerResolutionService::class);
             $customerData = $customerService->resolveCustomer($request->all(), $store);
             
-            $order = Order::create([
-                'tenant_id' => $tenantId,  // Explicit tenant_id for tenant-centric architecture
-                'store_id' => $store->id,
-                'user_id' => $user->id,  // Staff who created the order
-                'member_id' => $customerData['customer_id'],
-                'customer_name' => $customerData['customer_name'],
-                'customer_type' => $customerData['customer_type'],
-                'table_id' => $request->input('table_id'),
-                'operation_mode' => $request->input('operation_mode', 'dine_in'),
-                'payment_mode' => $request->input('payment_mode', 'direct'),
-                'status' => $request->input('status', 'draft'),
-                'service_charge' => $request->input('service_charge', 0),
-                'discount_amount' => $request->input('discount_amount', 0),
-                'notes' => $request->input('notes'),
-            ]);
+            // Create order with retry mechanism to handle duplicate order_number race conditions
+            $maxRetries = 5;
+            $order = null;
+            $lastException = null;
+            
+            for ($attempt = 0; $attempt < $maxRetries; $attempt++) {
+                try {
+                    // Always create a fresh Order instance to ensure clean state
+                    // This ensures order_number is regenerated on each retry
+                    $order = new Order([
+                        'tenant_id' => $tenantId,  // Explicit tenant_id for tenant-centric architecture
+                        'store_id' => $store->id,
+                        'user_id' => $user->id,  // Staff who created the order
+                        'member_id' => $customerData['customer_id'],
+                        'customer_name' => $customerData['customer_name'],
+                        'customer_type' => $customerData['customer_type'],
+                        'table_id' => $request->input('table_id'),
+                        'operation_mode' => $request->input('operation_mode', 'dine_in'),
+                        'payment_mode' => $request->input('payment_mode', 'direct'),
+                        'status' => $request->input('status', 'draft'),
+                        'service_charge' => $request->input('service_charge', 0),
+                        'discount_amount' => $request->input('discount_amount', 0),
+                        'notes' => $request->input('notes'),
+                        // Explicitly set order_number to null to force regeneration via model event
+                        'order_number' => null,
+                    ]);
+                    
+                    $order->save();
+                    break; // Success, exit retry loop
+                } catch (\Illuminate\Database\QueryException $e) {
+                    $lastException = $e;
+                    $errorMessage = $e->getMessage();
+                    
+                    // Check if it's a duplicate order_number error (more robust check)
+                    // Error code 23000 = Integrity constraint violation
+                    // Check for various forms of order_number unique constraint errors
+                    $isDuplicateOrderNumber = $e->getCode() == 23000 && (
+                        str_contains($errorMessage, 'order_number') || 
+                        str_contains($errorMessage, 'orders_order_number_unique') ||
+                        (str_contains($errorMessage, 'Duplicate entry') && str_contains($errorMessage, 'ORD'))
+                    );
+                    
+                    if ($isDuplicateOrderNumber) {
+                        if ($attempt < $maxRetries - 1) {
+                            // Log the retry attempt
+                            Log::warning('Order creation retry due to duplicate order_number', [
+                                'attempt' => $attempt + 1,
+                                'max_retries' => $maxRetries,
+                                'error' => $errorMessage,
+                            ]);
+                            
+                            // Wait a bit before retry (order_number will be regenerated by model event)
+                            // Use exponential backoff with jitter
+                            $delay = (100000 * pow(2, $attempt)) + rand(0, 50000); // 100ms, 200ms, 400ms, etc.
+                            usleep($delay);
+                            continue;
+                        }
+                    }
+                    // Re-throw if not a duplicate error or max retries reached
+                    throw $e;
+                }
+            }
+            
+            if (!$order) {
+                DB::rollBack();
+                Log::error('Failed to create order after retries', [
+                    'attempts' => $maxRetries,
+                    'exception' => $lastException?->getMessage(),
+                    'store_id' => $store->id,
+                    'tenant_id' => $tenantId,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'ORDER_CREATION_FAILED',
+                        'message' => 'Failed to create order. Please try again.',
+                        'details' => $lastException?->getMessage(),
+                    ],
+                    'meta' => [
+                        'timestamp' => now()->toISOString(),
+                        'version' => 'v1'
+                    ]
+                ], 500);
+            }
 
             // Add items if provided
-            if ($request->has('items')) {
+            if ($request->has('items') && !empty($request->input('items'))) {
                 $calculationService = app(OrderCalculationService::class);
+                $itemsAdded = 0;
+                $itemsFailed = 0;
+                
                 foreach ($request->input('items') as $itemData) {
-                    $this->addItemToOrder($order, $itemData);
+                    try {
+                        $this->addItemToOrder($order, $itemData);
+                        $itemsAdded++;
+                    } catch (\Exception $e) {
+                        $itemsFailed++;
+                        Log::error('Failed to add item to order', [
+                            'order_id' => $order->id,
+                            'item_data' => $itemData,
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                        ]);
+                        // Re-throw to trigger rollback
+                        throw new \Exception("Failed to add item to order: {$e->getMessage()}", 0, $e);
+                    }
                 }
+                
+                if ($itemsAdded === 0 && $itemsFailed > 0) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'ITEMS_ADDITION_FAILED',
+                            'message' => 'Failed to add items to order. Please check product IDs and try again.',
+                        ],
+                        'meta' => [
+                            'timestamp' => now()->toISOString(),
+                            'version' => 'v1'
+                        ]
+                    ], 422);
+                }
+                
+                // Refresh order to get latest items
+                $order->refresh();
                 $calculationService->updateOrderTotals($order);
+                
+                Log::info('Items added to order', [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'items_added' => $itemsAdded,
+                    'items_failed' => $itemsFailed,
+                    'total_items' => $order->items->count(),
+                    'user_id' => $user->id
+                ]);
                 
                 // Deduct inventory if flag is true
                 if ($request->input('deduct_inventory', false)) {
@@ -303,7 +518,41 @@ class OrderController extends Controller
 
             DB::commit();
 
+            // Refresh order to ensure we have latest data
+            $order->refresh();
             $order->load(['items.product', 'member', 'table', 'user:id,name']);
+
+            // Verify order was actually saved
+            $savedOrder = Order::find($order->id);
+            if (!$savedOrder) {
+                Log::error('Order not found after commit', [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'store_id' => $store->id,
+                    'user_id' => $user->id,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'ORDER_SAVE_FAILED',
+                        'message' => 'Order was not saved properly. Please try again.',
+                    ],
+                    'meta' => [
+                        'timestamp' => now()->toISOString(),
+                        'version' => 'v1'
+                    ]
+                ], 500);
+            }
+
+            Log::info('Order created successfully', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'store_id' => $store->id,
+                'tenant_id' => $tenantId,
+                'user_id' => $user->id,
+                'items_count' => $order->items->count(),
+                'total_amount' => $order->total_amount,
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -343,7 +592,162 @@ class OrderController extends Controller
      */
     public function show(string $id): JsonResponse
     {
-        $order = Order::with(['items.product', 'member', 'table', 'user:id,name', 'payments'])->findOrFail($id);
+        $user = request()->user() ?? auth()->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated. Please provide a valid authentication token.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 401);
+        }
+        
+        $storeContext = \App\Services\StoreContext::instance();
+        $userStores = $user->stores()->pluck('stores.id')->toArray();
+        
+        // Check if user is owner
+        $hasOwnerRole = $user->hasRole('owner');
+        $hasOwnerAssignment = $user->storeAssignments()
+            ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+            ->exists();
+        $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+        
+        // Find order - for owner, bypass StoreScope; for others, use normal scope
+        if ($isOwner && !empty($userStores)) {
+            // Owner: query without StoreScope, then verify access
+            $order = Order::withoutGlobalScopes()
+                ->where('id', $id)
+                ->whereIn('store_id', $userStores)
+                ->with(['items.product', 'member', 'table', 'user:id,name', 'payments'])
+                ->first();
+            
+            // Also filter by tenant_id for security
+            if ($order) {
+                $tenantId = $user->currentTenantId();
+                if ($tenantId && $order->tenant_id !== $tenantId) {
+                    $order = null;
+                }
+            }
+        } else {
+            // Non-owner: use normal StoreScope
+            // But first, ensure StoreContext is set correctly
+            $currentStoreId = $storeContext->current($user);
+            if (!$currentStoreId || !in_array($currentStoreId, $userStores)) {
+                $primaryStore = $user->primaryStore();
+                if ($primaryStore) {
+                    $storeContext->setForUser($user, $primaryStore->id);
+                    $currentStoreId = $primaryStore->id;
+                } elseif (!empty($userStores)) {
+                    $storeContext->setForUser($user, $userStores[0]);
+                    $currentStoreId = $userStores[0];
+                }
+            }
+            
+            $order = Order::with(['items.product', 'member', 'table', 'user:id,name', 'payments'])->find($id);
+        }
+        
+        // If order not found, provide helpful error message
+        if (!$order) {
+            // Check if order exists at all (for better error message)
+            $orderExists = Order::withoutGlobalScopes()
+                ->where('id', $id)
+                ->first();
+            
+            if ($orderExists) {
+                $orderStoreId = $orderExists->store_id;
+                $hasAccess = in_array($orderStoreId, $userStores);
+                
+                Log::warning('Order found but not accessible', [
+                    'order_id' => $id,
+                    'user_id' => $user->id,
+                    'is_owner' => $isOwner,
+                    'order_store_id' => $orderStoreId,
+                    'user_stores' => $userStores,
+                    'has_access' => $hasAccess,
+                ]);
+                
+                if (!$hasAccess) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'ORDER_ACCESS_DENIED',
+                            'message' => 'Order not found or you do not have access to this order.',
+                            'details' => 'The order belongs to a different store.',
+                        ],
+                        'meta' => [
+                            'timestamp' => now()->toISOString(),
+                            'version' => 'v1'
+                        ]
+                    ], 403);
+                }
+                
+                // Order exists and user has access, but StoreContext might be wrong
+                // Set StoreContext to order's store and retry
+                $storeContext->setForUser($user, $orderStoreId);
+                $order = Order::with(['items.product', 'member', 'table', 'user:id,name', 'payments'])->find($id);
+                
+                if (!$order) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'ORDER_ACCESS_DENIED',
+                            'message' => 'Order not found or you do not have access to this order.',
+                            'details' => 'Unable to access order. Please try again.',
+                        ],
+                        'meta' => [
+                            'timestamp' => now()->toISOString(),
+                            'version' => 'v1'
+                        ]
+                    ], 403);
+                }
+            } else {
+                // Order doesn't exist at all
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'ORDER_NOT_FOUND',
+                        'message' => 'Order not found.',
+                    ],
+                    'meta' => [
+                        'timestamp' => now()->toISOString(),
+                        'version' => 'v1'
+                    ]
+                ], 404);
+            }
+        }
+        
+        // Verify user has access to this order's store
+        if (!in_array($order->store_id, $userStores)) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_ACCESS_DENIED',
+                    'message' => 'Order not found or you do not have access to this order.',
+                    'details' => 'The order belongs to a different store.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 403);
+        }
+        
+        // Set StoreContext to order's store to ensure consistency
+        if ($storeContext->current($user) !== $order->store_id) {
+            $storeContext->setForUser($user, $order->store_id);
+            Log::info('StoreContext set to order store for show', [
+                'user_id' => $user->id,
+                'order_id' => $order->id,
+                'store_id' => $order->store_id,
+            ]);
+        }
+        
         $this->authorize('view', $order);
 
         $order->load(['items.product.options', 'member', 'table', 'user:id,name', 'payments', 'refunds']);
@@ -363,7 +767,23 @@ class OrderController extends Controller
      */
     public function update(UpdateOrderRequest $request, string $id): JsonResponse
     {
-        $order = Order::findOrFail($id);
+        $user = $request->user() ?? auth()->user();
+        $order = $this->findOrderForUser($id, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('update', $order);
 
         if (!$order->canBeModified()) {
@@ -494,7 +914,23 @@ class OrderController extends Controller
      */
     public function destroy(string $id): JsonResponse
     {
-        $order = Order::findOrFail($id);
+        $user = request()->user() ?? auth()->user();
+        $order = $this->findOrderForUser($id, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('delete', $order);
 
         if (!$order->canBeModified()) {
@@ -521,8 +957,8 @@ class OrderController extends Controller
 
             // Restore inventory for all items
             foreach ($order->items as $item) {
-                if ($item->product && $item->product->track_inventory) {
-                    $item->product->increaseStock($item->quantity);
+                if ($item->product) {
+                    $this->restoreInventoryForProduct($item->product, $item->quantity, $order->id);
                 }
             }
 
@@ -567,7 +1003,23 @@ class OrderController extends Controller
      */
     public function addItem(AddOrderItemRequest $request, string $id): JsonResponse
     {
-        $order = Order::findOrFail($id);
+        $user = $request->user() ?? auth()->user();
+        $order = $this->findOrderForUser($id, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('update', $order);
 
         if (!$order->canBeModified()) {
@@ -635,7 +1087,23 @@ class OrderController extends Controller
      */
     public function updateItem(Request $request, string $orderId, string $itemId): JsonResponse
     {
-        $order = Order::findOrFail($orderId);
+        $user = $request->user() ?? auth()->user();
+        $order = $this->findOrderForUser($orderId, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $item = $order->items()->findOrFail($itemId);
         $this->authorize('update', $order);
 
@@ -687,9 +1155,11 @@ class OrderController extends Controller
             if ($item->product && $item->product->track_inventory) {
                 $quantityDiff = $newQuantity - $oldQuantity;
                 if ($quantityDiff > 0) {
-                    $item->product->reduceStock($quantityDiff);
+                    // Quantity increased, deduct inventory
+                    $this->deductInventoryForProduct($item->product, $quantityDiff, $order->id);
                 } elseif ($quantityDiff < 0) {
-                    $item->product->increaseStock(abs($quantityDiff));
+                    // Quantity decreased, restore inventory
+                    $this->restoreInventoryForProduct($item->product, abs($quantityDiff), $order->id);
                 }
             }
 
@@ -739,7 +1209,23 @@ class OrderController extends Controller
      */
     public function removeItem(string $orderId, string $itemId): JsonResponse
     {
-        $order = Order::findOrFail($orderId);
+        $user = request()->user() ?? auth()->user();
+        $order = $this->findOrderForUser($orderId, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $item = $order->items()->findOrFail($itemId);
         $this->authorize('update', $order);
 
@@ -775,8 +1261,8 @@ class OrderController extends Controller
             DB::beginTransaction();
 
             // Restore inventory
-            if ($item->product && $item->product->track_inventory) {
-                $item->product->increaseStock($item->quantity);
+            if ($item->product) {
+                $this->restoreInventoryForProduct($item->product, $item->quantity, $order->id);
             }
 
             $item->delete();
@@ -823,7 +1309,23 @@ class OrderController extends Controller
      */
     public function complete(string $id): JsonResponse
     {
-        $order = Order::findOrFail($id);
+        $user = request()->user() ?? auth()->user();
+        $order = $this->findOrderForUser($id, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('update', $order);
 
         if ($order->status === 'completed') {
@@ -931,11 +1433,117 @@ class OrderController extends Controller
     }
 
     /**
+     * Helper method to find order with proper store context handling.
+     * Handles owner users (bypass StoreScope) and non-owner users (use StoreScope).
+     */
+    private function findOrderForUser(string $orderId, $user = null): ?Order
+    {
+        if (!$user) {
+            $user = request()->user() ?? auth()->user();
+        }
+        
+        if (!$user) {
+            return null;
+        }
+        
+        $storeContext = \App\Services\StoreContext::instance();
+        $userStores = $user->stores()->pluck('stores.id')->toArray();
+        
+        // Check if user is owner
+        $hasOwnerRole = $user->hasRole('owner');
+        $hasOwnerAssignment = $user->storeAssignments()
+            ->where('assignment_role', \App\Enums\AssignmentRoleEnum::OWNER->value)
+            ->exists();
+        $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+        
+        // Find order - for owner, bypass StoreScope; for others, use normal scope
+        if ($isOwner && !empty($userStores)) {
+            // Owner: query without StoreScope, then verify access
+            $order = Order::withoutGlobalScopes()
+                ->where('id', $orderId)
+                ->whereIn('store_id', $userStores)
+                ->first();
+            
+            // Also filter by tenant_id for security
+            if ($order) {
+                $tenantId = $user->currentTenantId();
+                if ($tenantId && $order->tenant_id !== $tenantId) {
+                    $order = null;
+                }
+            }
+        } else {
+            // Non-owner: use normal StoreScope
+            // But first, ensure StoreContext is set correctly
+            $currentStoreId = $storeContext->current($user);
+            if (!$currentStoreId || !in_array($currentStoreId, $userStores)) {
+                $primaryStore = $user->primaryStore();
+                if ($primaryStore) {
+                    $storeContext->setForUser($user, $primaryStore->id);
+                    $currentStoreId = $primaryStore->id;
+                } elseif (!empty($userStores)) {
+                    $storeContext->setForUser($user, $userStores[0]);
+                    $currentStoreId = $userStores[0];
+                }
+            }
+            
+            $order = Order::find($orderId);
+        }
+        
+        // Verify user has access to this order's store
+        if ($order && !in_array($order->store_id, $userStores)) {
+            return null;
+        }
+        
+        // Set StoreContext to order's store to ensure consistency
+        if ($order && $storeContext->current($user) !== $order->store_id) {
+            $storeContext->setForUser($user, $order->store_id);
+        }
+        
+        return $order;
+    }
+
+    /**
      * Helper method to add item to order.
      */
     private function addItemToOrder(Order $order, array $itemData): OrderItem
     {
-        $product = Product::findOrFail($itemData['product_id']);
+        Log::info('Adding item to order', [
+            'order_id' => $order->id,
+            'product_id' => $itemData['product_id'] ?? null,
+            'quantity' => $itemData['quantity'] ?? null,
+        ]);
+
+        // Validate product_id is provided
+        if (empty($itemData['product_id'])) {
+            throw new \InvalidArgumentException('Product ID is required');
+        }
+
+        // Find product - use withoutGlobalScopes to ensure we can find products across tenants
+        // The product should still be validated against tenant_id in the request validation
+        $product = Product::withoutGlobalScopes()->find($itemData['product_id']);
+        
+        if (!$product) {
+            Log::error('Product not found', [
+                'product_id' => $itemData['product_id'],
+                'order_id' => $order->id,
+            ]);
+            throw new \Illuminate\Database\Eloquent\ModelNotFoundException(
+                "Product with ID {$itemData['product_id']} not found"
+            );
+        }
+
+        // Validate product belongs to the same tenant as the order
+        if ($product->tenant_id !== $order->tenant_id) {
+            Log::error('Product tenant mismatch', [
+                'product_id' => $product->id,
+                'product_tenant_id' => $product->tenant_id,
+                'order_tenant_id' => $order->tenant_id,
+                'order_id' => $order->id,
+            ]);
+            throw new \InvalidArgumentException(
+                "Product does not belong to the same tenant as the order"
+            );
+        }
 
         // Validate product options if provided
         if (!empty($itemData['product_options'])) {
@@ -959,6 +1567,14 @@ class OrderController extends Controller
             'notes' => $itemData['notes'] ?? null,
         ]);
 
+        Log::info('Item added to order successfully', [
+            'order_id' => $order->id,
+            'order_item_id' => $orderItem->id,
+            'product_id' => $product->id,
+            'quantity' => $itemData['quantity'],
+            'unit_price' => $priceCalculation['total_price'],
+        ]);
+
         // NOTE: Inventory is now managed explicitly via deduct_inventory flag
         // The automatic inventory deduction has been removed to give explicit control
 
@@ -970,7 +1586,23 @@ class OrderController extends Controller
      */
     public function cancel(Request $request, string $id): JsonResponse
     {
-        $order = Order::findOrFail($id);
+        $user = $request->user() ?? auth()->user();
+        $order = $this->findOrderForUser($id, $user);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'ORDER_NOT_FOUND',
+                    'message' => 'Order not found or you do not have access to this order.',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1'
+                ]
+            ], 404);
+        }
+        
         $this->authorize('update', $order);
 
         $request->validate([
@@ -1103,24 +1735,193 @@ class OrderController extends Controller
             $product = $item->product;
             
             // Only deduct if product tracks inventory
-            if ($product && $product->track_inventory) {
-                $newStock = $product->stock - $item->quantity;
-                
-                // Prevent negative stock
-                if ($newStock < 0) {
-                    throw new \Exception("Insufficient stock for product: {$product->name}. Available: {$product->stock}, Requested: {$item->quantity}");
-                }
-                
-                $product->decrement('stock', $item->quantity);
-                
-                Log::info('Inventory deducted', [
+            if (!$product || !$product->track_inventory) {
+                continue;
+            }
+            
+            // Get active recipe for product
+            $activeRecipe = $product->getActiveRecipe();
+            if (!$activeRecipe) {
+                Log::warning('Product has track_inventory=true but no active recipe', [
                     'product_id' => $product->id,
                     'product_name' => $product->name,
-                    'quantity' => $item->quantity,
-                    'old_stock' => $product->stock + $item->quantity,
-                    'new_stock' => $product->stock,
-                    'order_id' => $order->id
+                    'order_id' => $order->id,
                 ]);
+                continue;
+            }
+            
+            // Load recipe items with inventory items
+            $activeRecipe->load('items.inventoryItem');
+            if ($activeRecipe->items->isEmpty()) {
+                Log::warning('Product recipe has no items', [
+                    'product_id' => $product->id,
+                    'recipe_id' => $activeRecipe->id,
+                    'order_id' => $order->id,
+                ]);
+                continue;
+            }
+            
+            // Calculate quantity needed for each inventory item based on recipe
+            $storeId = $order->store_id;
+            $inventoryService = app(InventoryService::class);
+            
+            foreach ($activeRecipe->items as $recipeItem) {
+                $inventoryItem = $recipeItem->inventoryItem;
+                if (!$inventoryItem || !$inventoryItem->track_stock) {
+                    continue;
+                }
+                
+                // Calculate quantity needed: (recipe_item.quantity / recipe.yield_quantity) * order_item.quantity
+                $yieldQty = $activeRecipe->yield_quantity > 0 ? $activeRecipe->yield_quantity : 1;
+                $quantityNeeded = ($recipeItem->quantity / $yieldQty) * $item->quantity;
+                
+                try {
+                    // Deduct stock using InventoryService
+                    $inventoryService->processSale(
+                        $inventoryItem->id,
+                        $quantityNeeded,
+                        $order->id
+                    );
+                    
+                    Log::info('Inventory deducted via recipe', [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name,
+                        'inventory_item_id' => $inventoryItem->id,
+                        'inventory_item_name' => $inventoryItem->name,
+                        'quantity_needed' => $quantityNeeded,
+                        'order_item_quantity' => $item->quantity,
+                        'order_id' => $order->id,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to deduct inventory for recipe item', [
+                        'product_id' => $product->id,
+                        'inventory_item_id' => $inventoryItem->id,
+                        'quantity_needed' => $quantityNeeded,
+                        'error' => $e->getMessage(),
+                        'order_id' => $order->id,
+                    ]);
+                    throw new \Exception("Insufficient stock for product: {$product->name}. {$e->getMessage()}");
+                }
+            }
+        }
+    }
+
+    /**
+     * Deduct inventory for a product through its recipe.
+     * 
+     * @param Product $product
+     * @param float $quantity Product quantity to deduct
+     * @param string $orderId Order ID for reference
+     * @throws \Exception If insufficient stock
+     */
+    private function deductInventoryForProduct(Product $product, float $quantity, string $orderId): void
+    {
+        if (!$product->track_inventory) {
+            return;
+        }
+        
+        $activeRecipe = $product->getActiveRecipe();
+        if (!$activeRecipe) {
+            Log::warning('Product has track_inventory=true but no active recipe', [
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'order_id' => $orderId,
+            ]);
+            return;
+        }
+        
+        $activeRecipe->load('items.inventoryItem');
+        if ($activeRecipe->items->isEmpty()) {
+            Log::warning('Product recipe has no items', [
+                'product_id' => $product->id,
+                'recipe_id' => $activeRecipe->id,
+                'order_id' => $orderId,
+            ]);
+            return;
+        }
+        
+        $inventoryService = app(InventoryService::class);
+        $yieldQty = $activeRecipe->yield_quantity > 0 ? $activeRecipe->yield_quantity : 1;
+        
+        foreach ($activeRecipe->items as $recipeItem) {
+            $inventoryItem = $recipeItem->inventoryItem;
+            if (!$inventoryItem || !$inventoryItem->track_stock) {
+                continue;
+            }
+            
+            $quantityNeeded = ($recipeItem->quantity / $yieldQty) * $quantity;
+            
+            try {
+                $inventoryService->processSale($inventoryItem->id, $quantityNeeded, $orderId);
+            } catch (\Exception $e) {
+                Log::error('Failed to deduct inventory for recipe item', [
+                    'product_id' => $product->id,
+                    'inventory_item_id' => $inventoryItem->id,
+                    'quantity_needed' => $quantityNeeded,
+                    'error' => $e->getMessage(),
+                    'order_id' => $orderId,
+                ]);
+                throw new \Exception("Insufficient stock for product: {$product->name}. {$e->getMessage()}");
+            }
+        }
+    }
+    
+    /**
+     * Restore inventory for a product through its recipe.
+     * 
+     * @param Product $product
+     * @param float $quantity Product quantity to restore
+     * @param string|null $orderId Order ID for reference
+     */
+    private function restoreInventoryForProduct(Product $product, float $quantity, ?string $orderId = null): void
+    {
+        if (!$product->track_inventory) {
+            return;
+        }
+        
+        $activeRecipe = $product->getActiveRecipe();
+        if (!$activeRecipe) {
+            Log::warning('Product has track_inventory=true but no active recipe for restoration', [
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'order_id' => $orderId,
+            ]);
+            return;
+        }
+        
+        $activeRecipe->load('items.inventoryItem');
+        if ($activeRecipe->items->isEmpty()) {
+            return;
+        }
+        
+        $inventoryService = app(InventoryService::class);
+        $yieldQty = $activeRecipe->yield_quantity > 0 ? $activeRecipe->yield_quantity : 1;
+        
+        foreach ($activeRecipe->items as $recipeItem) {
+            $inventoryItem = $recipeItem->inventoryItem;
+            if (!$inventoryItem || !$inventoryItem->track_stock) {
+                continue;
+            }
+            
+            $quantityToRestore = ($recipeItem->quantity / $yieldQty) * $quantity;
+            
+            try {
+                $inventoryService->adjustStock(
+                    $inventoryItem->id,
+                    $quantityToRestore,
+                    'Order cancelled/updated - stock restoration',
+                    null,
+                    "Restored from order item"
+                );
+            } catch (\Exception $e) {
+                Log::error('Failed to restore inventory for recipe item', [
+                    'product_id' => $product->id,
+                    'inventory_item_id' => $inventoryItem->id,
+                    'quantity_to_restore' => $quantityToRestore,
+                    'error' => $e->getMessage(),
+                    'order_id' => $orderId,
+                ]);
+                // Don't throw exception for restoration failures, just log
             }
         }
     }
@@ -1134,16 +1935,69 @@ class OrderController extends Controller
             $product = $item->product;
             
             // Only restore if product tracks inventory
-            if ($product && $product->track_inventory) {
-                $product->increment('stock', $item->quantity);
-                
-                Log::info('Inventory restored', [
+            if (!$product || !$product->track_inventory) {
+                continue;
+            }
+            
+            // Get active recipe for product
+            $activeRecipe = $product->getActiveRecipe();
+            if (!$activeRecipe) {
+                Log::warning('Product has track_inventory=true but no active recipe for restoration', [
                     'product_id' => $product->id,
                     'product_name' => $product->name,
-                    'quantity' => $item->quantity,
-                    'new_stock' => $product->stock,
-                    'order_id' => $item->order_id ?? null
+                    'order_id' => $item->order_id ?? null,
                 ]);
+                continue;
+            }
+            
+            // Load recipe items with inventory items
+            $activeRecipe->load('items.inventoryItem');
+            if ($activeRecipe->items->isEmpty()) {
+                continue;
+            }
+            
+            // Calculate quantity to restore for each inventory item based on recipe
+            $inventoryService = app(InventoryService::class);
+            
+            foreach ($activeRecipe->items as $recipeItem) {
+                $inventoryItem = $recipeItem->inventoryItem;
+                if (!$inventoryItem || !$inventoryItem->track_stock) {
+                    continue;
+                }
+                
+                // Calculate quantity to restore: (recipe_item.quantity / recipe.yield_quantity) * order_item.quantity
+                $yieldQty = $activeRecipe->yield_quantity > 0 ? $activeRecipe->yield_quantity : 1;
+                $quantityToRestore = ($recipeItem->quantity / $yieldQty) * $item->quantity;
+                
+                try {
+                    // Restore stock using InventoryService (adjustment in)
+                    $inventoryService->adjustStock(
+                        $inventoryItem->id,
+                        $quantityToRestore, // Positive for restoration
+                        'Order cancelled - stock restoration',
+                        null,
+                        "Restored from cancelled order item"
+                    );
+                    
+                    Log::info('Inventory restored via recipe', [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name,
+                        'inventory_item_id' => $inventoryItem->id,
+                        'inventory_item_name' => $inventoryItem->name,
+                        'quantity_restored' => $quantityToRestore,
+                        'order_item_quantity' => $item->quantity,
+                        'order_id' => $item->order_id ?? null,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to restore inventory for recipe item', [
+                        'product_id' => $product->id,
+                        'inventory_item_id' => $inventoryItem->id,
+                        'quantity_to_restore' => $quantityToRestore,
+                        'error' => $e->getMessage(),
+                        'order_id' => $item->order_id ?? null,
+                    ]);
+                    // Don't throw exception for restoration failures, just log
+                }
             }
         }
     }
@@ -1176,15 +2030,13 @@ class OrderController extends Controller
                 if (!$newItemsCollection->has($productId)) {
                     $product = $oldItem->product;
                     if ($product && $product->track_inventory) {
-                        $oldStock = $product->stock;
-                        $product->increment('stock', $oldItem->quantity);
+                        $this->restoreInventoryForProduct($product, $oldItem->quantity, $order->id);
                         
                         Log::info("✅ Restored stock for deleted item", [
                             'product_id' => $product->id,
                             'product_name' => $product->name,
                             'quantity' => $oldItem->quantity,
-                            'old_stock' => $oldStock,
-                            'new_stock' => $product->stock
+                            'order_id' => $order->id
                         ]);
                     }
                 }
@@ -1208,33 +2060,23 @@ class OrderController extends Controller
 
                     if ($diff > 0) {
                         // Quantity bertambah, kurangi stock
-                        $oldStock = $product->stock;
-                        $newStock = $product->stock - $diff;
-                        
-                        if ($newStock < 0) {
-                            throw new \Exception("Stock tidak cukup untuk {$product->name}. Stock tersedia: {$product->stock}, dibutuhkan: {$diff}");
-                        }
-                        
-                        $product->update(['stock' => $newStock]);
+                        $this->deductInventoryForProduct($product, $diff, $order->id);
                         
                         Log::info("✅ Deducted stock for increased quantity", [
                             'product_id' => $product->id,
                             'product_name' => $product->name,
-                            'quantity_diff' => -$diff,
-                            'old_stock' => $oldStock,
-                            'new_stock' => $product->stock
+                            'quantity_diff' => $diff,
+                            'order_id' => $order->id
                         ]);
                     } elseif ($diff < 0) {
                         // Quantity berkurang, kembalikan stock
-                        $oldStock = $product->stock;
-                        $product->increment('stock', abs($diff));
+                        $this->restoreInventoryForProduct($product, abs($diff), $order->id);
                         
                         Log::info("✅ Restored stock for decreased quantity", [
                             'product_id' => $product->id,
                             'product_name' => $product->name,
                             'quantity_diff' => abs($diff),
-                            'old_stock' => $oldStock,
-                            'new_stock' => $product->stock
+                            'order_id' => $order->id
                         ]);
                     } else {
                         Log::info("ℹ️ No quantity change", [
@@ -1245,21 +2087,13 @@ class OrderController extends Controller
                 } else {
                     // Item baru ditambahkan
                     $quantity = (int) $newItem['quantity'];
-                    $oldStock = $product->stock;
-                    $newStock = $product->stock - $quantity;
-                    
-                    if ($newStock < 0) {
-                        throw new \Exception("Stock tidak cukup untuk {$product->name}. Stock tersedia: {$product->stock}, dibutuhkan: {$quantity}");
-                    }
-                    
-                    $product->update(['stock' => $newStock]);
+                    $this->deductInventoryForProduct($product, $quantity, $order->id);
                     
                     Log::info("✅ Deducted stock for new item", [
                         'product_id' => $product->id,
                         'product_name' => $product->name,
                         'quantity' => $quantity,
-                        'old_stock' => $oldStock,
-                        'new_stock' => $product->stock
+                        'order_id' => $order->id
                     ]);
                 }
             }

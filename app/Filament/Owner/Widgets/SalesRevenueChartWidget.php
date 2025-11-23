@@ -59,8 +59,7 @@ class SalesRevenueChartWidget extends ChartWidget
                 $hourStart = $start->copy()->setTime($h, 0, 0);
                 $hourEnd = $start->copy()->setTime($h, 59, 59);
 
-                $sum = Payment::withoutGlobalScopes()
-                    ->whereIn('store_id', $storeIds)
+                $sum = Payment::whereIn('store_id', $storeIds)
                     ->where('status', 'completed')
                     ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$hourStart, $hourEnd])
                     ->sum(DB::raw('CASE WHEN received_amount > 0 THEN received_amount ELSE amount END'));
@@ -74,8 +73,7 @@ class SalesRevenueChartWidget extends ChartWidget
                 $dayStart = $date->copy()->startOfDay();
                 $dayEnd = $date->copy()->endOfDay();
 
-                $sum = Payment::withoutGlobalScopes()
-                    ->whereIn('store_id', $storeIds)
+                $sum = Payment::whereIn('store_id', $storeIds)
                     ->where('status', 'completed')
                     ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$dayStart, $dayEnd])
                     ->sum(DB::raw('CASE WHEN received_amount > 0 THEN received_amount ELSE amount END'));
