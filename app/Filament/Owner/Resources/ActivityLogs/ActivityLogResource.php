@@ -161,21 +161,25 @@ class ActivityLogResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->withoutGlobalScopes();
         /** @var GlobalFilterService $filter */
         $filter = app(GlobalFilterService::class);
+        $tenantId = $filter->getCurrentTenantId();
 
-        if ($tenantId = $filter->getCurrentTenantId()) {
-            $query->where('tenant_id', $tenantId);
-        } elseif ($tenantId = auth()->user()?->currentTenant()?->id) {
-            $query->where('tenant_id', $tenantId);
+        if (!$tenantId) {
+            // Fallback to user's current tenant
+            $tenantId = auth()->user()?->currentTenant()?->id;
         }
 
-        if ($storeId = $filter->getCurrentStoreId()) {
-            $query->where('store_id', $storeId);
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes();
+
+        if (!$tenantId) {
+            return $query->whereRaw('1 = 0');
         }
 
-        return $query;
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
+        return $query->where('tenant_id', $tenantId);
     }
 }
 

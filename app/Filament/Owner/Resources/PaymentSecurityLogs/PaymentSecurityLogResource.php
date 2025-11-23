@@ -156,18 +156,25 @@ class PaymentSecurityLogResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        /** @var GlobalFilterService $filter */
         $filter = app(GlobalFilterService::class);
+        $tenantId = $filter->getCurrentTenantId();
 
-        if ($tenantId = $filter->getCurrentTenantId()) {
-            $query->where('tenant_id', $tenantId);
-        } elseif ($tenantId = auth()->user()?->currentTenant()?->id) {
-            $query->where('tenant_id', $tenantId);
-        } else {
-            $query->whereRaw('1 = 0');
+        if (!$tenantId) {
+            // Fallback to user's current tenant
+            $tenantId = auth()->user()?->currentTenant()?->id;
         }
 
-        return $query;
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes();
+
+        if (!$tenantId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
+        return $query->where('tenant_id', $tenantId);
     }
 }
 

@@ -53,15 +53,28 @@ class StaffPerformanceResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $user = auth()->user();
-        
-        if ($user && $user->store_id) {
-            return parent::getEloquentQuery()
-                ->withoutGlobalScopes()
-                ->where('store_id', $user->store_id);
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
+
+        if (!$tenantId) {
+            // Fallback to user's current tenant
+            $tenantId = auth()->user()?->currentTenant()?->id;
         }
 
-        return parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes();
+
+        if (!$tenantId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
+        // StaffPerformance doesn't have tenant_id column, so filter via store relationship
+        return $query->whereHas('store', function ($q) use ($tenantId) {
+            $q->where('tenant_id', $tenantId);
+        });
     }
 
     public static function shouldRegisterNavigation(): bool

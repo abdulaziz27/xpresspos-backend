@@ -145,7 +145,7 @@ class SalesSummaryCard extends Widget
             );
         }
 
-        $totalPayments = (clone $paymentsQuery)->sum(DB::raw('COALESCE(received_amount, amount)'));
+        $totalPayments = (clone $paymentsQuery)->sum(DB::raw('CASE WHEN received_amount > 0 THEN received_amount ELSE amount END'));
 
         $refundsQuery = Refund::withoutGlobalScopes()
             ->whereIn('store_id', $storeIds)

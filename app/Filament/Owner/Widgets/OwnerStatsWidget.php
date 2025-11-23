@@ -10,6 +10,7 @@ use App\Models\Product;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\DB;
 
 class OwnerStatsWidget extends BaseWidget
 {
@@ -66,8 +67,8 @@ class OwnerStatsWidget extends BaseWidget
 
         $revenue = (clone $paymentsQuery)
             ->where('status', 'completed')
-            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
-            ->sum('amount');
+            ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$dateRange['start'], $dateRange['end']])
+            ->sum(DB::raw('CASE WHEN received_amount > 0 THEN received_amount ELSE amount END'));
 
         $totalProducts = $productsQuery->count();
         $totalMembers = $membersQuery->where('is_active', true)->count();

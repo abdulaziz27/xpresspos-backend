@@ -55,8 +55,25 @@ class ProductPriceHistoryResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        // Tenant scope is automatically applied via TenantScope global scope
-        return parent::getEloquentQuery();
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
+
+        if (!$tenantId) {
+            // Fallback to user's current tenant
+            $tenantId = auth()->user()?->currentTenant()?->id;
+        }
+
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes();
+
+        if (!$tenantId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
+        return $query->where('tenant_id', $tenantId);
     }
 
     public static function shouldRegisterNavigation(): bool
