@@ -5,7 +5,7 @@ namespace App\Filament\Owner\Resources\LoyaltyPointTransactions;
 use App\Filament\Owner\Resources\LoyaltyPointTransactions\Pages\ListLoyaltyPointTransactions;
 use App\Filament\Owner\Resources\LoyaltyPointTransactions\Tables\LoyaltyPointTransactionsTable;
 use App\Models\LoyaltyPointTransaction;
-use App\Services\StoreContext;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
@@ -58,31 +58,21 @@ class LoyaltyPointTransactionResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $user = auth()->user();
-        $storeContext = StoreContext::instance();
-        $storeId = $storeContext->current($user);
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
 
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->with(['member', 'order', 'user', 'store']);
 
-        if ($storeId) {
-            return $query->where('store_id', $storeId);
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
         }
 
-        if (! $user) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        if ($user->hasRole('admin_sistem')) {
-            return $query;
-        }
-
-        $accessibleStores = $storeContext->accessibleStores($user)->pluck('id');
-
-        if ($accessibleStores->isEmpty()) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        return $query->whereIn('store_id', $accessibleStores);
+        return $query;
     }
 
     public static function shouldRegisterNavigation(): bool

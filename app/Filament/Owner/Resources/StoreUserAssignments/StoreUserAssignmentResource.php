@@ -77,10 +77,15 @@ class StoreUserAssignmentResource extends Resource
 
         /** @var GlobalFilterService $globalFilter */
         $globalFilter = app(GlobalFilterService::class);
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+        $tenantId = $globalFilter->getCurrentTenantId();
 
-        if (! empty($storeIds)) {
-            $query->whereIn('store_id', $storeIds);
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
+        // StoreUserAssignment doesn't have tenant_id column, so filter via store relationship
+        if ($tenantId) {
+            $query->whereHas('store', function ($q) use ($tenantId) {
+                $q->where('tenant_id', $tenantId);
+            });
         }
 
         return $query;

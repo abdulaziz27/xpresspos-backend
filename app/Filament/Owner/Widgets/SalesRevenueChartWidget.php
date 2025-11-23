@@ -6,6 +6,7 @@ use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Models\Payment;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use Illuminate\Support\Facades\DB;
 
 class SalesRevenueChartWidget extends ChartWidget
 {
@@ -58,10 +59,11 @@ class SalesRevenueChartWidget extends ChartWidget
                 $hourStart = $start->copy()->setTime($h, 0, 0);
                 $hourEnd = $start->copy()->setTime($h, 59, 59);
 
-                $sum = Payment::whereIn('store_id', $storeIds)
+                $sum = Payment::withoutGlobalScopes()
+                    ->whereIn('store_id', $storeIds)
                     ->where('status', 'completed')
-                    ->whereBetween('created_at', [$hourStart, $hourEnd])
-                    ->sum('amount');
+                    ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$hourStart, $hourEnd])
+                    ->sum(DB::raw('COALESCE(received_amount, amount)'));
 
                 $labels[] = str_pad((string) $h, 2, '0', STR_PAD_LEFT) . ':00';
                 $data[] = (float) $sum;
@@ -72,10 +74,11 @@ class SalesRevenueChartWidget extends ChartWidget
                 $dayStart = $date->copy()->startOfDay();
                 $dayEnd = $date->copy()->endOfDay();
 
-                $sum = Payment::whereIn('store_id', $storeIds)
+                $sum = Payment::withoutGlobalScopes()
+                    ->whereIn('store_id', $storeIds)
                     ->where('status', 'completed')
-                    ->whereBetween('created_at', [$dayStart, $dayEnd])
-                    ->sum('amount');
+                    ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$dayStart, $dayEnd])
+                    ->sum(DB::raw('COALESCE(received_amount, amount)'));
 
                 $labels[] = $date->format('d M');
                 $data[] = (float) $sum;

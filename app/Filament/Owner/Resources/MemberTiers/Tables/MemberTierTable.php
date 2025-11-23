@@ -2,7 +2,6 @@
 
 namespace App\Filament\Owner\Resources\MemberTiers\Tables;
 
-use App\Services\StoreContext;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -118,8 +117,15 @@ class MemberTierTable
             return [];
         }
 
-        return StoreContext::instance()
-            ->accessibleStores($user)
+        $tenantId = $user->currentTenant()?->id;
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        return \App\Models\Store::where('tenant_id', $tenantId)
+            ->where('status', 'active')
+            ->orderBy('name')
             ->pluck('name', 'id')
             ->toArray();
     }

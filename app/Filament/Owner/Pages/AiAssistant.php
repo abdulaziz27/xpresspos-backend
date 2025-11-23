@@ -19,7 +19,7 @@ class AiAssistant extends Page
 
     protected static string|UnitEnum|null $navigationGroup = 'AI';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     protected string $view = 'filament.owner.pages.ai-assistant';
 

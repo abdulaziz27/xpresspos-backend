@@ -63,20 +63,18 @@ class DiscountResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->with('store');
-
         /** @var GlobalFilterService $globalFilter */
         $globalFilter = app(GlobalFilterService::class);
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+        $tenantId = $globalFilter->getCurrentTenantId();
 
-        if (! empty($storeIds)) {
-            // Include global discounts (store_id is null) and store-specific discounts
-            $query->where(function (Builder $query) use ($storeIds) {
-                $query
-                    ->whereNull('store_id') // Global discounts
-                    ->orWhereIn('store_id', $storeIds); // Store-specific discounts
-            });
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->with('store');
+
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
         }
 
         return $query;

@@ -58,6 +58,14 @@ class PurchaseOrder extends Model
                 $model->recalculateTotalAmount();
             }
         });
+
+        // Process stock when status changes to 'received'
+        static::saved(function ($model) {
+            if ($model->wasChanged('status') && $model->status === self::STATUS_RECEIVED) {
+                $service = app(\App\Services\PurchaseOrderStockService::class);
+                $service->processReceivedPurchaseOrder($model);
+            }
+        });
     }
 
     /**
@@ -97,23 +105,21 @@ class PurchaseOrder extends Model
     }
 
     /**
-     * TODO: Generate inventory_lots and inventory_movements when status changes to 'received'.
+     * Generate inventory_lots and inventory_movements when status changes to 'received'.
      * 
-     * This method should:
-     * 1. For each purchase_order_item:
-     *    - Create InventoryLot (if track_lot = true)
+     * This method is now handled automatically via the saved event listener.
+     * It uses PurchaseOrderStockService to:
+     * 1. For each purchase_order_item with quantity_received > 0:
+     *    - Create InventoryLot (for FIFO tracking)
      *    - Create InventoryMovement (type 'purchase')
      *    - Update StockLevel
      * 2. Only process if status is 'received'
      * 3. Ensure idempotency (don't create duplicate lots/movements)
-     * 
-     * This will be implemented in a future wave.
      */
     public function generateInventoryLotsAndMovements(): void
     {
-        // TODO: Implement in future wave
-        // This method will create inventory_lots and inventory_movements
-        // when the PO is received.
+        $service = app(\App\Services\PurchaseOrderStockService::class);
+        $service->processReceivedPurchaseOrder($this);
     }
 
     /**

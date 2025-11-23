@@ -44,22 +44,32 @@ class BestBranchesWidget extends BaseWidget
         try {
             $summary = $this->dashboardFilterSummary();
 
+            // Use subquery to ensure proper date filtering
             $query = Store::query()
                 ->select([
                     DB::raw('stores.id as id'),
                     DB::raw('stores.id as store_id'),
                     DB::raw('stores.name as store_name'),
-                    DB::raw('COALESCE(SUM(payments.amount), 0) as revenue'),
-                    DB::raw('COUNT(payments.id) as transactions'),
+                    DB::raw('COALESCE(payment_stats.revenue, 0) as revenue'),
+                    DB::raw('COALESCE(payment_stats.transactions, 0) as transactions'),
                 ])
-                ->leftJoin('payments', function ($join) use ($dateRange) {
-                    $join->on('payments.store_id', '=', 'stores.id')
-                         ->where('payments.status', '=', 'completed')
-                         ->whereBetween('payments.created_at', [$dateRange['start'], $dateRange['end']]);
-                })
+                ->leftJoinSub(
+                    DB::table('payments')
+                        ->select('store_id')
+                        ->selectRaw('SUM(COALESCE(received_amount, amount)) as revenue')
+                        ->selectRaw('COUNT(id) as transactions')
+                        ->where('status', 'completed')
+                        ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$dateRange['start'], $dateRange['end']])
+                        ->whereIn('store_id', $storeIds)
+                        ->groupBy('store_id'),
+                    'payment_stats',
+                    'payment_stats.store_id',
+                    '=',
+                    'stores.id'
+                )
                 ->where('stores.tenant_id', $tenantId)
                 ->whereIn('stores.id', $storeIds)
-                ->groupBy('stores.id', 'stores.name')
+                ->groupBy('stores.id', 'stores.name', 'payment_stats.revenue', 'payment_stats.transactions')
                 ->orderByDesc('revenue');
 
             return $table

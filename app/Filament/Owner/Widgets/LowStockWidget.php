@@ -32,7 +32,7 @@ class LowStockWidget extends BaseWidget
         $query = StockLevel::query()->whereRaw('1 = 0');
 
         if (! empty($storeIds)) {
-            $query = StockLevel::query()
+            $query = StockLevel::withoutGlobalScopes()
                 ->with(['inventoryItem.uom', 'store'])
                 ->whereIn('store_id', $storeIds)
                 ->whereColumn('current_stock', '<=', 'min_stock_level')

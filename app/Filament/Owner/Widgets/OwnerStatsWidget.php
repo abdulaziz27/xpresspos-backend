@@ -7,6 +7,7 @@ use App\Models\Member;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
+use Illuminate\Support\Facades\DB;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -46,8 +47,8 @@ class OwnerStatsWidget extends BaseWidget
 
         $dateRange = $filters['range'];
 
-        $ordersQuery = Order::whereIn('store_id', $storeIds);
-        $paymentsQuery = Payment::whereIn('store_id', $storeIds);
+        $ordersQuery = Order::withoutGlobalScopes()->whereIn('store_id', $storeIds);
+        $paymentsQuery = Payment::withoutGlobalScopes()->whereIn('store_id', $storeIds);
         $productsQuery = Product::where('tenant_id', $tenantId)->where('status', true);
         $membersQuery = Member::query()
             ->where('tenant_id', $tenantId)
@@ -66,8 +67,8 @@ class OwnerStatsWidget extends BaseWidget
 
         $revenue = (clone $paymentsQuery)
             ->where('status', 'completed')
-            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
-            ->sum('amount');
+            ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$dateRange['start'], $dateRange['end']])
+            ->sum(DB::raw('COALESCE(received_amount, amount)'));
 
         $totalProducts = $productsQuery->count();
         $totalMembers = $membersQuery->where('is_active', true)->count();

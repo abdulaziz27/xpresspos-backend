@@ -8,11 +8,13 @@ use App\Filament\Owner\Resources\CogsHistory\Pages\ListCogsHistory;
 use App\Filament\Owner\Resources\CogsHistory\Schemas\CogsHistoryForm;
 use App\Filament\Owner\Resources\CogsHistory\Tables\CogsHistoryTable;
 use App\Models\CogsHistory;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class CogsHistoryResource extends Resource
 {
@@ -78,5 +80,24 @@ class CogsHistoryResource extends Resource
     public static function canDelete($record): bool
     {
         return false;
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        /** @var GlobalFilterService $globalFilter */
+        $globalFilter = app(GlobalFilterService::class);
+        $tenantId = $globalFilter->getCurrentTenantId();
+
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->with(['product', 'order', 'store']);
+
+        // Only filter by tenant - store filtering is handled by table filters
+        // This ensures page independence from dashboard store filter
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        return $query;
     }
 }

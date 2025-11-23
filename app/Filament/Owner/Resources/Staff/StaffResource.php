@@ -110,9 +110,11 @@ class StaffResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes();
 
         // Filter users by current tenant via user_tenant_access
+        // This ensures page independence from dashboard store filter
         $user = auth()->user();
         if ($user) {
             $tenantId = $user->currentTenant()?->id;
