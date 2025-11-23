@@ -70,7 +70,7 @@ class ConditionsRelationManager extends RelationManager
                 ->searchable()
                 ->preload()
                 ->options(function () {
-                    return Product::query()
+                    return Product::withoutGlobalScopes()
                         ->where('status', true)
                         ->pluck('name', 'id');
                 })

@@ -123,7 +123,7 @@ class CogsHistoryForm
             return [];
         }
 
-        return Product::query()
+        return Product::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->orderBy('name')
             ->pluck('name', 'id')
@@ -143,7 +143,7 @@ class CogsHistoryForm
 
         // Query all orders for tenant - no store filtering in form
         // Store filtering is handled by table filters when viewing the resource
-        $query = Order::query()
+        $query = Order::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->where('status', 'completed');
 

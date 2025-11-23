@@ -27,7 +27,7 @@ class RecipeForm
                                     ->label('Produk')
                                     ->options(function () {
                                         // Product is tenant-scoped, TenantScope will automatically filter
-                                        return Product::query()
+                                        return Product::withoutGlobalScopes()
                                             ->pluck('name', 'id');
                                     })
                                     ->searchable()

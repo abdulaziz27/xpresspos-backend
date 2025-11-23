@@ -64,7 +64,7 @@ class SubscriptionDashboardWidget extends Widget
 
     protected function buildTenantPaymentsQuery(string $tenantId)
     {
-        return SubscriptionPayment::query()
+        return SubscriptionPayment::withoutGlobalScopes()
             ->where(function (Builder $query) use ($tenantId) {
                 $query->whereHas('subscription', fn (Builder $sub) => $sub->where('tenant_id', $tenantId))
                     ->orWhereHas('landingSubscription', fn (Builder $sub) => $sub->where('tenant_id', $tenantId));

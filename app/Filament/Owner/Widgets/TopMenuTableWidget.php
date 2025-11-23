@@ -43,7 +43,7 @@ class TopMenuTableWidget extends BaseWidget
         try {
             $summary = $this->dashboardFilterSummary();
 
-                $query = Product::query()
+                $query = Product::withoutGlobalScopes()
                 ->select('products.*')
                 ->selectSub(
                     DB::table('cogs_history')

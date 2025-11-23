@@ -64,7 +64,7 @@ class CogsSummaryWidget extends BaseWidget
             ? (($monthCogs - $lastMonthCogs) / $lastMonthCogs) * 100
             : 0;
 
-        $productsQuery = Product::query()
+        $productsQuery = Product::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->where('status', true);
 

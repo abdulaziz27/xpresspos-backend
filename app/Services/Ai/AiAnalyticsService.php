@@ -169,13 +169,14 @@ class AiAnalyticsService
         // Total discounts (order-level + item-level)
         $orderIds = (clone $ordersQuery)->pluck('id');
 
-        $orderDiscounts = OrderDiscount::query()
+        $orderDiscounts = OrderDiscount::withoutGlobalScopes()
             ->whereIn('order_id', $orderIds)
             ->sum('discount_amount');
 
-        $itemDiscounts = OrderItemDiscount::query()
+        $itemDiscounts = OrderItemDiscount::withoutGlobalScopes()
             ->whereHas('orderItem', function ($q) use ($orderIds) {
-                $q->whereIn('order_id', $orderIds);
+                $q->withoutGlobalScopes()
+                    ->whereIn('order_id', $orderIds);
             })
             ->sum('discount_amount');
 
@@ -277,7 +278,7 @@ class AiAnalyticsService
         $orderIds = (clone $ordersQuery)->pluck('id');
 
         // Get top products by revenue
-        $topProducts = OrderItem::query()
+        $topProducts = OrderItem::withoutGlobalScopes()
             ->whereIn('order_id', $orderIds)
             ->join('products', 'order_items.product_id', '=', 'products.id')
             ->where('products.tenant_id', $tenantId)
@@ -445,7 +446,7 @@ class AiAnalyticsService
             : Store::where('tenant_id', $tenantId)->pluck('id')->toArray();
 
         // Get staff assignments
-        $assignments = \App\Models\StoreUserAssignment::query()
+        $assignments = \App\Models\StoreUserAssignment::withoutGlobalScopes()
             ->whereIn('store_id', $storeIds)
             ->with(['user', 'store'])
             ->get();
