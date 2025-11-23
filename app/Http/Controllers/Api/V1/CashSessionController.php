@@ -67,7 +67,20 @@ class CashSessionController extends Controller
             DB::beginTransaction();
 
             // Check if user already has an open session
-            $existingSession = CashSession::where('user_id', Auth::id())
+            $user = $request->user();
+            $store = $user->store();
+            
+            if (!$store) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User is not assigned to any store or store context is missing.',
+                    'error' => 'STORE_CONTEXT_MISSING'
+                ], 400);
+            }
+            
+            $existingSession = CashSession::where('user_id', $user->id)
+                ->where('store_id', $store->id)
                 ->where('status', 'open')
                 ->first();
 
@@ -81,9 +94,17 @@ class CashSessionController extends Controller
 
             // User is already authenticated by auth:sanctum middleware
             $user = $request->user();
+            $store = $user->store();
+            
+            if (!$store) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User does not have an associated store. Please contact support.',
+                ], 400);
+            }
             
             $session = CashSession::create([
-                'store_id' => $user->store_id,
+                'store_id' => $store->id,
                 'user_id' => $user->id,
                 'opening_balance' => $request->opening_balance,
                 'status' => 'open',
@@ -91,8 +112,7 @@ class CashSessionController extends Controller
                 'notes' => $request->notes,
             ]);
 
-            // Calculate initial expected balance (will be opening_balance + 0 sales - 0 expenses)
-            $session->calculateExpectedBalance();
+            // Expected balance is automatically calculated by model's saving event
             $session->refresh();
 
             DB::commit();
@@ -122,17 +142,21 @@ class CashSessionController extends Controller
 
         // If not found, try without store scope (in case of store context issue)
         if (!$cashSession) {
-            $cashSession = CashSession::withoutGlobalScopes()
-                ->with(['user:id,name,email', 'expenses'])
-                ->where('id', $id)
-                ->where('store_id', $request->user()->store_id)
-                ->first();
+            $user = $request->user();
+            $store = $user->store();
+            if ($store) {
+                $cashSession = CashSession::withoutGlobalScopes()
+                    ->with(['user:id,name,email', 'expenses'])
+                    ->where('id', $id)
+                    ->where('store_id', $store->id)
+                    ->first();
 
-            if ($cashSession && !$this->ensureStoreContextForSession($cashSession)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You do not have access to this cash session.'
-                ], 403);
+                if ($cashSession && !$this->ensureStoreContextForSession($cashSession)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You do not have access to this cash session.'
+                    ], 403);
+                }
             }
         }
 
@@ -143,11 +167,9 @@ class CashSessionController extends Controller
             ], 404);
         }
 
-        // Always calculate expected balance to ensure it's up-to-date
-        if ($cashSession->status === 'open') {
-            $cashSession->calculateExpectedBalance();
-            $cashSession->refresh();
-        }
+        // Expected balance is automatically calculated by model's saving event
+        // Just refresh to get the latest calculated values
+        $cashSession->refresh();
 
         return response()->json([
             'success' => true,
@@ -299,11 +321,12 @@ class CashSessionController extends Controller
             ->first();
 
         // If not found, try without store scope (in case of store context issue)
-        if (!$session) {
+        $store = $user->store();
+        if (!$session && $store) {
             $session = CashSession::withoutGlobalScopes()
                 ->with(['user:id,name,email', 'expenses'])
                 ->where('user_id', $user->id)
-                ->where('store_id', $user->store_id)
+                ->where('store_id', $store->id)
                 ->where('status', 'open')
                 ->latest('opened_at')
                 ->first();
@@ -324,11 +347,8 @@ class CashSessionController extends Controller
             ], 404);
         }
 
-        // Always calculate expected balance to ensure it's up-to-date
-        // This recalculates cash_sales and cash_expenses based on current data
-        // This is important because cash_sales can change as new payments are made
-        // and cash_expenses can change as expenses are added
-        $session->calculateExpectedBalance();
+        // Expected balance is automatically calculated by model's saving event
+        // Just refresh to get the latest calculated values
         $session->refresh();
 
         return response()->json([

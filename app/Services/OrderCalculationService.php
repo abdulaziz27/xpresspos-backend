@@ -21,20 +21,29 @@ class OrderCalculationService
         }
         
         // Calculate tax (configurable per store, default 0)
-        $taxSettings = $order->store->settings['tax_settings'] ?? [];
-        $taxRate = $taxSettings['tax_rate'] ?? 0;
-        $taxInclusive = $taxSettings['tax_inclusive'] ?? false;
+        // Ensure store is loaded
+        if (!$order->relationLoaded('store')) {
+            $order->load('store');
+        }
         
-        if ($taxRate == 0) {
+        $settings = $order->store->settings ?? [];
+        $taxRate = isset($settings['tax_rate']) ? (float) $settings['tax_rate'] : 0;
+        $taxIncluded = isset($settings['tax_included']) ? (bool) $settings['tax_included'] : false;
+        
+        // Convert tax rate from percentage to decimal (e.g., 10% -> 0.10)
+        $taxRateDecimal = $taxRate / 100;
+        
+        if ($taxRateDecimal == 0) {
             $taxAmount = 0;
         } else {
-            if ($taxInclusive) {
+            if ($taxIncluded) {
                 // Tax sudah termasuk dalam harga
-                $taxAmount = $subtotal - ($subtotal / (1 + $taxRate));
+                // Formula: tax = subtotal - (subtotal / (1 + tax_rate))
+                $taxAmount = $subtotal - ($subtotal / (1 + $taxRateDecimal));
                 $subtotal = $subtotal - $taxAmount;
             } else {
                 // Tax ditambahkan ke harga
-                $taxAmount = $subtotal * $taxRate;
+                $taxAmount = $subtotal * $taxRateDecimal;
             }
         }
         
@@ -118,6 +127,16 @@ class OrderCalculationService
      */
     public function updateOrderTotals(Order $order): Order
     {
+        // Ensure store relationship is loaded for tax calculation
+        if (!$order->relationLoaded('store')) {
+            $order->load('store');
+        }
+        
+        // Ensure items are loaded for subtotal calculation
+        if (!$order->relationLoaded('items')) {
+            $order->load('items');
+        }
+        
         $calculations = $this->calculateOrderTotals($order);
         
         $order->update($calculations);

@@ -619,19 +619,65 @@ class PaymentController extends Controller
         try {
             DB::beginTransaction();
 
+            // Get authenticated user
+            $user = $request->user() ?? auth()->user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'UNAUTHENTICATED',
+                        'message' => 'User not authenticated. Please provide a valid authentication token.',
+                    ],
+                    'meta' => [
+                        'timestamp' => now()->toISOString(),
+                        'version' => 'v1'
+                    ]
+                ], 401);
+            }
+
             // Create refund record
             $refund = $payment->refunds()->create([
                 'store_id' => $payment->store_id,
                 'order_id' => $payment->order_id,
-                'user_id' => auth()->id(),
+                'user_id' => $user->id,
                 'amount' => $request->input('amount'),
                 'reason' => $request->input('reason'),
-                'status' => 'completed', // Auto-approve for now
-                'approved_by' => auth()->id(),
+                'status' => 'processed', // Auto-approve and process for now
+                'approved_by' => $user->id,
                 'approved_at' => now(),
                 'processed_at' => now(),
-                'processed_by' => auth()->id(),
             ]);
+
+            // Load order to check if it should be cancelled
+            $order = Order::find($payment->order_id);
+            if ($order) {
+                // Calculate total refunded amount (including this refund)
+                // Note: getTotalRefunded() uses status 'completed', but we use 'processed'
+                // So we need to calculate manually to include 'processed' status
+                $totalRefunded = $order->refunds()
+                    ->whereIn('status', ['processed', 'completed'])
+                    ->sum('amount');
+                
+                // Calculate total paid amount
+                $totalPaid = $order->getTotalPaid();
+                
+                // If total refunded >= total paid, cancel the order
+                if ($totalRefunded >= $totalPaid && $order->status === 'completed') {
+                    $order->update([
+                        'status' => 'cancelled'
+                    ]);
+                    
+                    Log::info('Order status changed to cancelled after refund', [
+                        'order_id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'total_paid' => $totalPaid,
+                        'total_refunded' => $totalRefunded,
+                        'refund_id' => $refund->id,
+                        'user_id' => $user->id
+                    ]);
+                }
+            }
 
             DB::commit();
 
