@@ -68,13 +68,7 @@ class CashFlowSummaryCards extends BaseWidget
             ->where('status', 'completed')
             ->where('payment_method', 'cash')
             ->whereIn('store_id', $storeIds)
-            ->where(function ($query) use ($range) {
-                $query->whereBetween('paid_at', [$range['start'], $range['end']])
-                    ->orWhere(function ($q) use ($range) {
-                        $q->whereNull('paid_at')
-                          ->whereBetween('processed_at', [$range['start'], $range['end']]);
-                    });
-            });
+            ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$range['start'], $range['end']]);
 
         $cashIn = (float) (clone $cashInQuery)->sum(DB::raw('CASE WHEN received_amount > 0 THEN received_amount ELSE amount END'));
 
@@ -88,7 +82,7 @@ class CashFlowSummaryCards extends BaseWidget
             ->where('refunds.status', 'processed')
             ->where('payments.payment_method', 'cash')
             ->whereIn('refunds.store_id', $storeIds)
-            ->whereBetween('refunds.processed_at', [$range['start'], $range['end']]);
+            ->whereBetween(DB::raw('COALESCE(refunds.processed_at, refunds.created_at)'), [$range['start'], $range['end']]);
 
         $cashRefund = (float) (clone $cashRefundQuery)->sum('refunds.amount');
 

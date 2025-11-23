@@ -48,7 +48,7 @@ class CashRefundsTable extends BaseWidget
             ->select('refunds.*') // Select only refunds columns to avoid ambiguity
             ->where('payments.payment_method', PaymentMethodEnum::CASH->value)
             ->where('refunds.status', 'processed')
-            ->whereBetween('refunds.processed_at', [$range['start'], $range['end']]);
+            ->whereBetween(DB::raw('COALESCE(refunds.processed_at, refunds.created_at)'), [$range['start'], $range['end']]);
 
         if (!empty($storeIds)) {
             $query->whereIn('refunds.store_id', $storeIds);
