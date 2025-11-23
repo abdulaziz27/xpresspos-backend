@@ -49,7 +49,9 @@ class OwnerStatsWidget extends BaseWidget
 
         $ordersQuery = Order::withoutGlobalScopes()->whereIn('store_id', $storeIds);
         $paymentsQuery = Payment::withoutGlobalScopes()->whereIn('store_id', $storeIds);
-        $productsQuery = Product::where('tenant_id', $tenantId)->where('status', true);
+        $productsQuery = Product::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('status', true);
         $membersQuery = Member::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->where(function ($query) use ($filters, $storeIds) {
