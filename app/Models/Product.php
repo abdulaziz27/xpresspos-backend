@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\Scopes\TenantScope;
-use App\Models\StockLevel;
 
 class Product extends Model
 {
@@ -415,93 +414,5 @@ class Product extends Model
         }
 
         return $errors;
-    }
-
-    /**
-     * Get available stock quantity for this product.
-     * Calculated from recipe inventory items.
-     * 
-     * @param string|null $storeId Optional store ID. If null, uses current store context.
-     * @return int|null Available product quantity (null if unlimited, 0 if out of stock or no recipe)
-     */
-    public function getAvailableStock(?string $storeId = null): ?int
-    {
-        if (!$this->track_inventory) {
-            return null; // Unlimited stock - return null instead of PHP_FLOAT_MAX
-        }
-        
-        // Get active recipe
-        $activeRecipe = $this->getActiveRecipe();
-        if (!$activeRecipe) {
-            return 0; // No recipe = no stock
-        }
-        
-        // Load recipe items with inventory items
-        $activeRecipe->load('items.inventoryItem');
-        if ($activeRecipe->items->isEmpty()) {
-            return 0; // No recipe items = no stock
-        }
-        
-        // Get store ID
-        if (!$storeId) {
-            $user = auth()->user() ?? request()->user();
-            if ($user) {
-                $storeContext = \App\Services\StoreContext::instance();
-                $storeId = $storeContext->current($user);
-            }
-        }
-        
-        if (!$storeId) {
-            return 0; // No store context = no stock
-        }
-        
-        $yieldQty = $activeRecipe->yield_quantity > 0 ? $activeRecipe->yield_quantity : 1;
-        $availableQuantities = [];
-        
-        // Calculate available quantity for each inventory item
-        foreach ($activeRecipe->items as $recipeItem) {
-            $inventoryItem = $recipeItem->inventoryItem;
-            
-            // Skip if inventory item doesn't track stock
-            if (!$inventoryItem || !$inventoryItem->track_stock) {
-                continue;
-            }
-            
-            // Get stock level for this inventory item
-            $stockLevel = StockLevel::where('inventory_item_id', $inventoryItem->id)
-                ->where('store_id', $storeId)
-                ->first();
-            
-            if (!$stockLevel) {
-                // No stock level = 0 available
-                return 0;
-            }
-            
-            // Calculate how many products can be made from this inventory item
-            // Formula: (available_stock / recipe_item.quantity) * recipe.yield_quantity
-            if ($recipeItem->quantity > 0) {
-                $availableQty = ($stockLevel->available_stock / $recipeItem->quantity) * $yieldQty;
-                $availableQuantities[] = $availableQty;
-            } else {
-                // If recipe item quantity is 0, we can't calculate
-                return 0;
-            }
-        }
-        
-        // Return minimum (limited by the most constrained inventory item)
-        // Use floor() to round down for safety (don't oversell)
-        $minStock = empty($availableQuantities) ? 0 : min($availableQuantities);
-        return (int) floor($minStock);
-    }
-
-    /**
-     * Get current stock quantity for this product (alias for getAvailableStock).
-     * 
-     * @param string|null $storeId Optional store ID
-     * @return int|null Current stock quantity (null if unlimited)
-     */
-    public function getStock(?string $storeId = null): ?int
-    {
-        return $this->getAvailableStock($storeId);
     }
 }

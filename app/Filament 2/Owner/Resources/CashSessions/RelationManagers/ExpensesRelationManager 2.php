@@ -1,0 +1,122 @@
+<?php
+
+namespace App\Filament\Owner\Resources\CashSessions\RelationManagers;
+
+use App\Support\Currency;
+use App\Support\Money;
+use App\Filament\Owner\Resources\Concerns\HasCurrencyInput;
+use Filament\Actions;
+use Filament\Forms;
+use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Schema;
+use Filament\Tables;
+use Filament\Tables\Table;
+
+class ExpensesRelationManager extends RelationManager
+{
+    use HasCurrencyInput;
+    protected static string $relationship = 'expenses';
+
+    protected static ?string $title = 'Pengeluaran Tunai';
+
+    public function form(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Forms\Components\TextInput::make('description')
+                    ->label('Deskripsi')
+                    ->required()
+                    ->maxLength(255),
+                Forms\Components\Select::make('category')
+                    ->label('Kategori')
+                    ->options(self::getCategoryOptions())
+                    ->searchable()
+                    ->required(),
+                static::currencyInput('amount', 'Jumlah', '50.000', true, 0.01),
+                Forms\Components\DatePicker::make('expense_date')
+                    ->label('Tanggal Pengeluaran')
+                    ->default(now())
+                    ->required(),
+                Forms\Components\TextInput::make('receipt_number')
+                    ->label('No. Kwitansi')
+                    ->maxLength(255),
+                Forms\Components\TextInput::make('vendor')
+                    ->label('Vendor')
+                    ->maxLength(255),
+                Forms\Components\Textarea::make('notes')
+                    ->label('Catatan')
+                    ->rows(3)
+                    ->maxLength(1000),
+                Forms\Components\Hidden::make('user_id')
+                    ->default(fn () => auth()->id()),
+            ]);
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->recordTitleAttribute('description')
+            ->columns([
+                Tables\Columns\TextColumn::make('description')
+                    ->label('Deskripsi')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('medium'),
+                Tables\Columns\TextColumn::make('category')
+                    ->label('Kategori')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state) => self::getCategoryOptions()[$state] ?? ucfirst(str_replace('_', ' ', $state)))
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('amount')
+                    ->label('Jumlah')
+                    ->alignEnd()
+                    ->formatStateUsing(fn ($state, $record) => Currency::rupiah((float) ($state ?? $record->amount ?? 0)))
+                    ->sortable()
+                    ->weight('medium'),
+                Tables\Columns\TextColumn::make('vendor')
+                    ->label('Vendor')
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('-'),
+                Tables\Columns\TextColumn::make('expense_date')
+                    ->label('Tanggal Pengeluaran')
+                    ->date()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('user.name')
+                    ->label('Dicatat Oleh')
+                    ->badge()
+                    ->color('info')
+                    ->toggleable(),
+            ])
+            ->defaultSort('expense_date', 'desc')
+            ->headerActions([
+                Actions\CreateAction::make()
+                    ->label('Tambah Pengeluaran'),
+            ])
+            ->actions([
+                Actions\EditAction::make(),
+                Actions\DeleteAction::make(),
+            ])
+            ->bulkActions([
+                Actions\BulkActionGroup::make([
+                    Actions\DeleteBulkAction::make(),
+                ]),
+            ]);
+    }
+
+    protected static function getCategoryOptions(): array
+    {
+        return [
+            'office_supplies' => 'ATK',
+            'utilities' => 'Utilitas',
+            'rent' => 'Sewa',
+            'marketing' => 'Marketing',
+            'equipment' => 'Peralatan',
+            'maintenance' => 'Perawatan',
+            'travel' => 'Perjalanan',
+            'food' => 'Makanan & Minuman',
+            'other' => 'Lainnya',
+        ];
+    }
+}
+

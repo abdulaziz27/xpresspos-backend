@@ -60,7 +60,6 @@ class UpdateOrderRequest extends FormRequest
             'status' => 'sometimes|in:draft,open,completed,cancelled',
             'service_charge' => 'sometimes|numeric|min:0|max:999999.99',
             'discount_amount' => 'sometimes|numeric|min:0|max:999999.99',
-            'tax_amount' => 'sometimes|numeric|min:0|max:999999.99', // ✅ Add tax_amount validation
             'notes' => 'nullable|string|max:1000',
             
             // Items update
