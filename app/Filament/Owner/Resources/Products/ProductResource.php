@@ -9,6 +9,7 @@ use App\Filament\Owner\Resources\Products\RelationManagers;
 use App\Filament\Owner\Resources\Products\Schemas\ProductForm;
 use App\Filament\Owner\Resources\Products\Tables\ProductsTable;
 use App\Models\Product;
+use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
