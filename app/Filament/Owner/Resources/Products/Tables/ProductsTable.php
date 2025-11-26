@@ -14,6 +14,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use App\Support\Currency;
+use Illuminate\Support\Facades\Storage;
 
 class ProductsTable
 {
@@ -25,7 +26,22 @@ class ProductsTable
                     ->label('Gambar')
                     ->circular()
                     ->size(40)
-                    ->defaultImageUrl(url('/img/placeholder-product.png')),
+                    ->disk('public')
+                    ->defaultImageUrl('data:image/svg+xml;base64,' . base64_encode(
+                        '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">' .
+                        '<circle cx="20" cy="20" r="20" fill="#f3f4f6"/>' .
+                        '<path d="M13 15C13 13.8954 13.8954 13 15 13H25C26.1046 13 27 13.8954 27 15V25C27 26.1046 26.1046 27 25 27H15C13.8954 27 13 26.1046 13 25V15Z" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' .
+                        '<path d="M13 20L17 16L20 19L23 16L27 20V25H13V20Z" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' .
+                        '<circle cx="19" cy="17" r="1" fill="#9ca3af"/>' .
+                        '</svg>'
+                    ))
+                    ->getStateUsing(function ($record) {
+                        $image = $record->image;
+                        if (empty($image) || !Storage::disk('public')->exists($image)) {
+                            return null; // Will use defaultImageUrl
+                        }
+                        return $image;
+                    }),
 
                 TextColumn::make('name')
                     ->label('Nama Produk')

@@ -135,6 +135,7 @@ class ProductForm
                                 FileUpload::make('image')
                                     ->label('Gambar Produk')
                                     ->image()
+                                    ->imagePreviewHeight(250)
                                     ->imageEditor()
                                     ->imageEditorAspectRatios([
                                         '16:9',
@@ -142,8 +143,21 @@ class ProductForm
                                         '1:1',
                                     ])
                                     ->maxSize(2048)
+                                    ->disk('public')
                                     ->directory('products')
-                                    ->visibility('public'),
+                                    ->visibility('public')
+                                    ->previewable()
+                                    ->openable()
+                                    ->downloadable()
+                                    ->helperText('Ukuran maksimal gambar 2MB')
+                                    ->rules([
+                                        'image',
+                                        'max:2048',
+                                    ])
+                                    ->validationMessages([
+                                        'image' => 'File harus berupa gambar',
+                                        'max' => 'Ukuran gambar tidak boleh lebih dari 2MB',
+                                    ]),
                             ]),
 
                         Toggle::make('is_favorite')

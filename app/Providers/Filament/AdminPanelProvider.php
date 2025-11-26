@@ -31,7 +31,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('POS Xpress Admin')
             ->brandLogo(fn () => view('filament.brand-logo'))
             ->brandLogoHeight('2.5rem')
-            ->favicon(asset('img/logo-xpress.png'))
+            ->favicon(asset('logo/logo-4-(ori).svg'))
             ->darkMode(false) // Set default theme to light mode
             ->colors([
                 'primary' => Color::Blue,

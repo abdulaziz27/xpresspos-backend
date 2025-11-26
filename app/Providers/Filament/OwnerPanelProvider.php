@@ -31,7 +31,7 @@ class OwnerPanelProvider extends PanelProvider
             ->brandName('POS Xpress Toko')
             ->brandLogo(fn () => view('filament.brand-logo'))
             ->brandLogoHeight('2.5rem')
-            ->favicon(asset('img/logo-xpress.png'))
+            ->favicon(asset('logo/logo-4-(ori).svg'))
             ->sidebarCollapsibleOnDesktop()
             ->darkMode(false) // Set default theme to light mode
             ->colors([
