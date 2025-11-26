@@ -16,6 +16,7 @@ use Filament\Forms\Components\Toggle;
 use App\Filament\Owner\Resources\InventoryItems\RelationManagers\LotsRelationManager;
 use App\Filament\Owner\Resources\InventoryItems\RelationManagers\StockLevelsRelationManager;
 use App\Filament\Owner\Resources\InventoryItems\RelationManagers\InventoryMovementsRelationManager;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -26,6 +27,7 @@ use Filament\Tables\Table;
 
 class InventoryItemResource extends Resource
 {
+    use HasPlanBasedNavigation;
     protected static ?string $model = InventoryItem::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBox;
@@ -237,28 +239,36 @@ class InventoryItemResource extends Resource
     }
 
     /**
-     * Owner can create inventory items.
+     * Hide navigation if tenant doesn't have inventory feature.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::hasPlanFeature('ALLOW_INVENTORY');
+    }
+
+    /**
+     * Owner can create inventory items (if plan allows).
      */
     public static function canCreate(): bool
     {
-        return true;
+        return static::hasPlanFeature('ALLOW_INVENTORY');
     }
 
     /**
-     * Owner can edit inventory items.
+     * Owner can edit inventory items (if plan allows).
      */
     public static function canEdit(Model $record): bool
     {
-        return true;
+        return static::hasPlanFeature('ALLOW_INVENTORY');
     }
 
     /**
-     * Owner can delete inventory items.
+     * Owner can delete inventory items (if plan allows).
      * FK constraints will prevent deletion if item is used in recipes, PO, etc.
      */
     public static function canDelete(Model $record): bool
     {
-        return true;
+        return static::hasPlanFeature('ALLOW_INVENTORY');
     }
 
     public static function getPages(): array

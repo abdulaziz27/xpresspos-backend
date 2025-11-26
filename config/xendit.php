@@ -67,7 +67,7 @@ return [
     */
     
     'subscription' => [
-        'trial_days' => env('SUBSCRIPTION_TRIAL_DAYS', 14),
+        'trial_days' => env('SUBSCRIPTION_TRIAL_DAYS', 30),
         'reminder_days' => env('SUBSCRIPTION_REMINDER_DAYS', 7),
         'retry_attempts' => env('SUBSCRIPTION_RETRY_ATTEMPTS', 3),
         'retry_interval_hours' => env('SUBSCRIPTION_RETRY_INTERVAL_HOURS', 24),
@@ -83,6 +83,17 @@ return [
         'prefix' => env('INVOICE_PREFIX', 'XPOS'),
         'success_redirect_url' => env('APP_URL') . '/payment/success',
         'failure_redirect_url' => env('APP_URL') . '/payment/failed',
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Add-on Billing Configuration
+    |--------------------------------------------------------------------------
+    */
+    
+    'addon' => [
+        'reminder_hours' => env('ADDON_INVOICE_REMINDER_HOURS', 48),
+        'reminder_cooldown_hours' => env('ADDON_INVOICE_REMINDER_COOLDOWN_HOURS', 12),
     ],
     
     /*

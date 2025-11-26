@@ -16,7 +16,7 @@ return [
     'main' => env('MAIN_DOMAIN', 'xpresspos.id'),
 
     // Panel URLs (path-based)
-    'owner_url' => env('OWNER_URL', env('APP_URL') . '/owner'),
+    'owner_url' => env('OWNER_URL', '/owner'),
     'admin_url' => env('ADMIN_URL', env('APP_URL') . '/admin'),
 
     // Backward compatibility: previously used as domains

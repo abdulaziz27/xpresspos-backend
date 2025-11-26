@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Enums\PaymentMethodEnum;
 use App\Services\PaymentValidationService;
+use App\Traits\ChecksPlanLimits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
+    use ChecksPlanLimits;
     /**
      * Display a listing of payments.
      */
@@ -318,6 +320,16 @@ class PaymentController extends Controller
 
             // For cash payments, handle overpayment correctly
             $paymentMethod = $request->input('payment_method');
+            
+            // Check if payment gateway feature is enabled for non-cash payment methods
+            $gatewayPaymentMethods = ['e_wallet', 'qris', 'credit_card', 'debit_card', 'bank_transfer'];
+            if (in_array($paymentMethod, $gatewayPaymentMethods)) {
+                if (!$this->hasFeature(null, 'ALLOW_PAYMENT_GATEWAY')) {
+                    DB::rollBack();
+                    return $this->featureNotAvailableResponse('Payment Gateway Integration (E-Wallet, QRIS, Credit Card)', 'Pro');
+                }
+            }
+            
             $requestedAmount = $request->input('amount');
             $receivedAmount = $request->input('received_amount');
             $remainingBalance = $order->getRemainingBalance();

@@ -29,16 +29,15 @@ class LandingController extends Controller
             $tenant = $user->currentTenant();
             
             if ($tenant) {
-                $activeSubscription = $tenant->activeSubscription();
-                $currentPlanId = $activeSubscription?->plan_id;
-
-                if (! $currentPlanId) {
-                    $currentPlanId = Subscription::where('tenant_id', $tenant->id)
-                        ->latest('created_at')
-                        ->value('plan_id');
+                // Use direct plan relationship which is the source of truth
+                $currentPlan = $tenant->plan;
+                
+                // Fallback logic is handled by the migration/seeder, but keeping safe check
+                if (! $currentPlan) {
+                     // Try to get from active subscription
+                     $activeSubscription = $tenant->activeSubscription();
+                     $currentPlan = $activeSubscription?->plan;
                 }
-
-                $currentPlan = $currentPlanId ? Plan::find($currentPlanId) : null;
             }
         }
         
@@ -66,16 +65,24 @@ class LandingController extends Controller
             $request->session()->regenerate();
             
             $user = Auth::user();
+            $tenant = $user->currentTenant();
             
             // Redirect berdasarkan role user atau intended URL
             // Admin sistem dan super admin -> Admin panel
             // Check role tanpa team context karena ini adalah global roles
             if ($user->hasRole(['admin_sistem', 'super_admin'])) {
-                return redirect()->intended(config('app.admin_url', '/admin'));
+                // Use relative URL to respect current request port
+                return redirect()->intended('/admin');
+            }
+
+            if ($tenant && ! $tenant->plan_id) {
+                return redirect()->route('landing.pricing')
+                    ->with('warning', 'Pilih paket terlebih dahulu untuk memulai trial 30 hari.');
             }
             
             // Owner dan role lainnya -> Owner panel atau intended URL (e.g., checkout)
-            return redirect()->intended(config('app.owner_url', '/owner'));
+            // Use relative URL to respect current request port
+            return redirect()->intended('/owner');
         }
 
         throw ValidationException::withMessages([
@@ -111,8 +118,8 @@ class LandingController extends Controller
 
         Auth::login($user);
 
-        // Redirect to intended URL (e.g., checkout) or default to owner panel
-        return redirect()->intended(config('app.owner_url', '/owner'));
+        return redirect()->route('landing.pricing')
+            ->with('success', 'Akun berhasil dibuat. Pilih paket untuk memulai trial 30 hari.');
     }
 
     public function logout(Request $request)
@@ -141,12 +148,82 @@ class LandingController extends Controller
             $tenant = $user->currentTenant();
             
             if ($tenant) {
+                $currentPlan = $tenant->plan;
+                // Fallback if plan not set on tenant yet
+                if (!$currentPlan) {
                 $activeSubscription = $tenant->activeSubscription();
                 $currentPlan = $activeSubscription?->plan;
+                }
             }
         }
         
         return view('landing.pricing', compact('plans', 'currentPlan', 'tenant'));
+    }
+
+    /**
+     * Start free trial for selected plan.
+     */
+    public function startTrial(Request $request)
+    {
+        if (!Auth::check()) {
+            return redirect()->route('landing.login')
+                ->with('error', 'Silakan login terlebih dahulu untuk memulai trial.');
+        }
+
+        $request->validate([
+            'plan_id' => 'required|exists:plans,id',
+        ]);
+
+        $plan = Plan::findOrFail($request->plan_id);
+        $user = Auth::user();
+        $tenant = $user->currentTenant();
+
+        if (! $tenant) {
+            return redirect()->route('landing.pricing')
+                ->with('error', 'Tenant tidak ditemukan. Silakan hubungi support.');
+        }
+
+        $activeSubscription = $tenant->activeSubscription();
+
+        if ($activeSubscription && ! $activeSubscription->hasExpired()) {
+            return redirect('/owner')
+                ->with('info', 'Anda sudah memiliki langganan aktif.');
+        }
+
+        $trialDays = (int) config('xendit.subscription.trial_days', 30);
+        $trialEndsAt = now()->addDays($trialDays);
+
+        DB::transaction(function () use ($tenant, $plan, $trialEndsAt) {
+            $tenant->subscriptions()
+                ->where('status', 'active')
+                ->update([
+                    'status' => 'cancelled',
+                    'ends_at' => now(),
+                ]);
+
+            $tenant->subscriptions()->create([
+                'plan_id' => $plan->id,
+                'status' => 'active',
+                'billing_cycle' => 'monthly',
+                'starts_at' => now()->toDateString(),
+                'ends_at' => $trialEndsAt->toDateString(),
+                'trial_ends_at' => $trialEndsAt->toDateString(),
+                'amount' => 0,
+                'metadata' => [
+                    'source' => 'trial',
+                ],
+            ]);
+
+            $tenant->update([
+                'plan_id' => $plan->id,
+                'status' => 'active',
+            ]);
+        });
+
+        return redirect('/owner')->with(
+            'success',
+            "Trial {$plan->name} aktif hingga {$trialEndsAt->translatedFormat('d M Y')}."
+        );
     }
 
     /**
@@ -220,8 +297,20 @@ class LandingController extends Controller
             $tenant = $user->currentTenant();
             
             if ($tenant) {
-                $activeSubscription = $tenant->activeSubscription();
-                $currentPlan = $activeSubscription?->plan;
+                $currentPlan = $tenant->plan;
+
+                if (!$currentPlan) {
+                    $activeSubscription = $tenant->activeSubscription();
+                    $currentPlan = $activeSubscription?->plan;
+                }
+
+                if (!$currentPlan) {
+                    $latestSubscription = $tenant->subscriptions()
+                        ->with('plan')
+                        ->latest('created_at')
+                        ->first();
+                    $currentPlan = $latestSubscription?->plan;
+                }
                 
                 if ($currentPlan) {
                     if ($plan->sort_order > $currentPlan->sort_order) {
@@ -290,16 +379,20 @@ class LandingController extends Controller
             $totalAmount = $amount; // No tax for now
 
             // Detect upgrade/downgrade
-            $activeSubscription = $tenant->activeSubscription();
-            $currentPlanId = $activeSubscription?->plan_id;
-
-            if (! $currentPlanId) {
-                $currentPlanId = Subscription::where('tenant_id', $tenant->id)
-                    ->latest('created_at')
-                    ->value('plan_id');
+            $currentPlan = $tenant->plan;
+            
+            if (!$currentPlan) {
+                $activeSubscription = $tenant->activeSubscription();
+                $currentPlan = $activeSubscription?->plan;
             }
 
-            $currentPlan = $currentPlanId ? Plan::find($currentPlanId) : null;
+            if (!$currentPlan) {
+                $latestSubscription = $tenant->subscriptions()
+                    ->with('plan')
+                    ->latest('created_at')
+                    ->first();
+                $currentPlan = $latestSubscription?->plan;
+            }
             $isUpgrade = false;
             $isDowngrade = false;
             

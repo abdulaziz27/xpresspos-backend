@@ -23,6 +23,8 @@ class RegistrationProvisioningTest extends TestCase
     {
         parent::setUp();
 
+        $this->artisan('db:seed', ['--class' => 'PlanSeeder']);
+
         // Create owner role for permission system
         Role::create(['name' => 'owner', 'guard_name' => 'web']);
 

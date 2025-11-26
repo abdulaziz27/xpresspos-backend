@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LandingController;
+use App\Http\Controllers\AddOnPaymentRedirectController;
 
 // Main domain routing (xpresspos.id)
 Route::domain(config('domains.main'))->group(function () {
@@ -40,6 +41,8 @@ Route::domain(config('domains.main'))->group(function () {
     // Payment result pages
     Route::get('/payment/success', [LandingController::class, 'paymentSuccess'])->name('landing.payment.success');
     Route::get('/payment/failed', [LandingController::class, 'paymentFailed'])->name('landing.payment.failed');
+    Route::get('/payment/addon/success', AddOnPaymentRedirectController::class)->name('payment.addon.success');
+    Route::post('/trial/start', [LandingController::class, 'startTrial'])->name('landing.trial.start');
     
     // Legacy payment routes (keep for backward compatibility)
     Route::get('/payment', [LandingController::class, 'showPayment'])->name('landing.payment');
@@ -107,6 +110,7 @@ Route::domain(config('domains.api'))->group(function () {
 Route::get('/', [LandingController::class, 'index'])->name('home');
 Route::get('/', [LandingController::class, 'index'])->name('landing.home'); // Fallback untuk localhost
 Route::get('/pricing', [LandingController::class, 'showPricing'])->name('pricing');
+Route::post('/trial/start', [LandingController::class, 'startTrial'])->name('landing.trial.start');
 
 // Checkout (auth required)
 Route::middleware('auth')->group(function () {

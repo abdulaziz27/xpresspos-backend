@@ -156,21 +156,30 @@ class CashFlowReportController extends Controller
     private function generateStoreReport(Store $store, string $startDate, string $endDate): array
     {
         // Get cash sessions for the store and period
-        $cashSessions = CashSession::where('store_id', $store->id)
+        // Note: CashSession doesn't have tenant_id column, it's filtered via store_id
+        // Store is already filtered by tenant in the calling method
+        $cashSessions = CashSession::withoutGlobalScopes()
+            ->where('store_id', $store->id)
             ->whereBetween('opened_at', [$startDate, $endDate . ' 23:59:59'])
             ->with(['user:id,name,email'])
             ->get();
 
         // Get payments by method for the store and period
-        $paymentsByMethod = Payment::where('store_id', $store->id)
+        // Note: Payment doesn't have tenant_id column, it's filtered via store_id
+        // Store is already filtered by tenant in the calling method
+        $paymentsByMethod = Payment::withoutGlobalScopes()
+            ->where('store_id', $store->id)
             ->where('status', 'completed')
-            ->whereBetween('created_at', [$startDate, $endDate . ' 23:59:59'])
-            ->select('payment_method', DB::raw('COUNT(*) as count'), DB::raw('SUM(amount) as total'))
+            ->whereBetween(DB::raw('COALESCE(paid_at, processed_at, created_at)'), [$startDate, $endDate . ' 23:59:59'])
+            ->select('payment_method', DB::raw('COUNT(*) as count'), DB::raw('SUM(CASE WHEN received_amount > 0 THEN received_amount ELSE amount END) as total'))
             ->groupBy('payment_method')
             ->get();
 
         // Get expenses for the store and period
-        $expenses = Expense::where('store_id', $store->id)
+        // Note: Expense doesn't have tenant_id column, it's filtered via store_id
+        // Store is already filtered by tenant in the calling method
+        $expenses = Expense::withoutGlobalScopes()
+            ->where('store_id', $store->id)
             ->whereDate('expense_date', '>=', $startDate)
             ->whereDate('expense_date', '<=', $endDate)
             ->select('category', DB::raw('COUNT(*) as count'), DB::raw('SUM(amount) as total'))

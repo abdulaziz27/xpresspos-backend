@@ -23,13 +23,14 @@ class RegistrationProvisioningService
         }
 
         DB::transaction(function () use ($user) {
-            // 1. Create default tenant
+            // 1. Create default tenant without plan (force user to select plan / trial)
             $tenant = Tenant::create([
                 'id'     => (string) Str::uuid(),
                 'name'   => $user->name . "'s Business",
                 'email'  => $user->email,
                 'phone'  => null,
-                'status' => 'active',
+                'status' => 'pending_plan',
+                'plan_id' => null,
             ]);
 
             // 2. Create default store

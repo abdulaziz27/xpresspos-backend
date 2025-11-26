@@ -25,12 +25,16 @@ class ReportService
         string $groupBy = 'day',
         array $filters = []
     ): array {
-        $query = Order::query()
+        $query = Order::withoutGlobalScopes()
             ->where('status', 'completed')
             ->whereBetween('completed_at', [$startDate, $endDate])
             ->with(['items.product', 'payments', 'user']);
 
         // Apply filters
+        if (!empty($filters['tenant_id'])) {
+            $query->where('tenant_id', $filters['tenant_id']);
+        }
+
         if (!empty($filters['store_id'])) {
             $query->where('store_id', $filters['store_id']);
         }

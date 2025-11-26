@@ -24,7 +24,7 @@ class VoucherController extends Controller
      * 
      * POST /api/v1/vouchers/validate
      */
-    public function validate(Request $request): JsonResponse
+    public function validateVoucher(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'code' => 'required|string|max:50',

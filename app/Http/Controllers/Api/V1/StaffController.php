@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Traits\ChecksPlanLimits;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rule;
@@ -12,6 +13,7 @@ use Spatie\Permission\Models\Permission;
 
 class StaffController extends Controller
 {
+    use ChecksPlanLimits;
     public function __construct()
     {
         $this->middleware(['auth:sanctum', 'role:owner']);
@@ -72,6 +74,34 @@ class StaffController extends Controller
                     'message' => 'User is not authenticated'
                 ]
             ], 401);
+        }
+
+        // Check staff limit before creating
+        $tenant = $user->currentTenant();
+        if ($tenant) {
+            // Get current staff count for tenant via store_user_assignments
+            // Count users that have assignments to stores belonging to this tenant
+            $currentStaffCount = User::whereHas('storeAssignments', function ($q) use ($tenant) {
+                $q->whereHas('store', function ($storeQuery) use ($tenant) {
+                    $storeQuery->where('tenant_id', $tenant->id);
+                });
+            })
+            ->whereDoesntHave('roles', function ($q) {
+                $q->where('name', 'admin_sistem');
+            })
+            ->count();
+            
+            // Check if within limit
+            $limitCheck = $this->canPerformAction($tenant, 'create_staff', $currentStaffCount);
+            
+            if (!$limitCheck['allowed']) {
+                return $this->limitExceededResponse(
+                    'staff members',
+                    $currentStaffCount,
+                    $limitCheck['limit'] ?? 0,
+                    'Pro'
+                );
+            }
         }
 
         $request->validate([
@@ -519,6 +549,41 @@ class StaffController extends Controller
                     'message' => 'User is not authenticated'
                 ]
             ], 401);
+        }
+
+        // Check staff limit before inviting
+        $tenant = $user->currentTenant();
+        if ($tenant) {
+            // Get current staff count for tenant via store_user_assignments
+            $currentStaffCount = User::whereHas('storeAssignments', function ($q) use ($tenant) {
+                $q->whereHas('store', function ($storeQuery) use ($tenant) {
+                    $storeQuery->where('tenant_id', $tenant->id);
+                });
+            })
+            ->whereDoesntHave('roles', function ($q) {
+                $q->where('name', 'admin_sistem');
+            })
+            ->count();
+            
+            // Also count pending invitations for all stores in this tenant
+            $storeIds = \App\Models\Store::where('tenant_id', $tenant->id)->pluck('id');
+            $pendingInvitations = \App\Models\StaffInvitation::whereIn('store_id', $storeIds)
+                ->where('status', 'pending')
+                ->count();
+            
+            $totalStaffCount = $currentStaffCount + $pendingInvitations;
+            
+            // Check if within limit
+            $limitCheck = $this->canPerformAction($tenant, 'create_staff', $totalStaffCount);
+            
+            if (!$limitCheck['allowed']) {
+                return $this->limitExceededResponse(
+                    'staff members',
+                    $totalStaffCount,
+                    $limitCheck['limit'] ?? 0,
+                    'Pro'
+                );
+            }
         }
 
         $request->validate([
