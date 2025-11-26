@@ -35,6 +35,10 @@ class CoffeeShopSeeder extends Seeder
         $this->command->info('Step 5: Creating products...');
         $this->call(CoffeeShopProductSeeder::class);
 
+        // Step 5.5: Product Variants
+        $this->command->info('Step 5.5: Creating product variants...');
+        $this->call(CoffeeShopProductVariantSeeder::class);
+
         // Step 6: Recipes
         $this->command->info('Step 6: Creating recipes...');
         $this->call(CoffeeShopRecipeSeeder::class);

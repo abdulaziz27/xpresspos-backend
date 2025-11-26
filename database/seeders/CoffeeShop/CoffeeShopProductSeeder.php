@@ -329,7 +329,9 @@ class CoffeeShopProductSeeder extends Seeder
             $productData['tenant_id'] = $tenantId;
             $productData['category_id'] = $category->id;
 
-            $product = Product::query()->withoutGlobalScopes()->firstOrCreate(
+            // Use updateOrCreate to avoid duplicates and ensure unique SKU
+            // This prevents products with same name but different prices
+            $product = Product::query()->withoutGlobalScopes()->updateOrCreate(
                 [
                     'tenant_id' => $tenantId,
                     'sku' => $productData['sku'],
