@@ -92,24 +92,31 @@ class StoreSeeder extends Seeder
             $this->command->info("✅ Store ready: {$store->name} (ID: {$store->id}, Code: {$store->code})");
         }
 
-        // Create subscription for the tenant (bukan store) - Enterprise plan
+        // Create subscription untuk tenant ini menggunakan Enterprise plan
         $enterprisePlan = Plan::where('slug', 'enterprise')->first();
         if ($enterprisePlan) {
+            $tenant->update([
+                'plan_id' => $enterprisePlan->id,
+                'status' => 'active',
+            ]);
+
             $subscription = Subscription::firstOrCreate(
                 [
                     'tenant_id' => $tenant->id,
                     'plan_id' => $enterprisePlan->id,
-                'status' => 'active',
+                    'status' => 'active',
                 ],
                 [
-                'billing_cycle' => 'monthly',
-                'starts_at' => now(),
-                'ends_at' => now()->addMonth(),
+                    'billing_cycle' => 'monthly',
+                    'starts_at' => now(),
+                    'ends_at' => now()->addMonth(),
+                    'trial_ends_at' => now()->addDays((int) config('xendit.subscription.trial_days', 30)),
                     'amount' => $enterprisePlan->price,
-                'metadata' => [
-                    'payment_method' => 'bank_transfer',
-                    'auto_renew' => true,
-                ],
+                    'metadata' => [
+                        'payment_method' => 'bank_transfer',
+                        'auto_renew' => true,
+                        'source' => 'seeder',
+                    ],
                 ]
             );
 

@@ -64,7 +64,7 @@ return [
     |
     */
 
-    'owner_url' => env('OWNER_URL', env('APP_URL') . '/owner'),
+    'owner_url' => env('OWNER_URL', '/owner'),
 
     /*
     |--------------------------------------------------------------------------

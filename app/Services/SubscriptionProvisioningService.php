@@ -92,15 +92,27 @@ class SubscriptionProvisioningService
                     $isNewUser = false;
                     $temporaryPassword = null;
 
+                    // Update tenant plan_id to the paid plan (upgrade/downgrade)
+                    if ($tenant->plan_id !== $plan->id) {
+                        $tenant->update(['plan_id' => $plan->id]);
+                        $tenant->refresh();
+                        Log::info('Updated tenant plan_id', [
+                            'tenant_id' => $tenant->id,
+                            'old_plan_id' => $tenant->getOriginal('plan_id'),
+                            'new_plan_id' => $plan->id,
+                        ]);
+                    }
+
                     Log::info('Provisioning for authenticated user', [
                         'landing_subscription_id' => $landingSubscription->id,
                         'user_id' => $user->id,
                         'tenant_id' => $tenant->id,
+                        'plan_id' => $plan->id,
                     ]);
                 } else {
                     // Anonymous flow (legacy): create tenant & user
-                    // 1. Buat atau dapatkan Tenant
-                    $tenant = $this->createOrGetTenant($landingSubscription);
+                    // 1. Buat atau dapatkan Tenant (with plan_id assigned)
+                    $tenant = $this->createOrGetTenant($landingSubscription, $plan);
 
                     // 2. Buat atau dapatkan User (owner)
                     $userData = $this->createOrGetUser($landingSubscription, $tenant);
@@ -177,7 +189,7 @@ class SubscriptionProvisioningService
     /**
      * Buat atau dapatkan Tenant dari landing subscription.
      */
-    protected function createOrGetTenant(LandingSubscription $landingSubscription): Tenant
+    protected function createOrGetTenant(LandingSubscription $landingSubscription, ?Plan $plan = null): Tenant
     {
         // Cek apakah email sudah punya tenant (untuk existing customer)
         $existingUser = User::where('email', $landingSubscription->email)->first();
@@ -196,6 +208,13 @@ class SubscriptionProvisioningService
                         'tenant_id' => $tenant->id,
                         'user_id' => $existingUser->id,
                     ]);
+                    
+                    // Update plan_id if provided and tenant doesn't have one yet
+                    if ($plan && !$tenant->plan_id) {
+                        $tenant->update(['plan_id' => $plan->id]);
+                        $tenant->refresh();
+                    }
+                    
                     return $tenant;
                 }
             }
@@ -206,12 +225,21 @@ class SubscriptionProvisioningService
             ?? $landingSubscription->company 
             ?? $landingSubscription->name . ' Business';
 
+        // If no plan provided, default to Free plan
+        if (!$plan) {
+            $plan = Plan::where('slug', 'free')->first();
+            if (!$plan) {
+                throw new \RuntimeException('Free plan not found. Please run PlanSeeder first.');
+            }
+        }
+
         $tenant = Tenant::create([
             'id' => Str::uuid()->toString(),
             'name' => $tenantName,
             'email' => $landingSubscription->email,
             'phone' => $landingSubscription->phone,
             'status' => 'active',
+            'plan_id' => $plan->id, // Assign plan (paid plan or Free if not provided)
             'settings' => [
                 'source' => 'landing_page',
                 'landing_subscription_id' => $landingSubscription->id,

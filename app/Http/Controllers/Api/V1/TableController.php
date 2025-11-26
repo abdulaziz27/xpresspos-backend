@@ -7,6 +7,7 @@ use App\Http\Requests\StoreTableRequest;
 use App\Http\Requests\UpdateTableRequest;
 use App\Http\Resources\TableResource;
 use App\Models\Table;
+use App\Traits\ChecksPlanLimits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 
 class TableController extends Controller
 {
+    use ChecksPlanLimits;
     /**
      * Display a listing of tables.
      */
@@ -83,9 +85,16 @@ class TableController extends Controller
 
     /**
      * Store a newly created table.
+     * 
+     * REQUIRES: Pro/Enterprise plan (ALLOW_TABLE_MANAGEMENT feature)
      */
     public function store(StoreTableRequest $request): JsonResponse
     {
+        // Check if tenant has table management feature enabled
+        if (!$this->hasFeature(null, 'ALLOW_TABLE_MANAGEMENT')) {
+            return $this->featureNotAvailableResponse('Table Management', 'Pro');
+        }
+
         $this->authorize('create', Table::class);
 
         try {
@@ -154,9 +163,16 @@ class TableController extends Controller
 
     /**
      * Update the specified table.
+     * 
+     * REQUIRES: Pro/Enterprise plan (ALLOW_TABLE_MANAGEMENT feature)
      */
     public function update(UpdateTableRequest $request, string $id): JsonResponse
     {
+        // Check if tenant has table management feature enabled
+        if (!$this->hasFeature(null, 'ALLOW_TABLE_MANAGEMENT')) {
+            return $this->featureNotAvailableResponse('Table Management', 'Pro');
+        }
+
         $table = Table::findOrFail($id);
         $this->authorize('update', $table);
 

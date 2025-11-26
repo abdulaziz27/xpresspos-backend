@@ -79,10 +79,40 @@ class PlanLimitService
             return -1; // unlimited
         }
 
-        $limit = (int) $feature->limit_value;
+        $baseLimit = (int) $feature->limit_value;
 
         // -1 atau 0 = unlimited
-        return $limit <= 0 ? -1 : $limit;
+        if ($baseLimit <= 0) {
+            return -1;
+        }
+
+        // Add add-ons to the base limit
+        $addOnBonus = $this->getAddOnBonus($tenant, $featureCode);
+        
+        return $baseLimit + $addOnBonus;
+    }
+
+    /**
+     * Get total additional limit from active add-ons for a feature.
+     */
+    protected function getAddOnBonus(Tenant $tenant, string $featureCode): int
+    {
+        $activeAddOns = $tenant->activeAddOns()
+            ->whereHas('addOn', function ($q) use ($featureCode) {
+                $q->where('feature_code', $featureCode)
+                  ->where('is_active', true);
+            })
+            ->with('addOn')
+            ->get();
+
+        $totalBonus = 0;
+        foreach ($activeAddOns as $tenantAddOn) {
+            // quantity = jumlah unit add-on yang dibeli
+            // addOn->quantity = jumlah limit per unit
+            $totalBonus += $tenantAddOn->quantity * $tenantAddOn->addOn->quantity;
+        }
+
+        return $totalBonus;
     }
 
     /**
@@ -140,8 +170,8 @@ class PlanLimitService
             [
                 'current_usage' => 0,
                 'annual_quota' => $this->getQuotaForFeatureType($subscription, $featureType),
-                'subscription_year_start' => $subscription->starts_at->startOfYear(),
-                'subscription_year_end' => $subscription->starts_at->endOfYear(),
+                'subscription_year_start' => $subscription->starts_at->startOfMonth(), // Reset bulanan
+                'subscription_year_end' => $subscription->starts_at->endOfMonth(),
             ]
         );
 
@@ -304,8 +334,14 @@ class PlanLimitService
      */
     protected function getActivePlan(Tenant $tenant): ?Plan
     {
+        // REFACTOR: Use direct plan relationship from tenant
+        // This is the single source of truth for "Current Plan"
+        if ($tenant->plan) {
+            return $tenant->plan;
+        }
+
+        // Fallback for legacy data (should be covered by migration)
         $subscription = $this->getActiveSubscription($tenant);
-        
         return $subscription?->plan;
     }
 
@@ -319,17 +355,24 @@ class PlanLimitService
         // Map feature_type to feature_code
         // Catatan: Pastikan feature_code ada di plan_features untuk semua plan
         $featureCodeMap = [
-            'transactions' => 'MAX_TRANSACTIONS_PER_YEAR',
-            // 'orders' => 'MAX_ORDERS_PER_MONTH', // Uncomment jika sudah ada di plan_features
+            'transactions' => ['MAX_TRANSACTIONS_PER_MONTH', 'MAX_TRANSACTIONS_PER_YEAR'],
+            'stores' => ['MAX_STORES'],
+            'products' => ['MAX_PRODUCTS'],
+            'staff' => ['MAX_STAFF'],
             // Add more mappings as needed
         ];
 
-        $featureCode = $featureCodeMap[$featureType] ?? null;
-        if (!$featureCode) {
-            return null;
+        $featureCodes = $featureCodeMap[$featureType] ?? [];
+
+        foreach ($featureCodes as $code) {
+            $limit = $this->limit($tenant, $code);
+
+            if ($limit !== null) {
+                return $limit;
+            }
         }
 
-        return $this->limit($tenant, $featureCode);
+        return null;
     }
 
     /**
@@ -382,9 +425,17 @@ class PlanLimitService
             'create_store' => 'MAX_STORES',
             'create_product' => 'MAX_PRODUCTS',
             'create_staff' => 'MAX_STAFF',
+            'create_transaction' => 'MAX_TRANSACTIONS_PER_MONTH',
             'use_loyalty' => 'ALLOW_LOYALTY',
             'use_multi_store' => 'ALLOW_MULTI_STORE',
             'use_api' => 'ALLOW_API_ACCESS',
+            
+            // New features per Marketing Spec
+            'use_inventory' => 'ALLOW_INVENTORY',
+            'use_table_management' => 'ALLOW_TABLE_MANAGEMENT',
+            'use_payment_gateway' => 'ALLOW_PAYMENT_GATEWAY',
+            'use_auto_backup' => 'ALLOW_AUTO_BACKUP',
+            'use_ai_analytics' => 'ALLOW_AI_ANALYTICS',
         ];
 
         return $mapping[$action] ?? null;

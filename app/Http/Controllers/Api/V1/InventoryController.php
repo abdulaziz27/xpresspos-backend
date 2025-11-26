@@ -8,11 +8,14 @@ use App\Models\StockLevel;
 use App\Models\InventoryMovement;
 use App\Services\InventoryService;
 use App\Services\StoreContext;
+use App\Traits\ChecksPlanLimits;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class InventoryController extends Controller
 {
+    use ChecksPlanLimits;
+
     protected InventoryService $inventoryService;
 
     public function __construct(InventoryService $inventoryService)
@@ -134,9 +137,16 @@ class InventoryController extends Controller
      * 
      * NOTE: Now accepts inventory_item_id (not product_id).
      * Stock adjustments are per inventory_item per store.
+     * 
+     * REQUIRES: Pro/Enterprise plan (ALLOW_INVENTORY feature)
      */
     public function adjust(Request $request): JsonResponse
     {
+        // Check if tenant has inventory feature enabled
+        if (!$this->hasFeature(null, 'ALLOW_INVENTORY')) {
+            return $this->featureNotAvailableResponse('Inventory Management', 'Pro');
+        }
+
         $user = auth()->user() ?? request()->user();
 
         if (!$user) {
@@ -321,9 +331,16 @@ class InventoryController extends Controller
      * 
      * NOTE: Now accepts inventory_item_id (not product_id).
      * Movements are tracked per inventory_item per store.
+     * 
+     * REQUIRES: Pro/Enterprise plan (ALLOW_INVENTORY feature)
      */
     public function createMovement(Request $request): JsonResponse
     {
+        // Check if tenant has inventory feature enabled
+        if (!$this->hasFeature(null, 'ALLOW_INVENTORY')) {
+            return $this->featureNotAvailableResponse('Inventory Management', 'Pro');
+        }
+
         $user = auth()->user() ?? request()->user();
 
         if (!$user) {

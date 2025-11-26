@@ -96,8 +96,8 @@ class PlanSeeder extends Seeder
                 'name' => 'Enterprise',
                 'slug' => 'enterprise',
                 'description' => 'Complete solution for large businesses with unlimited features',
-                'price' => 540000,
-                'annual_price' => 5400000, // 10x monthly price
+                'price' => 599000,
+                'annual_price' => 5990000, // 10x monthly price
                 'features' => [
                     'pos',
                     'basic_reports',

@@ -5,6 +5,7 @@ namespace App\Filament\Owner\Resources\InventoryTransfers;
 use App\Filament\Owner\Resources\InventoryTransfers\Pages;
 use App\Filament\Owner\Resources\InventoryTransfers\RelationManagers\ItemsRelationManager;
 use App\Models\InventoryTransfer;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
@@ -27,6 +28,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class InventoryTransferResource extends Resource
 {
+    use HasPlanBasedNavigation;
     protected static ?string $model = InventoryTransfer::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowPathRoundedSquare;
@@ -38,15 +40,20 @@ class InventoryTransferResource extends Resource
     protected static ?int $navigationSort = 40; // 4. Transfer Antar Toko
 
     /**
-     * Hide from navigation if tenant only has 1 store (no need for transfers).
+     * Hide from navigation if tenant doesn't have inventory feature or only has 1 store.
      */
     public static function shouldRegisterNavigation(): bool
     {
+        // First check if tenant has inventory feature
+        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+
         /** @var GlobalFilterService $globalFilter */
         $globalFilter = app(GlobalFilterService::class);
         $stores = $globalFilter->getAvailableStores();
         
-        // Hide if tenant has only 1 store or less
+        // Hide if tenant has only 1 store or less (no need for transfers)
         return $stores->count() > 1;
     }
 
@@ -260,10 +267,15 @@ class InventoryTransferResource extends Resource
     }
 
     /**
-     * Owner can create inventory transfers (if tenant has more than 1 store).
+     * Owner can create inventory transfers (if plan allows and tenant has more than 1 store).
      */
     public static function canCreate(): bool
     {
+        // First check if tenant has inventory feature
+        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+
         /** @var \App\Services\GlobalFilterService $globalFilter */
         $globalFilter = app(\App\Services\GlobalFilterService::class);
         $stores = $globalFilter->getAvailableStores();

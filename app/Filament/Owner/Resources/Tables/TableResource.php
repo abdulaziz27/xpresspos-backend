@@ -10,6 +10,7 @@ use App\Filament\Owner\Resources\Tables\Tables\TablesTable;
 use App\Models\Table;
 use BackedEnum;
 use App\Services\GlobalFilterService;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Gate;
 
 class TableResource extends Resource
 {
+    use HasPlanBasedNavigation;
     protected static ?string $model = Table::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-table-cells';
@@ -62,13 +64,23 @@ class TableResource extends Resource
         ];
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        // Hide navigation if tenant doesn't have table management feature
+        return static::hasPlanFeature('ALLOW_TABLE_MANAGEMENT');
+    }
+
     public static function canViewAny(): bool
     {
-        return true;
+        return static::hasPlanFeature('ALLOW_TABLE_MANAGEMENT');
     }
 
     public static function canCreate(): bool
     {
+        if (!static::hasPlanFeature('ALLOW_TABLE_MANAGEMENT')) {
+            return false;
+        }
+
         $user = auth()->user();
         return (bool) $user && Gate::forUser($user)->allows('create', static::$model);
     }

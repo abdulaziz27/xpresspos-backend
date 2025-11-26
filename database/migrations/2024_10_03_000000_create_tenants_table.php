@@ -17,6 +17,10 @@ return new class extends Migration
         if (!Schema::hasTable('tenants')) {
             Schema::create('tenants', function (Blueprint $table) {
                 $table->string('id', 36)->primary()->comment('UUID primary key');
+                
+                // Plans table is now created earlier (2024_10_02), so we can safely constrain here
+                $table->foreignId('plan_id')->nullable()->constrained('plans')->nullOnDelete();
+                
                 $table->string('name');
                 $table->string('email')->nullable();
                 $table->string('phone')->nullable();

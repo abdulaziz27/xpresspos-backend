@@ -32,31 +32,21 @@ trait HasSubscriptionFeatures
      */
     public function getSubscriptionPlan(): ?Plan
     {
-        $subscription = $this->activeSubscription()->first();
+        // REFACTOR: Get plan from tenant directly
+        // This ensures we rely on the database truth, not on-the-fly objects
+        $tenant = $this->currentTenant();
         
-        if (!$subscription) {
-            return $this->getFreePlan();
+        if (!$tenant) {
+             return null;
+        }
+
+        if (!$tenant->plan) {
+             // Fallback to finding Free plan in DB if tenant has no plan set
+             // (Should not happen after migration)
+             return Plan::where('slug', 'free')->first();
         }
         
-        return $subscription->plan;
-    }
-
-    /**
-     * Get free/trial plan as default
-     */
-    protected function getFreePlan(): Plan
-    {
-        return new Plan([
-            'name' => 'Free',
-            'slug' => 'free',
-            'features' => [],
-            'limits' => [
-                'stores' => 1,
-                'products' => 50,
-                'staff' => 2,
-                'orders_per_month' => 100,
-            ]
-        ]);
+        return $tenant->plan;
     }
 
     /**
@@ -119,7 +109,8 @@ trait HasSubscriptionFeatures
      */
     public function isFreePlan(): bool
     {
-        return !$this->hasActiveSubscription();
+        $plan = $this->getSubscriptionPlan();
+        return $plan && $plan->slug === 'free';
     }
 
     /**

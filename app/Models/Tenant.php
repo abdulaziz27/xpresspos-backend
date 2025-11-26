@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Tenant extends Model
@@ -37,6 +38,7 @@ class Tenant extends Model
         'phone',
         'settings',
         'status',
+        'plan_id',
     ];
 
     /**
@@ -54,6 +56,14 @@ class Tenant extends Model
     public function stores(): HasMany
     {
         return $this->hasMany(Store::class);
+    }
+
+    /**
+     * Get the current plan for the tenant.
+     */
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
     }
 
     /**
@@ -85,5 +95,26 @@ class Tenant extends Model
             ->with('plan')
             ->latest('created_at')
             ->first();
+    }
+
+    /**
+     * Get the add-ons purchased by this tenant.
+     */
+    public function tenantAddOns(): HasMany
+    {
+        return $this->hasMany(TenantAddOn::class);
+    }
+
+    /**
+     * Get active add-ons for this tenant.
+     */
+    public function activeAddOns(): HasMany
+    {
+        return $this->hasMany(TenantAddOn::class)
+            ->where('status', 'active')
+            ->where(function ($q) {
+                $q->whereNull('ends_at')
+                  ->orWhere('ends_at', '>', now());
+            });
     }
 }

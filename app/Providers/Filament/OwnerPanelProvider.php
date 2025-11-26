@@ -20,6 +20,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\EnsureStoreContext;
+use App\Http\Middleware\EnsureTenantHasActivePlan;
 
 class OwnerPanelProvider extends PanelProvider
 {
@@ -77,6 +78,7 @@ class OwnerPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
                 EnsureStoreContext::class,
+                EnsureTenantHasActivePlan::class,
                 \App\Http\Middleware\EnsureFilamentTeamContext::class,
                 \App\Http\Middleware\LogSecurityEvents::class,
             ])

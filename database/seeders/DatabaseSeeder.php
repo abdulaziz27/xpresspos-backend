@@ -20,6 +20,11 @@ class DatabaseSeeder extends Seeder
             PlanSeeder::class,
         ]);
 
+        // Create add-ons (depends on plan features)
+        $this->call([
+            AddOnSeeder::class,
+        ]);
+
         // Create roles and permissions
         $this->call([
             RoleSeeder::class,
