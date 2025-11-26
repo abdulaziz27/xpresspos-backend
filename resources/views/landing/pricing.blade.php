@@ -85,7 +85,7 @@
                             <!-- CTA Button (Dynamic based on auth & current plan) -->
                             @php
                                 // Default values
-                                $buttonLabel = 'Pilih Paket ' . $plan->name;
+                                $buttonLabel = 'Mulai Trial 30 Hari';
                                 $buttonDisabled = false;
                                 $buttonAction = true; // Can click
                                 
@@ -134,7 +134,7 @@
                     <div class="space-y-6">
                         <div class="bg-white rounded-xl shadow-lg p-6">
                             <h3 class="text-lg font-semibold text-gray-900 mb-3">Apakah ada trial gratis?</h3>
-                            <p class="text-gray-600">Ya, semua paket mendapat trial gratis 14 hari tanpa perlu kartu kredit.</p>
+                            <p class="text-gray-600">Ya, semua paket mendapat trial gratis 30 hari tanpa perlu kartu kredit.</p>
                         </div>
                         
                         <div class="bg-white rounded-xl shadow-lg p-6">
@@ -222,8 +222,16 @@
 }
 </style>
 
+@auth
+<form id="start-trial-form" method="POST" action="{{ route('landing.trial.start') }}" class="hidden">
+    @csrf
+    <input type="hidden" name="plan_id" id="trial-plan-input">
+</form>
+@endauth
+
 <script>
 let currentBilling = 'monthly';
+const isAuthenticated = @json(Auth::check());
 
 document.getElementById('monthly-btn').addEventListener('click', function() {
     switchBilling('monthly');
@@ -252,13 +260,18 @@ function switchBilling(billing) {
 }
 
 function selectPlan(planId, planSlug) {
-    // Use relative URL for local development, absolute URL for production
-    const baseUrl = '{{ app()->environment("local") ? "/checkout" : route("landing.checkout") }}';
-    const url = new URL(baseUrl, window.location.origin);
-    url.searchParams.set('plan_id', planId); // Primary: plan_id (integer)
-    url.searchParams.set('plan', planSlug); // Secondary: slug (for backward compatibility)
-    url.searchParams.set('billing', currentBilling);
-    window.location.href = url.toString();
+    if (!isAuthenticated) {
+        window.location.href = '{{ route('landing.login') }}';
+        return;
+    }
+
+    const form = document.getElementById('start-trial-form');
+    const input = document.getElementById('trial-plan-input');
+
+    if (form && input) {
+        input.value = planId;
+        form.submit();
+    }
 }
 </script>
 @endsection

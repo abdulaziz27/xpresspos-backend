@@ -18,6 +18,7 @@ use App\Models\StockLevel;
 use App\Models\InventoryItem;
 use App\Services\OrderCalculationService;
 use App\Services\InventoryService;
+use App\Traits\ChecksPlanLimits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -27,6 +28,7 @@ use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
 {
+    use ChecksPlanLimits;
     /**
      * Display a listing of orders.
      */
@@ -333,6 +335,31 @@ class OrderController extends Controller
                         'message' => 'No tenant context found for this store. Please contact support.',
                     ],
                 ], 400);
+            }
+
+            // Check transaction limit before creating order
+            $tenant = $user->currentTenant();
+            if ($tenant) {
+                // Get current month transaction count for tenant
+                $currentMonthStart = now()->startOfMonth();
+                $currentMonthEnd = now()->endOfMonth();
+                
+                $currentTransactionCount = Order::where('tenant_id', $tenant->id)
+                    ->whereBetween('created_at', [$currentMonthStart, $currentMonthEnd])
+                    ->count();
+                
+                // Check if within limit
+                $limitCheck = $this->canPerformAction($tenant, 'create_transaction', $currentTransactionCount);
+                
+                if (!$limitCheck['allowed']) {
+                    DB::rollBack();
+                    return $this->limitExceededResponse(
+                        'transactions per month',
+                        $currentTransactionCount,
+                        $limitCheck['limit'] ?? 0,
+                        'Pro'
+                    );
+                }
             }
             
             // Resolve customer information

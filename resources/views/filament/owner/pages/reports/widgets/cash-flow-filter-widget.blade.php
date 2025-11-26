@@ -8,15 +8,18 @@
         </x-slot>
         {{ $this->form }}
         
-        {{-- <div class="flex justify-end" style="margin-top: 2rem;">
-            <a 
-                href="{{ $this->getExportUrl() }}" 
+        <div class="flex justify-end mt-4">
+            <x-filament::button
+                tag="a"
+                href="{{ $this->getExportUrl() }}"
                 target="_blank"
-                class="inline-flex items-center px-3 py-1.5 text-sm bg-success-600 text-white rounded-md hover:bg-success-700 transition-colors"
+                color="success"
+                outlined
+                icon="heroicon-o-arrow-down-tray"
             >
                 Export ke Excel
-            </a>
-        </div> --}}
+            </x-filament::button>
+        </div>
     </x-filament::section>
 </x-filament-widgets::widget>
 

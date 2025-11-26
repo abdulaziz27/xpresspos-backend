@@ -73,7 +73,14 @@ class XenditWebhookController extends Controller
             // Find subscription payment by Xendit invoice ID
             $subscriptionPayment = SubscriptionPayment::where('xendit_invoice_id', $payload['id'])->first();
 
+            // If not subscription payment, check for add-on payment
             if (!$subscriptionPayment) {
+                $addOnPayment = \App\Models\AddOnPayment::where('xendit_invoice_id', $payload['id'])->first();
+                
+                if ($addOnPayment) {
+                    return $this->handleAddOnPaymentCallback($addOnPayment, $payload, $request);
+                }
+
                 $this->securityService->logWebhookSecurityEvent(
                     'payment_not_found',
                     $request,
@@ -479,6 +486,120 @@ class XenditWebhookController extends Controller
                 'payment_id' => $payment->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+        }
+    }
+
+    /**
+     * Handle add-on payment callback from Xendit.
+     */
+    protected function handleAddOnPaymentCallback(
+        \App\Models\AddOnPayment $addOnPayment,
+        array $payload,
+        Request $request
+    ): JsonResponse {
+        try {
+            // Store previous status for notification logic
+            $previousStatus = $addOnPayment->status;
+
+            // Update add-on payment with callback data
+            $addOnPayment->updateFromXenditCallback($payload);
+
+            // Handle payment completion
+            if ($addOnPayment->isPaid()) {
+                $this->handleAddOnPaymentCompletion($addOnPayment);
+            } elseif ($addOnPayment->hasExpired()) {
+                $this->handleAddOnPaymentExpiration($addOnPayment);
+            }
+
+            $this->securityService->logWebhookSecurityEvent(
+                'addon_webhook_processed_successfully',
+                $request,
+                [
+                    'add_on_payment_id' => $addOnPayment->id,
+                    'status' => $addOnPayment->status,
+                    'previous_status' => $previousStatus,
+                ],
+                'info'
+            );
+
+            return response()->json(['message' => 'Add-on payment webhook processed successfully']);
+
+        } catch (\Exception $e) {
+            $this->securityService->logWebhookSecurityEvent(
+                'addon_webhook_processing_failed',
+                $request,
+                [
+                    'error' => $e->getMessage(),
+                    'add_on_payment_id' => $addOnPayment->id ?? null,
+                ]
+            );
+
+            Log::channel('payment')->error('Add-on payment webhook processing failed', [
+                'add_on_payment_id' => $addOnPayment->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['message' => 'Add-on payment webhook processing failed'], 500);
+        }
+    }
+
+    /**
+     * Handle add-on payment completion.
+     */
+    protected function handleAddOnPaymentCompletion(\App\Models\AddOnPayment $addOnPayment): void
+    {
+        $tenantAddOn = $addOnPayment->tenantAddOn;
+        
+        if (!$tenantAddOn) {
+            Log::channel('payment')->warning('Add-on payment completed but tenant add-on not found', [
+                'add_on_payment_id' => $addOnPayment->id,
+            ]);
+            return;
+        }
+
+        // Activate the add-on
+        $tenantAddOn->update([
+            'status' => 'active',
+            'starts_at' => now(),
+        ]);
+
+        // Set ends_at based on billing cycle
+        if ($tenantAddOn->billing_cycle === 'monthly') {
+            // Monthly: ends_at is null (recurring)
+            $tenantAddOn->update(['ends_at' => null]);
+        } else {
+            // Annual: ends_at is 1 year from now
+            $tenantAddOn->update(['ends_at' => now()->addYear()]);
+        }
+
+        Log::channel('payment')->info('Add-on activated after payment', [
+            'tenant_add_on_id' => $tenantAddOn->id,
+            'add_on_payment_id' => $addOnPayment->id,
+            'add_on_name' => $tenantAddOn->addOn->name ?? 'Unknown',
+        ]);
+    }
+
+    /**
+     * Handle add-on payment expiration.
+     */
+    protected function handleAddOnPaymentExpiration(\App\Models\AddOnPayment $addOnPayment): void
+    {
+        $tenantAddOn = $addOnPayment->tenantAddOn;
+        
+        if (!$tenantAddOn) {
+            return;
+        }
+
+        // If payment expired and add-on is still pending, mark as expired
+        if ($tenantAddOn->status === 'pending') {
+            $tenantAddOn->update([
+                'status' => 'expired',
+            ]);
+
+            Log::channel('payment')->info('Add-on expired due to payment expiration', [
+                'tenant_add_on_id' => $tenantAddOn->id,
+                'add_on_payment_id' => $addOnPayment->id,
             ]);
         }
     }

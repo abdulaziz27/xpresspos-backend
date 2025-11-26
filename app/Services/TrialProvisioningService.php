@@ -139,6 +139,8 @@ class TrialProvisioningService
     {
         $now = CarbonImmutable::now();
 
+        $trialDays = (int) config('xendit.subscription.trial_days', 30);
+
         return Subscription::create([
             'store_id' => $store->id,
             'plan_id' => $plan->id,
@@ -146,7 +148,7 @@ class TrialProvisioningService
             'billing_cycle' => 'monthly',
             'starts_at' => $now->toDateString(),
             'ends_at' => $now->addMonth()->toDateString(),
-            'trial_ends_at' => $now->addDays(14)->toDateString(),
+            'trial_ends_at' => $now->addDays($trialDays)->toDateString(),
             'amount' => $plan->price ?? 0,
             'metadata' => [
                 'source' => 'landing_subscription',

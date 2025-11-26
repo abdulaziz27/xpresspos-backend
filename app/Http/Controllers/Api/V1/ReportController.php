@@ -109,6 +109,7 @@ class ReportController extends Controller
         $reports = [];
         foreach ($stores as $store) {
             $filters = $request->only(['outlet_id', 'user_id', 'category_id']);
+            $filters['tenant_id'] = $tenantId;
             $filters['store_id'] = $store->id;
 
             $report = $this->reportService->generateSalesReport(

@@ -5,6 +5,7 @@ namespace App\Filament\Owner\Resources\InventoryAdjustments;
 use App\Filament\Owner\Resources\InventoryAdjustments\Pages;
 use App\Filament\Owner\Resources\InventoryAdjustments\RelationManagers\ItemsRelationManager;
 use App\Models\InventoryAdjustment;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use App\Services\GlobalFilterService;
 use App\Support\Currency;
 use BackedEnum;
@@ -29,6 +30,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class InventoryAdjustmentResource extends Resource
 {
+    use HasPlanBasedNavigation;
     protected static ?string $model = InventoryAdjustment::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAdjustmentsHorizontal;
@@ -207,11 +209,19 @@ class InventoryAdjustmentResource extends Resource
     }
 
     /**
-     * Owner can create inventory adjustments.
+     * Hide navigation if tenant doesn't have inventory feature.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::hasPlanFeature('ALLOW_INVENTORY');
+    }
+
+    /**
+     * Owner can create inventory adjustments (if plan allows).
      */
     public static function canCreate(): bool
     {
-        return true;
+        return static::hasPlanFeature('ALLOW_INVENTORY');
     }
 
     /**

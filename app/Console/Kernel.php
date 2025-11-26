@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Jobs\AddOnPaymentReminderJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -52,6 +53,19 @@ class Kernel extends ConsoleKernel
             ->dailyAt('15:00')
             ->withoutOverlapping()
             ->runInBackground()
+            ->onOneServer();
+        
+        // Check plan usage and send warnings (daily at 8 AM)
+        $schedule->command('plan:check-usage')
+            ->dailyAt('08:00')
+            ->withoutOverlapping()
+            ->runInBackground()
+            ->onOneServer();
+        
+        // Send reminders for pending add-on payments (daily at 9 AM)
+        $schedule->job(new AddOnPaymentReminderJob())
+            ->dailyAt('09:00')
+            ->withoutOverlapping()
             ->onOneServer();
         
         // Backup cleanup - remove old report files (older than 6 months)

@@ -321,3 +321,48 @@ protected function mapFeatureCodeToType(string $featureCode): ?string
 
 **Last Updated:** Berdasarkan service PlanLimitService dan dokumentasi PLAN_LIMITS_TABLES.md
 
+---
+
+## 🧩 Add-on Invoice Monitoring & Alerting (v2)
+
+### Reminder & Escalation Job
+- **Job:** `app/Jobs/AddOnPaymentReminderJob.php`
+- **Schedule:** `app/Console/Kernel.php` menjalankan `dailyAt('09:00')`.
+- **Konfigurasi:** `config/xendit.php` → `addon.reminder_hours` (default 48 jam) dan `addon.reminder_cooldown_hours` (default 12 jam).
+- **Log:** Menggunakan channel `payment` (`storage/logs/payment.log`) untuk setiap reminder yang dikirim / kegagalan.
+- **Email Template:** `resources/views/emails/addon-payment-reminder.blade.php` (menampilkan invoice ID, nominal, sisa waktu, CTA “Bayar Sekarang”).
+
+### Owner Portal (Filament Owner)
+- **Resource:** `app/Filament/Owner/Resources/TenantAddOns/TenantAddOnResource.php`.
+- **Penambahan:**
+  - Kolom status pembayaran, due date, invoice link di tabel utama.
+  - Relation manager `PaymentsRelationManager` menampilkan histori pembayaran + tombol “Buka Invoice” dan “Salin Link”.
+  - View page (`ViewTenantAddOn`) menyediakan aksi “Buka Invoice” dan “Kirim Pengingat” manual (menggunakan `AddOnPaymentReminderNotification`).
+- **Limit Enforcement:** `CreateTenantAddOn` dan `ChecksPlanLimits` tetap sebagai guard utama, tapi owner sekarang melihat feedback visual bila payment pending/expired.
+
+### Admin / Support Portal (Filament Admin)
+- **Resource:** `app/Filament/Admin/Resources/AddOnPayments/AddOnPaymentResource.php`.
+- **Fitur:**
+  - Filter status, filter add-on, pencarian tenant.
+  - Aksi cepat: “Resend Reminder” (email + notifikasi) dan “Mark as Failed”.
+  - Export CSV/XLSX via `Tables\Actions\ExportAction` + `App\Filament\Admin\Exports\AddOnPaymentExporter`.
+  - View detail memuat tenant, add-on, invoice metadata, timeline reminder.
+
+### Logging & Monitoring
+- **Channel Baru:** `payment` di `config/logging.php` (daily log, 30 hari retensi).
+- **Create Flow:** `CreateTenantAddOn` mencatat keberhasilan / kegagalan saat membuat invoice Xendit.
+- **Webhook Flow:** `XenditWebhookController` mencatat semua event add-on (paid, expired, failure) ke channel `payment`.
+- **Job Reminder:** setiap pengiriman reminder / anomali tenant tanpa owner ikut tercatat.
+
+### SOP Manual (Ops / Support)
+1. **Owner meminta link ulang?**
+   - Buka Filament Owner → `Add-ons` → pilih record → klik “Buka Invoice” atau “Kirim Pengingat”.
+2. **Support ingin memantau seluruh tenant?**
+   - Buka Filament Admin → `Add-on Payments`.
+   - Gunakan filter “Overdue” untuk mendeteksi invoice akan kedaluwarsa.
+   - Gunakan aksi “Resend Reminder” atau “Mark as Failed” sesuai prosedur.
+3. **Audit / Rekonsiliasi Finance:**
+   - Export data dari header action `Export CSV`.
+   - File mencakup tenant, add-on, status, nominal, channel, timestamp reminder terakhir.
+
+

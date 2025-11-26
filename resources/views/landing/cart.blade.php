@@ -129,7 +129,7 @@
                                         <p class="text-sm text-blue-800 font-medium mb-1">Informasi Pembayaran</p>
                                         <p class="text-xs text-blue-700">• Pembayaran bulanan otomatis</p>
                                         <p class="text-xs text-blue-700">• Dapat dibatalkan kapan saja</p>
-                                        <p class="text-xs text-blue-700">• Gratis trial 14 hari</p>
+                                        <p class="text-xs text-blue-700">• Gratis trial 30 hari</p>
                                     </div>
                                 </div>
                             </div>

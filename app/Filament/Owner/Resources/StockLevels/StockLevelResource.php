@@ -3,6 +3,7 @@
 namespace App\Filament\Owner\Resources\StockLevels;
 
 use App\Filament\Owner\Resources\StockLevels\Pages;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use App\Models\StockLevel;
 use App\Models\InventoryItem;
 use App\Services\StoreContext;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class StockLevelResource extends Resource
 {
+    use HasPlanBasedNavigation;
     protected static ?string $model = StockLevel::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAdjustmentsVertical;
@@ -27,6 +29,14 @@ class StockLevelResource extends Resource
     protected static string|\UnitEnum|null $navigationGroup = 'Inventori';
 
     protected static ?int $navigationSort = 20; // 2. Stok per Toko
+
+    /**
+     * Hide navigation if tenant doesn't have inventory feature.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::hasPlanFeature('ALLOW_INVENTORY');
+    }
 
     public static function form(Schema $schema): Schema
     {

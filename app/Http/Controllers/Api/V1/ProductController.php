@@ -7,6 +7,7 @@ use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Models\Product;
 use App\Models\Category;
+use App\Traits\ChecksPlanLimits;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
@@ -16,6 +17,7 @@ use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
+    use ChecksPlanLimits;
     /**
      * Display a listing of products.
      */
@@ -101,9 +103,30 @@ class ProductController extends Controller
     /**
      * Store a newly created product.
      */
-    public function store(StoreProductRequest $request): JsonResponse
+public function store(StoreProductRequest $request): JsonResponse
     {
         $this->authorize('create', Product::class);
+
+        // Check product limit before creating
+        $user = $request->user();
+        $tenant = $user?->currentTenant();
+        
+        if ($tenant) {
+            // Get current product count for tenant
+            $currentProductCount = Product::where('tenant_id', $tenant->id)->count();
+            
+            // Check if within limit
+            $limitCheck = $this->canPerformAction($tenant, 'create_product', $currentProductCount);
+            
+            if (!$limitCheck['allowed']) {
+                return $this->limitExceededResponse(
+                    'products',
+                    $currentProductCount,
+                    $limitCheck['limit'] ?? 0,
+                    'Pro'
+                );
+            }
+        }
 
         $product = Product::create([
             'category_id' => $request->input('category_id'),
