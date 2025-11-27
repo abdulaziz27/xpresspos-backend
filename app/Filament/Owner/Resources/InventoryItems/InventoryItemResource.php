@@ -6,6 +6,7 @@ use App\Filament\Owner\Resources\InventoryItems\Pages;
 use App\Models\InventoryItem;
 use App\Models\Uom;
 use App\Enums\AssignmentRoleEnum;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use BackedEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,6 +31,7 @@ use Illuminate\Support\Facades\Gate;
 
 class InventoryItemResource extends Resource
 {
+    use HasPlanBasedNavigation;
     protected static ?string $model = InventoryItem::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBox;
