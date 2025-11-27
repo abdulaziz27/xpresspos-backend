@@ -53,7 +53,7 @@ class CreateStaff extends CreateRecord
     {
         return Notification::make()
             ->success()
-            ->title('Staff ditambahkan');
+            ->title('Staff berhasil ditambahkan');
     }
 }
 
