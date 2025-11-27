@@ -116,24 +116,27 @@ class PlanSeeder extends Seeder
                 'limits' => [
                     // LEGACY: JSON limits untuk backward compatibility saja
                     // SUMBER KEBENARAN: plan_features table
-                    'products' => null, // Unlimited
-                    'users' => null, // Unlimited
-                    'outlets' => null, // Unlimited
-                    'transactions' => null, // Unlimited
+                    'products' => 500,
+                    'users' => 25,
+                    'outlets' => 3,
+                    'transactions' => 180000,
                 ],
                 'is_active' => true,
                 'sort_order' => 3,
                 // SUMBER KEBENARAN: Plan features untuk PlanLimitService
                 'plan_features' => [
                     // Hard Limits (MAX_*) - Unlimited = -1
-                    ['feature_code' => 'MAX_STORES', 'limit_value' => '-1', 'is_enabled' => true],
-                    ['feature_code' => 'MAX_PRODUCTS', 'limit_value' => '-1', 'is_enabled' => true],
-                    ['feature_code' => 'MAX_STAFF', 'limit_value' => '-1', 'is_enabled' => true],
-                    ['feature_code' => 'MAX_TRANSACTIONS_PER_YEAR', 'limit_value' => '-1', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_STORES', 'limit_value' => '3', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_PRODUCTS', 'limit_value' => '500', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_STAFF', 'limit_value' => '25', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_TRANSACTIONS_PER_YEAR', 'limit_value' => '180000', 'is_enabled' => true],
                     // Feature Flags (ALLOW_*)
                     ['feature_code' => 'ALLOW_LOYALTY', 'limit_value' => '1', 'is_enabled' => true],
                     ['feature_code' => 'ALLOW_MULTI_STORE', 'limit_value' => '1', 'is_enabled' => true],
                     ['feature_code' => 'ALLOW_API_ACCESS', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_TABLE_MANAGEMENT', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_INVENTORY', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_PAYMENT_GATEWAY', 'limit_value' => '1', 'is_enabled' => true],
                 ],
             ],
         ];

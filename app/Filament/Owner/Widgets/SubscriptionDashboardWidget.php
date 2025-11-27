@@ -5,7 +5,7 @@ namespace App\Filament\Owner\Widgets;
 use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Models\SubscriptionPayment;
 use App\Models\Tenant;
-use App\Services\GlobalFilterService;
+use App\Services\DashboardFilterService;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Builder;
@@ -85,6 +85,6 @@ class SubscriptionDashboardWidget extends Widget
 
     public static function canView(): bool
     {
-        return (bool) app(GlobalFilterService::class)->getCurrentTenantId();
+        return (bool) app(DashboardFilterService::class)->getCurrentTenantId();
     }
 }

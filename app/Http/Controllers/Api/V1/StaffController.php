@@ -32,6 +32,8 @@ class StaffController extends Controller
      */
     public function index(): JsonResponse
     {
+        $this->authorize('viewAny', User::class);
+
         $user = auth()->user() ?? request()->user();
 
         if (!$user) {
@@ -64,6 +66,8 @@ class StaffController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', User::class);
+
         $user = auth()->user() ?? request()->user();
 
         if (!$user) {
@@ -132,6 +136,8 @@ class StaffController extends Controller
      */
     public function show(User $staff): JsonResponse
     {
+        $this->authorize('view', $staff);
+
         $user = auth()->user() ?? request()->user();
 
         if (!$user) {
@@ -178,6 +184,8 @@ class StaffController extends Controller
      */
     public function update(Request $request, User $staff): JsonResponse
     {
+        $this->authorize('update', $staff);
+
         $user = auth()->user() ?? request()->user();
 
         if (!$user) {
@@ -236,6 +244,8 @@ class StaffController extends Controller
      */
     public function destroy(User $staff): JsonResponse
     {
+        $this->authorize('delete', $staff);
+
         $user = auth()->user() ?? request()->user();
 
         if (!$user) {

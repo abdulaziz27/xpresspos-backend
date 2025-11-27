@@ -26,6 +26,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 
 class PurchaseOrderResource extends Resource
 {
@@ -254,12 +255,21 @@ class PurchaseOrderResource extends Resource
             ->paginated([10, 25, 50, 100]);
     }
 
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('viewAny', static::$model);
+    }
+
     /**
      * Owner can create purchase orders.
      */
     public static function canCreate(): bool
     {
-        return true;
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('create', static::$model);
     }
 
     /**
@@ -267,7 +277,12 @@ class PurchaseOrderResource extends Resource
      */
     public static function canEdit(Model $record): bool
     {
-        return !in_array($record->status, [PurchaseOrder::STATUS_RECEIVED, PurchaseOrder::STATUS_CLOSED, PurchaseOrder::STATUS_CANCELLED]);
+        if (in_array($record->status, [PurchaseOrder::STATUS_RECEIVED, PurchaseOrder::STATUS_CLOSED, PurchaseOrder::STATUS_CANCELLED])) {
+            return false;
+        }
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('update', $record);
     }
 
     /**

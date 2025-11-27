@@ -19,6 +19,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Resources\Resource;
+use Illuminate\Support\Facades\Gate;
 
 class SupplierResource extends Resource
 {
@@ -170,12 +171,21 @@ class SupplierResource extends Resource
             ->paginated([10, 25, 50, 100]);
     }
 
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('viewAny', static::$model);
+    }
+
     /**
      * Owner can create suppliers.
      */
     public static function canCreate(): bool
     {
-        return true;
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('create', static::$model);
     }
 
     /**
@@ -183,7 +193,9 @@ class SupplierResource extends Resource
      */
     public static function canEdit(Model $record): bool
     {
-        return true;
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('update', $record);
     }
 
     /**
@@ -192,7 +204,9 @@ class SupplierResource extends Resource
      */
     public static function canDelete(Model $record): bool
     {
-        return true;
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('delete', $record);
     }
 
     public static function getPages(): array

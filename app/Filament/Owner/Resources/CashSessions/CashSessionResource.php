@@ -9,13 +9,16 @@ use App\Filament\Owner\Resources\CashSessions\Schemas\CashSessionForm;
 use App\Filament\Owner\Resources\CashSessions\RelationManagers\ExpensesRelationManager;
 use App\Filament\Owner\Resources\CashSessions\Tables\CashSessionsTable;
 use App\Models\CashSession;
-use App\Services\GlobalFilterService;
+use App\Enums\AssignmentRoleEnum;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class CashSessionResource extends Resource
 {
@@ -62,10 +65,26 @@ class CashSessionResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return true;
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('viewAny', static::$model);
     }
 
-    public static function canDelete($record): bool
+    public static function canCreate(): bool
+    {
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('create', static::$model);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('update', $record);
+    }
+
+    public static function canDelete(Model $record): bool
     {
         // Protect cash session history - prevent deletion to maintain audit trail
         return false;
@@ -79,17 +98,42 @@ class CashSessionResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->with(['store', 'user']);
+        $user = Auth::user();
+        $tenantId = $user?->currentTenant()?->id;
 
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
-
-        if (! empty($storeIds)) {
-            $query->whereIn('store_id', $storeIds);
+        if (!$tenantId) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
         }
 
-        return $query;
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->with(['store', 'user'])
+            ->whereHas('store', fn (Builder $storeQuery) => $storeQuery->where('tenant_id', $tenantId));
+
+        // Check if user is owner (has owner role or owner assignment)
+        $hasOwnerRole = $user->hasRole('owner');
+        $hasOwnerAssignment = $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
+        $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+
+        if ($isOwner) {
+            // Owner can see all stores in tenant
+            return $query;
+        } else {
+            // Staff/User can only see stores they are assigned to
+            $assignedStoreIds = $user->stores()->pluck('stores.id')->toArray();
+            
+            if (empty($assignedStoreIds)) {
+                // No store assignment, return empty query
+                return $query->whereRaw('1 = 0');
+            }
+
+            return $query->whereHas('store', fn (Builder $storeQuery) => 
+                $storeQuery->whereIn('stores.id', $assignedStoreIds)
+            );
+        }
     }
 }

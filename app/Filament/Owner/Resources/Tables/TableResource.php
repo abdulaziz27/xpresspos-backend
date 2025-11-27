@@ -8,9 +8,12 @@ use App\Filament\Owner\Resources\Tables\Pages\ListTables;
 use App\Filament\Owner\Resources\Tables\Schemas\TableForm;
 use App\Filament\Owner\Resources\Tables\Tables\TablesTable;
 use App\Models\Table;
+use App\Models\Store;
+use App\Models\Scopes\StoreScope;
+use App\Enums\AssignmentRoleEnum;
 use BackedEnum;
-use App\Services\GlobalFilterService;
 use App\Filament\Traits\HasPlanBasedNavigation;
+use Illuminate\Support\Facades\Auth;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -87,17 +90,47 @@ class TableResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
+        // Remove StoreScope to show tables from all stores in tenant
         $query = parent::getEloquentQuery()
+            ->withoutGlobalScope(StoreScope::class)
             ->with(['store', 'currentOrder']);
 
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+        $user = Auth::user();
+        $tenantId = $user?->currentTenant()?->id;
+        
+        if (!$tenantId) {
+            return $query->whereRaw('1 = 0');
+        }
 
-        if (! empty($storeIds)) {
-            $query->whereIn('store_id', $storeIds);
-                }
+        // Check if user is owner (has owner role or owner assignment)
+        $hasOwnerRole = $user->hasRole('owner');
+        $hasOwnerAssignment = $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
+        $isOwner = $hasOwnerRole || $hasOwnerAssignment;
 
-                return $query;
+        if ($isOwner) {
+            // Owner can see tables from all stores in tenant
+            $storeIds = Store::where('tenant_id', $tenantId)
+                ->where('status', 'active')
+                ->pluck('id')
+                ->toArray();
+            
+            if (!empty($storeIds)) {
+                $query->whereIn('store_id', $storeIds);
+            }
+        } else {
+            // Staff/User can only see tables from stores they are assigned to
+            $assignedStoreIds = $user->stores()->pluck('stores.id')->toArray();
+            
+            if (empty($assignedStoreIds)) {
+                // No store assignment, return empty query
+                return $query->whereRaw('1 = 0');
+            }
+
+            $query->whereIn('store_id', $assignedStoreIds);
+        }
+
+        return $query;
     }
 }

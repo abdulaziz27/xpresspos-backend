@@ -3,7 +3,9 @@
 namespace App\Filament\Owner\Widgets\Concerns;
 
 use App\Models\Store;
-use App\Services\GlobalFilterService;
+use App\Services\DashboardFilterService;
+use App\Enums\AssignmentRoleEnum;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 trait ResolvesOwnerDashboardFilters
@@ -20,8 +22,8 @@ trait ResolvesOwnerDashboardFilters
      */
     protected function dashboardFilters(): array
     {
-        /** @var GlobalFilterService $service */
-        $service = app(GlobalFilterService::class);
+        /** @var DashboardFilterService $service */
+        $service = app(DashboardFilterService::class);
         $filters = $this->pageFilters ?? [];
         $currentRange = $service->getCurrentDateRange();
 
@@ -44,8 +46,8 @@ trait ResolvesOwnerDashboardFilters
      */
     protected function resolveDashboardDateRange(array $state): array
     {
-        /** @var GlobalFilterService $service */
-        $service = app(GlobalFilterService::class);
+        /** @var DashboardFilterService $service */
+        $service = app(DashboardFilterService::class);
 
         $preset = $state['date_preset'] ?? null;
 
@@ -80,6 +82,7 @@ trait ResolvesOwnerDashboardFilters
     {
         $state = $this->dashboardFilters();
 
+        // If specific store selected in filter, return only that store
         if ($state['store_id']) {
             return [$state['store_id']];
         }
@@ -88,16 +91,41 @@ trait ResolvesOwnerDashboardFilters
             return [];
         }
 
-        return Store::query()
-            ->where('tenant_id', $state['tenant_id'])
-            ->where('status', 'active')
-            ->pluck('id')
-            ->all();
+        $user = Auth::user();
+        
+        if (!$user) {
+            return [];
+        }
+
+        // Check if user is owner (has owner role or owner assignment)
+        $hasOwnerRole = $user->hasRole('owner');
+        $hasOwnerAssignment = $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
+        $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+
+        if ($isOwner) {
+            // Owner can see all stores in tenant
+            return Store::query()
+                ->where('tenant_id', $state['tenant_id'])
+                ->where('status', 'active')
+                ->pluck('id')
+                ->all();
+        } else {
+            // Staff/User can only see stores they are assigned to
+            $assignedStoreIds = $user->stores()
+                ->where('stores.tenant_id', $state['tenant_id'])
+                ->where('stores.status', 'active')
+                ->pluck('stores.id')
+                ->toArray();
+            
+            return $assignedStoreIds;
+        }
     }
 
     protected function dashboardFilterSummary(): array
     {
-        return app(GlobalFilterService::class)->getFilterSummary();
+        return app(DashboardFilterService::class)->getFilterSummary();
     }
 
     protected function dashboardFilterContextLabel(): string

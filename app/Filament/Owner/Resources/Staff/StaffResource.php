@@ -18,6 +18,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class StaffResource extends Resource
 {
@@ -64,29 +65,48 @@ class StaffResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return true;
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('viewAny', static::$model);
     }
 
     public static function canCreate(): bool
     {
-        return true;
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('create', static::$model);
     }
 
     public static function canEdit(Model $record): bool
     {
+        $user = auth()->user();
+        if (!$user) return false;
+
         // Prevent editing yourself (optional safety)
-        return $record->id !== auth()->id();
+        if ($record->id === auth()->id()) {
+            return false;
+        }
+
+        return Gate::forUser($user)->allows('update', $record);
     }
 
     public static function canDelete(Model $record): bool
     {
+        $user = auth()->user();
+        if (!$user) return false;
+
         // Prevent deleting yourself
         if ($record->id === auth()->id()) {
             return false;
         }
 
+        // Check permission first
+        if (!Gate::forUser($user)->allows('delete', $record)) {
+            return false;
+        }
+
         // Prevent deleting the last owner in the tenant
-        $currentTenant = auth()->user()?->currentTenant();
+        $currentTenant = $user->currentTenant();
         if ($currentTenant) {
             $ownerCount = DB::table('user_tenant_access')
                 ->where('tenant_id', $currentTenant->id)

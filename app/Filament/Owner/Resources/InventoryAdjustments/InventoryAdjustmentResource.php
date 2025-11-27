@@ -27,6 +27,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 
 class InventoryAdjustmentResource extends Resource
 {
@@ -216,12 +217,27 @@ class InventoryAdjustmentResource extends Resource
         return static::hasPlanFeature('ALLOW_INVENTORY');
     }
 
+    public static function canViewAny(): bool
+    {
+        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('viewAny', static::$model);
+    }
+
     /**
      * Owner can create inventory adjustments (if plan allows).
      */
     public static function canCreate(): bool
     {
-        return static::hasPlanFeature('ALLOW_INVENTORY');
+        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('create', static::$model);
     }
 
     /**
@@ -229,7 +245,15 @@ class InventoryAdjustmentResource extends Resource
      */
     public static function canEdit(Model $record): bool
     {
-        return $record->status === InventoryAdjustment::STATUS_DRAFT;
+        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+        if ($record->status !== InventoryAdjustment::STATUS_DRAFT) {
+            return false;
+        }
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('update', $record);
     }
 
     /**

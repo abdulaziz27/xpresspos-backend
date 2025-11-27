@@ -34,6 +34,8 @@ class InventoryController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', InventoryItem::class);
+
         $query = StockLevel::with(['inventoryItem:id,name,sku,track_stock,min_stock_level']);
 
         // Filter by low stock
@@ -109,6 +111,9 @@ class InventoryController extends Controller
 
         $inventoryItem = InventoryItem::where('track_stock', true)
             ->findOrFail($inventoryItemId);
+        
+        $this->authorize('view', $inventoryItem);
+        
         $stockLevel = StockLevel::getOrCreateForInventoryItem($inventoryItemId, $storeId);
 
         // Get recent movements (InventoryMovement is store-scoped)
@@ -146,6 +151,8 @@ class InventoryController extends Controller
         if (!$this->hasFeature(null, 'ALLOW_INVENTORY')) {
             return $this->featureNotAvailableResponse('Inventory Management', 'Pro');
         }
+
+        $this->authorize('create', \App\Models\InventoryAdjustment::class);
 
         $user = auth()->user() ?? request()->user();
 

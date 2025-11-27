@@ -11,13 +11,15 @@ use App\Filament\Owner\Resources\Orders\RelationManagers\OrderItemsRelationManag
 use App\Filament\Owner\Resources\Orders\RelationManagers\PaymentsRelationManager;
 use App\Filament\Owner\Resources\Orders\RelationManagers\RefundsRelationManager;
 use App\Models\Order;
-use App\Services\GlobalFilterService;
+use App\Enums\AssignmentRoleEnum;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Filament\Support\Icons\Heroicon;
 
 class OrderResource extends Resource
@@ -98,26 +100,46 @@ class OrderResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return true;
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('viewAny', static::$model);
     }
 
-    /**
-     * Apply Global Filter to Orders query
-     * 
-     * Unified Multi-Store Dashboard: Filter by tenant + store + date
-     */
     public static function getEloquentQuery(): Builder
     {
-        $globalFilter = app(GlobalFilterService::class);
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+        $user = Auth::user();
+        $tenantId = $user?->currentTenant()?->id;
 
-        $query = parent::getEloquentQuery();
-
-        // Apply store filter (multi-store support)
-        if (!empty($storeIds)) {
-            $query->whereIn('store_id', $storeIds);
+        if (!$tenantId) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
         }
 
-        return $query;
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $tenantId);
+
+        // Check if user is owner (has owner role or owner assignment)
+        $hasOwnerRole = $user->hasRole('owner');
+        $hasOwnerAssignment = $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
+        $isOwner = $hasOwnerRole || $hasOwnerAssignment;
+
+        if ($isOwner) {
+            // Owner can see all stores in tenant
+            return $query;
+        } else {
+            // Staff/User can only see stores they are assigned to
+            $assignedStoreIds = $user->stores()->pluck('stores.id')->toArray();
+            
+            if (empty($assignedStoreIds)) {
+                // No store assignment, return empty query
+                return $query->whereRaw('1 = 0');
+            }
+
+            return $query->whereIn('store_id', $assignedStoreIds);
+        }
     }
 }

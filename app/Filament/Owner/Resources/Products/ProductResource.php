@@ -9,12 +9,15 @@ use App\Filament\Owner\Resources\Products\RelationManagers;
 use App\Filament\Owner\Resources\Products\Schemas\ProductForm;
 use App\Filament\Owner\Resources\Products\Tables\ProductsTable;
 use App\Models\Product;
-use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class ProductResource extends Resource
 {
@@ -32,10 +35,46 @@ class ProductResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Produk';
 
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return Gate::forUser($user)->allows('viewAny', static::$model);
+    }
+
     // Check if user can create more products based on subscription limit
     public static function canCreate(): bool
     {
-        return auth()->user()->canCreate('products');
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        // Check plan limit first
+        if (! $user->canCreate('products')) {
+            return false;
+        }
+
+        return Gate::forUser($user)->allows('create', static::$model);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('update', $record);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('delete', $record);
     }
 
     public static function form(Schema $schema): Schema
@@ -65,32 +104,28 @@ class ProductResource extends Resource
         ];
     }
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $tenantId = $globalFilter->getCurrentTenantId();
+        $user = Auth::user();
 
-        if (!$tenantId) {
-            // Fallback to user's current tenant
-            $tenantId = auth()->user()?->currentTenant()?->id;
+        if (! $user) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
         }
 
-        $query = parent::getEloquentQuery()
+        $tenantId = $user->currentTenant()?->id;
+
+        if (! $tenantId) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
+        }
+
+        return parent::getEloquentQuery()
             ->withoutGlobalScopes()
-            ->with(['category']);
-
-        if (!$tenantId) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        // Only filter by tenant - store filtering is handled by table filters
-        // This ensures page independence from dashboard store filter
-        return $query->where('tenant_id', $tenantId);
+            ->with(['category'])
+            ->where('tenant_id', $tenantId);
     }
 
-    public static function canViewAny(): bool
-    {
-        return true;
-    }
 }

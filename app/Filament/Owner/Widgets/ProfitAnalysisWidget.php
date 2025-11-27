@@ -4,7 +4,7 @@ namespace App\Filament\Owner\Widgets;
 
 use App\Filament\Owner\Widgets\Concerns\ResolvesOwnerDashboardFilters;
 use App\Services\FnBAnalyticsService;
-use App\Services\GlobalFilterService;
+use App\Services\DashboardFilterService;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -85,14 +85,14 @@ class ProfitAnalysisWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        $globalFilter = app(GlobalFilterService::class);
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
+        $dashboardFilter = app(DashboardFilterService::class);
+        $storeIds = $dashboardFilter->getStoreIdsForCurrentTenant();
         
         if (empty($storeIds)) {
             return false;
         }
 
-        $dateRange = $globalFilter->getCurrentDateRange();
+        $dateRange = $dashboardFilter->getCurrentDateRange();
 
         return \App\Models\CogsHistory::whereIn('store_id', $storeIds)
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])

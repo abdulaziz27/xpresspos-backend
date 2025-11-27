@@ -3,7 +3,7 @@
 namespace App\Filament\Owner\Pages;
 
 use App\Models\Store;
-use App\Services\GlobalFilterService;
+use App\Services\DashboardFilterService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -120,15 +120,15 @@ class OwnerDashboard extends BaseDashboard
 
     protected function syncGlobalFilterService(): void
     {
-        /** @var GlobalFilterService $service */
-        $service = app(GlobalFilterService::class);
+        /** @var DashboardFilterService $service */
+        $service = app(DashboardFilterService::class);
         $service->syncFromDashboardFilters($this->filters ?? []);
     }
 
     protected function getDefaultFilters(): array
     {
-        /** @var GlobalFilterService $service */
-        $service = app(GlobalFilterService::class);
+        /** @var DashboardFilterService $service */
+        $service = app(DashboardFilterService::class);
 
         $defaults = $service->getFilterState();
 
@@ -174,6 +174,6 @@ class OwnerDashboard extends BaseDashboard
 
     protected function getDatePresetOptions(): array
     {
-        return app(GlobalFilterService::class)->getAvailableDatePresets();
+        return app(DashboardFilterService::class)->getAvailableDatePresets();
     }
 }

@@ -23,6 +23,8 @@ class RecipeController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', Recipe::class);
+
         $query = Recipe::with(['product:id,name,sku', 'items.ingredient:id,name,sku'])
             ->where('is_active', true);
 
@@ -51,6 +53,8 @@ class RecipeController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', Recipe::class);
+
         $request->validate([
             'product_id' => 'required|exists:products,id',
             'name' => 'required|string|max:255',
@@ -118,6 +122,8 @@ class RecipeController extends Controller
      */
     public function show(Recipe $recipe): JsonResponse
     {
+        $this->authorize('view', $recipe);
+        
         $recipe->load(['product:id,name,sku', 'items.ingredient:id,name,sku,cost_price']);
 
         return response()->json([
@@ -132,6 +138,8 @@ class RecipeController extends Controller
      */
     public function update(Request $request, Recipe $recipe): JsonResponse
     {
+        $this->authorize('update', $recipe);
+
         $request->validate([
             'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
@@ -204,6 +212,8 @@ class RecipeController extends Controller
      */
     public function destroy(Recipe $recipe): JsonResponse
     {
+        $this->authorize('delete', $recipe);
+        
         $recipe->update(['is_active' => false]);
 
         return response()->json([

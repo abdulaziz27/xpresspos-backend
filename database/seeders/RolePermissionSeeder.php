@@ -76,6 +76,26 @@ class RolePermissionSeeder extends Seeder
             'inventory.adjust',
             'inventory.transfer',
             'inventory.reports',
+            'inventory_items.view',
+            'inventory_items.create',
+            'inventory_items.update',
+            'inventory_items.delete',
+            'inventory_adjustments.view',
+            'inventory_adjustments.create',
+            'inventory_adjustments.update',
+            'inventory_adjustments.delete',
+            'inventory_transfers.view',
+            'inventory_transfers.create',
+            'inventory_transfers.update',
+            'inventory_transfers.delete',
+            'purchase_orders.view',
+            'purchase_orders.create',
+            'purchase_orders.update',
+            'purchase_orders.delete',
+            'suppliers.view',
+            'suppliers.create',
+            'suppliers.update',
+            'suppliers.delete',
 
             // Reports
             'reports.view',
@@ -86,6 +106,9 @@ class RolePermissionSeeder extends Seeder
             'cash_sessions.open',
             'cash_sessions.close',
             'cash_sessions.view',
+            'cash_sessions.create',
+            'cash_sessions.update',
+            'cash_sessions.delete',
             'cash_sessions.manage',
 
             // Expense management
@@ -93,6 +116,30 @@ class RolePermissionSeeder extends Seeder
             'expenses.create',
             'expenses.update',
             'expenses.delete',
+
+            // Recipes
+            'recipes.view',
+            'recipes.create',
+            'recipes.update',
+            'recipes.delete',
+
+            // Vouchers
+            'vouchers.view',
+            'vouchers.create',
+            'vouchers.update',
+            'vouchers.delete',
+
+            // Promotions
+            'promotions.view',
+            'promotions.create',
+            'promotions.update',
+            'promotions.delete',
+
+            // Stores
+            'stores.view',
+            'stores.create',
+            'stores.update',
+            'stores.delete',
 
             // Subscription management (system admin only)
             'subscription.view',
@@ -126,9 +173,18 @@ class RolePermissionSeeder extends Seeder
             'tables.view', 'tables.create', 'tables.update', 'tables.delete',
             'members.view', 'members.create', 'members.update', 'members.delete',
             'inventory.view', 'inventory.adjust', 'inventory.transfer', 'inventory.reports',
+            'inventory_items.view', 'inventory_items.create', 'inventory_items.update', 'inventory_items.delete',
+            'inventory_adjustments.view', 'inventory_adjustments.create', 'inventory_adjustments.update', 'inventory_adjustments.delete',
+            'inventory_transfers.view', 'inventory_transfers.create', 'inventory_transfers.update', 'inventory_transfers.delete',
+            'purchase_orders.view', 'purchase_orders.create', 'purchase_orders.update', 'purchase_orders.delete',
+            'suppliers.view', 'suppliers.create', 'suppliers.update', 'suppliers.delete',
             'reports.view', 'reports.export', 'reports.email',
-            'cash_sessions.open', 'cash_sessions.close', 'cash_sessions.view', 'cash_sessions.manage',
+            'cash_sessions.open', 'cash_sessions.close', 'cash_sessions.view', 'cash_sessions.create', 'cash_sessions.update', 'cash_sessions.delete', 'cash_sessions.manage',
             'expenses.view', 'expenses.create', 'expenses.update', 'expenses.delete',
+            'recipes.view', 'recipes.create', 'recipes.update', 'recipes.delete',
+            'vouchers.view', 'vouchers.create', 'vouchers.update', 'vouchers.delete',
+            'promotions.view', 'promotions.create', 'promotions.update', 'promotions.delete',
+            'stores.view', 'stores.create', 'stores.update', 'stores.delete',
             'subscription.view',
         ]);
 
@@ -143,9 +199,18 @@ class RolePermissionSeeder extends Seeder
             'tables.view', 'tables.update',
             'members.view', 'members.create', 'members.update',
             'inventory.view', 'inventory.adjust', 'inventory.reports',
+            'inventory_items.view', 'inventory_items.create', 'inventory_items.update',
+            'inventory_adjustments.view', 'inventory_adjustments.create', 'inventory_adjustments.update',
+            'inventory_transfers.view', 'inventory_transfers.create', 'inventory_transfers.update',
+            'purchase_orders.view', 'purchase_orders.create', 'purchase_orders.update',
+            'suppliers.view', 'suppliers.create', 'suppliers.update',
             'reports.view', 'reports.export',
-            'cash_sessions.open', 'cash_sessions.close', 'cash_sessions.view',
+            'cash_sessions.open', 'cash_sessions.close', 'cash_sessions.view', 'cash_sessions.create', 'cash_sessions.update',
             'expenses.view', 'expenses.create', 'expenses.update',
+            'recipes.view', 'recipes.create', 'recipes.update',
+            'vouchers.view', 'vouchers.create', 'vouchers.update',
+            'promotions.view', 'promotions.create', 'promotions.update',
+            'stores.view',
         ]);
 
         // Cashier - POS operations only
@@ -157,8 +222,10 @@ class RolePermissionSeeder extends Seeder
             'payments.view', 'payments.create',
             'tables.view', 'tables.update',
             'members.view',
-            'cash_sessions.open', 'cash_sessions.close', 'cash_sessions.view',
+            'cash_sessions.open', 'cash_sessions.close', 'cash_sessions.view', 'cash_sessions.create',
             'expenses.view', 'expenses.create',
+            'vouchers.view',
+            'promotions.view',
         ]);
     }
 }

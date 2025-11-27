@@ -28,6 +28,8 @@ class CashSessionController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', CashSession::class);
+
         $query = CashSession::with(['user:id,name,email'])
             ->orderBy('created_at', 'desc');
 
@@ -63,6 +65,8 @@ class CashSessionController extends Controller
      */
     public function store(StoreCashSessionRequest $request): JsonResponse
     {
+        $this->authorize('create', CashSession::class);
+
         try {
             DB::beginTransaction();
 
@@ -126,7 +130,18 @@ class CashSessionController extends Controller
      */
     public function show(Request $request, string $id): JsonResponse
     {
-        $cashSession = CashSession::with(['user:id,name,email', 'expenses'])->find($id);
+        $cashSession = CashSession::withoutGlobalScopes()->find($id);
+        
+        if (!$cashSession) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cash session not found'
+            ], 404);
+        }
+        
+        $this->authorize('view', $cashSession);
+        
+        $cashSession->load(['user:id,name,email', 'expenses']);
 
         // If not found, try without store scope (in case of store context issue)
         if (!$cashSession) {
@@ -180,6 +195,7 @@ class CashSessionController extends Controller
     public function update(UpdateCashSessionRequest $request, string $id): JsonResponse
     {
         $cashSession = CashSession::findOrFail($id);
+        $this->authorize('update', $cashSession);
         if ($cashSession->status === 'closed') {
             return response()->json([
                 'success' => false,
@@ -201,6 +217,9 @@ class CashSessionController extends Controller
      */
     public function close(Request $request, string $id): JsonResponse
     {
+        $cashSession = CashSession::findOrFail($id);
+        $this->authorize('close', $cashSession);
+
         // User is already authenticated by auth:sanctum middleware in routes/api.php
         // $request->user() is automatically set by Sanctum after authentication
         // If user is null here, it means middleware didn't run properly

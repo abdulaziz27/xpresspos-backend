@@ -25,6 +25,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 
 class InventoryTransferResource extends Resource
 {
@@ -266,6 +267,16 @@ class InventoryTransferResource extends Resource
             ->paginated([10, 25, 50, 100]);
     }
 
+    public static function canViewAny(): bool
+    {
+        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('viewAny', static::$model);
+    }
+
     /**
      * Owner can create inventory transfers (if plan allows and tenant has more than 1 store).
      */
@@ -273,6 +284,14 @@ class InventoryTransferResource extends Resource
     {
         // First check if tenant has inventory feature
         if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+
+        $user = auth()->user();
+        if (!$user) return false;
+
+        // Check permission first
+        if (!Gate::forUser($user)->allows('create', static::$model)) {
             return false;
         }
 
@@ -289,7 +308,15 @@ class InventoryTransferResource extends Resource
      */
     public static function canEdit(Model $record): bool
     {
-        return !in_array($record->status, [InventoryTransfer::STATUS_RECEIVED, InventoryTransfer::STATUS_CANCELLED]);
+        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+        if (in_array($record->status, [InventoryTransfer::STATUS_RECEIVED, InventoryTransfer::STATUS_CANCELLED])) {
+            return false;
+        }
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('update', $record);
     }
 
     /**

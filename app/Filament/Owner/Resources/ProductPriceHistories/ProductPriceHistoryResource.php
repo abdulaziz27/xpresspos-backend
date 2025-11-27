@@ -9,6 +9,8 @@ use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class ProductPriceHistoryResource extends Resource
 {
@@ -53,27 +55,27 @@ class ProductPriceHistoryResource extends Resource
         return false; // Price history records should not be deletable
     }
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $tenantId = $globalFilter->getCurrentTenantId();
+        $user = Auth::user();
 
-        if (!$tenantId) {
-            // Fallback to user's current tenant
-            $tenantId = auth()->user()?->currentTenant()?->id;
+        if (! $user) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
         }
 
-        $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes();
+        $tenantId = $user->currentTenant()?->id;
 
-        if (!$tenantId) {
-            return $query->whereRaw('1 = 0');
+        if (! $tenantId) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
         }
 
-        // Only filter by tenant - store filtering is handled by table filters
-        // This ensures page independence from dashboard store filter
-        return $query->where('tenant_id', $tenantId);
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $tenantId);
     }
 
     public static function shouldRegisterNavigation(): bool

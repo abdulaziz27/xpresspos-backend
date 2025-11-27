@@ -24,6 +24,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Gate;
 
 class InventoryItemResource extends Resource
 {
@@ -246,12 +247,27 @@ class InventoryItemResource extends Resource
         return static::hasPlanFeature('ALLOW_INVENTORY');
     }
 
+    public static function canViewAny(): bool
+    {
+        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('viewAny', static::$model);
+    }
+
     /**
      * Owner can create inventory items (if plan allows).
      */
     public static function canCreate(): bool
     {
-        return static::hasPlanFeature('ALLOW_INVENTORY');
+        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('create', static::$model);
     }
 
     /**
@@ -259,7 +275,12 @@ class InventoryItemResource extends Resource
      */
     public static function canEdit(Model $record): bool
     {
-        return static::hasPlanFeature('ALLOW_INVENTORY');
+        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('update', $record);
     }
 
     /**
@@ -268,7 +289,12 @@ class InventoryItemResource extends Resource
      */
     public static function canDelete(Model $record): bool
     {
-        return static::hasPlanFeature('ALLOW_INVENTORY');
+        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('delete', $record);
     }
 
     public static function getPages(): array

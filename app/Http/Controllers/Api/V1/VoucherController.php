@@ -26,6 +26,9 @@ class VoucherController extends Controller
      */
     public function validateVoucher(Request $request): JsonResponse
     {
+        // Voucher validation is a read operation, check viewAny permission
+        $this->authorize('viewAny', Voucher::class);
+
         $validator = Validator::make($request->all(), [
             'code' => 'required|string|max:50',
             'order_id' => 'nullable|uuid|exists:orders,id',

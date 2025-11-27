@@ -16,6 +16,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 
 class StoreResource extends Resource
 {
@@ -61,21 +62,35 @@ class StoreResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return true;
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('viewAny', static::$model);
     }
 
     public static function canCreate(): bool
     {
-        return true; // Owner can create stores
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('create', static::$model);
     }
 
     public static function canEdit(Model $record): bool
     {
-        return true; // Owner can edit stores in their tenant
+        $user = auth()->user();
+        if (!$user) return false;
+        return Gate::forUser($user)->allows('update', $record);
     }
 
     public static function canDelete(Model $record): bool
     {
+        $user = auth()->user();
+        if (!$user) return false;
+
+        // Check permission first
+        if (!Gate::forUser($user)->allows('delete', $record)) {
+            return false;
+        }
+
         // Prevent deletion if store has related data
         $hasOrders = $record->orders()->exists();
         $hasProducts = $record->products()->exists();

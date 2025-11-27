@@ -16,6 +16,7 @@ use Filament\Tables\Table;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 
 class StockLevelResource extends Resource
 {
@@ -36,6 +37,17 @@ class StockLevelResource extends Resource
     public static function shouldRegisterNavigation(): bool
     {
         return static::hasPlanFeature('ALLOW_INVENTORY');
+    }
+
+    public static function canViewAny(): bool
+    {
+        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
+        $user = auth()->user();
+        if (!$user) return false;
+        // StockLevel doesn't have a Policy, so check via InventoryItem
+        return Gate::forUser($user)->allows('viewAny', InventoryItem::class);
     }
 
     public static function form(Schema $schema): Schema

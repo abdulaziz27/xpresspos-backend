@@ -27,6 +27,9 @@ class StoreController extends Controller
      */
     public function current(Request $request): JsonResponse
     {
+        // Check viewAny permission for stores
+        $this->authorize('viewAny', Store::class);
+
         $user = $request->user();
         $storeContext = StoreContext::instance();
 
