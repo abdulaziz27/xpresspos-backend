@@ -86,23 +86,23 @@ class CategoryForm
                     ])
                     ->columns(1),
 
-                Section::make('Gambar Kategori')
-                    ->description('Representasi visual kategori')
-                    ->schema([
-                        FileUpload::make('image')
-                            ->label('Gambar Kategori')
-                            ->image()
-                            ->imageEditor()
-                            ->imageEditorAspectRatios([
-                                '16:9',
-                                '4:3',
-                                '1:1',
-                            ])
-                            ->maxSize(2048)
-                            ->directory('categories')
-                            ->visibility('public'),
-                    ])
-                    ->columns(1),
+                // Section::make('Gambar Kategori')
+                //     ->description('Representasi visual kategori')
+                //     ->schema([
+                //         FileUpload::make('image')
+                //             ->label('Gambar Kategori')
+                //             ->image()
+                //             ->imageEditor()
+                //             ->imageEditorAspectRatios([
+                //                 '16:9',
+                //                 '4:3',
+                //                 '1:1',
+                //             ])
+                //             ->maxSize(2048)
+                //             ->directory('categories')
+                //             ->visibility('public'),
+                //     ])
+                //     ->columns(1),
             ]);
     }
 }

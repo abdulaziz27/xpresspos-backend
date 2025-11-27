@@ -18,11 +18,11 @@ class CategoriesTable
     {
         return $table
             ->columns([
-                ImageColumn::make('image')
-                    ->label('Gambar')
-                    ->circular()
-                    ->size(40)
-                    ->defaultImageUrl(url('/img/placeholder-category.png')),
+                // ImageColumn::make('image')
+                //     ->label('Gambar')
+                //     ->circular()
+                //     ->size(40)
+                //     ->defaultImageUrl(url('/img/placeholder-category.png')),
 
                 TextColumn::make('name')
                     ->label('Nama Kategori')
