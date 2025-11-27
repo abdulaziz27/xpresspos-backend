@@ -16,5 +16,10 @@ class EditStore extends EditRecord
             DeleteAction::make()->label('Hapus'),
         ];
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }
 

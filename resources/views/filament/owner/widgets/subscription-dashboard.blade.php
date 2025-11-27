@@ -2,15 +2,22 @@
     <x-filament::section>
         <div class="space-y-3">
             <!-- Header -->
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+            <div class="flex items-center justify-between" style="margin-bottom: 8px;">
+                <h3 class="text-gray-900 dark:text-white" style="font-weight: 600; font-size: 16px;">
                     Status Subscription
                 </h3>
             </div>
             @if(!empty($filterContext))
-                <p class="text-xs text-gray-500 dark:text-gray-300">
-                    {{ $filterContext }}
-                </p>
+                @php
+                    $parts = explode(' • ', $filterContext);
+                @endphp
+                <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                    @foreach($parts as $index => $part)
+                        <div style="flex: 1; padding: 8px; border: 1px solid #e5e7eb; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; text-align: center; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
+                            {{ $part }}
+                        </div>
+                    @endforeach
+                </div>
             @endif
             @if($activeSubscription)
                 @php
@@ -48,28 +55,30 @@
                         return 'berakhir ' . (int) $days . ' hari lalu';
                     };
                 @endphp
-                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800 flex flex-col gap-1">
-                    <div class="flex items-baseline gap-2">
-                        <div class="text-base font-bold text-blue-900 dark:text-blue-100">{{ $activeSubscription->plan->name }}</div>
+                <div style="padding: 2px 12px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div style="font-size: 1.12rem; font-weight: 600;">{{ $activeSubscription->plan->name }}</div>
                         @if($isActive)
-                            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-md">Active</span>
+                            <span style="padding: 0 12px; background-color: #dcfce7; color: #166534; font-size: 0.75rem; font-weight: 600; border-radius: 0.375rem; border: 1px solid #86efac;">Active</span>
                         @else
-                            <span class="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-md">Expired</span>
+                            <span style="padding: 4px 12px; background-color: #fee2e2; color: #991b1b; font-size: 0.75rem; font-weight: 600; border-radius: 0.375rem; border: 1px solid #fca5a5;">Expired</span>
                         @endif
                     </div>
-                    <div class="text-xs text-blue-700 dark:text-blue-300">
-                        Expired: {{ $endsAt->format('d M Y') }}
+                    <div style="font-size: 0.875rem; font-weight: 500;">
+                        <span style="font-weight: 600;">Expired:</span> {{ $endsAt->format('d M Y') }}
                         @if($isActive)
-                            ({{ $displayRemaining() }})
+                            <span style="color: #059669; margin-left: 4px;">({{ $displayRemaining() }})</span>
                         @else
-                            ({{ $displayElapsed() }})
+                            <span style="color: #dc2626; margin-left: 4px;">({{ $displayElapsed() }})</span>
                         @endif
                     </div>
                 </div>
             @else
-                <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center gap-2">
-                    <x-heroicon-o-x-circle class="w-5 h-5 text-gray-400" />
-                    <span class="text-gray-700 dark:text-gray-300 text-sm">Belum ada subscription aktif</span>
+                <div style="background-color: #f9fafb; padding: 16px; border-radius: 0.75rem; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 12px;">
+                    <svg style="width: 20px; height: 20px; color: #9ca3af; flex-shrink: 0;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span style="font-size: 0.875rem; color: #374151; font-weight: 500;">Belum ada subscription aktif</span>
                 </div>
             @endif
         </div>

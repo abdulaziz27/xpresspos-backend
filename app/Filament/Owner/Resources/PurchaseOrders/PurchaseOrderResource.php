@@ -46,7 +46,7 @@ class PurchaseOrderResource extends Resource
             PurchaseOrder::STATUS_DRAFT => 'Draft',
             PurchaseOrder::STATUS_APPROVED => 'Disetujui',
             PurchaseOrder::STATUS_RECEIVED => 'Diterima',
-            PurchaseOrder::STATUS_CLOSED => 'Selesai',
+            // PurchaseOrder::STATUS_CLOSED => 'Selesai', // Hidden
             PurchaseOrder::STATUS_CANCELLED => 'Batal',
         ];
 

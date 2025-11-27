@@ -107,6 +107,8 @@ class ModifierGroupsRelationManager extends RelationManager
             ])
             ->headerActions([
                 AttachAction::make()
+                    ->label('Attach')
+                    ->color('primary')
                     ->form(function (AttachAction $action): array {
                         $product = $this->getOwnerRecord();
                         $tenantId = $product->tenant_id;
