@@ -6,8 +6,6 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Str;
 
 class RouteServiceProvider extends ServiceProvider
 {
@@ -52,56 +50,5 @@ class RouteServiceProvider extends ServiceProvider
                 });
         });
 
-        $domains = config('domains', []);
-
-        $this->routes(function () use ($domains) {
-            $this->mapApiRoutes($domains['api'] ?? null);
-            $this->mapLandingRoutes($domains['landing'] ?? null);
-            $this->mapOwnerRoutes($domains['owner'] ?? null);
-        });
-    }
-
-    protected function mapApiRoutes(?string $domain): void
-    {
-        $registrar = Route::middleware('api');
-
-        if ($this->shouldUseDomain($domain)) {
-            $registrar->domain($domain)->group(base_path('routes/api.php'));
-        } else {
-            $registrar->prefix('api')->group(base_path('routes/api.php'));
-        }
-    }
-
-    protected function mapLandingRoutes(?string $domain): void
-    {
-        $registrar = Route::middleware('web');
-
-        if ($this->shouldUseDomain($domain)) {
-            $registrar->domain($domain)->group(base_path('routes/web.php'));
-        } else {
-            $registrar->group(base_path('routes/web.php'));
-        }
-    }
-
-    protected function mapOwnerRoutes(?string $domain): void
-    {
-        $registrar = Route::middleware(['web', 'auth']);
-
-        if ($this->shouldUseDomain($domain)) {
-            $registrar->domain($domain)->group(base_path('routes/owner.php'));
-        } else {
-            $registrar->prefix('owner')->group(base_path('routes/owner.php'));
-        }
-    }
-
-    protected function shouldUseDomain(?string $domain): bool
-    {
-        if (blank($domain)) {
-            return false;
-        }
-
-        $normalized = trim($domain);
-
-        return ! Str::contains($normalized, ['localhost', '127.0.0.1']);
     }
 }
