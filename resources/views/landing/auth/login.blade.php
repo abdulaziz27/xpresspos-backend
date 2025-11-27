@@ -9,7 +9,7 @@
     </h2>
     <p class="text-center text-sm text-gray-600 mb-8">
         Belum punya akun?
-        <a href="{{ route('register') }}" class="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-300">
+        <a href="{{ route('landing.register') }}" class="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-300">
             Daftar sekarang
         </a>
     </p>

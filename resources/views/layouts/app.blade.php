@@ -18,12 +18,12 @@
 <body class="font-sans antialiased bg-slate-50 text-slate-900">
     <header class="bg-white border-b border-slate-200">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-            <a href="{{ route('landing') }}" class="text-lg font-semibold">POS Xpress</a>
+            <a href="{{ route('landing.home') }}" class="text-lg font-semibold">POS Xpress</a>
             <nav class="flex items-center gap-4 text-sm">
                 <a href="{{ route('company') }}" class="hover:text-indigo-600">Company</a>
                 <a href="{{ config('app.owner_url', url('/owner')) }}" class="hover:text-indigo-600">Owner Dashboard</a>
                 <a href="/admin" class="hover:text-indigo-600">Admin Panel</a>
-                <a href="{{ route('login') }}" class="rounded border border-indigo-500 px-3 py-1 text-indigo-600 hover:bg-indigo-50">Login</a>
+                <a href="{{ route('landing.login') }}" class="rounded border border-indigo-500 px-3 py-1 text-indigo-600 hover:bg-indigo-50">Login</a>
             </nav>
         </div>
     </header>

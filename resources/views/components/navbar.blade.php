@@ -46,7 +46,7 @@
                         </form>
                     @else
                         <!-- Guest: Show Login -->
-                        <a href="{{ route('login') }}" 
+                        <a href="{{ route('landing.login') }}" 
                            class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                             Login
                         </a>
@@ -106,7 +106,7 @@
                 </form>
             @else
                 <!-- Guest: Show Login -->
-                <a href="{{ route('login') }}" 
+                <a href="{{ route('landing.login') }}"
                    class="block w-full text-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2 rounded-lg text-base font-medium transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg mt-4">
                     Login
                 </a>

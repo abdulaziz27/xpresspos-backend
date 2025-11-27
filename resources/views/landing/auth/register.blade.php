@@ -9,7 +9,7 @@
     </h2>
     <p class="text-center text-sm text-gray-600 mb-8">
         Sudah punya akun?
-        <a href="{{ route('login') }}" class="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-300">
+        <a href="{{ route('landing.login') }}" class="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-300">
             Masuk sekarang
         </a>
     </p>

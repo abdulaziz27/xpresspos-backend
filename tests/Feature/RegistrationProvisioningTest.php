@@ -223,7 +223,7 @@ class RegistrationProvisioningTest extends TestCase
 
         // Arrange: Simulate trying to access checkout (which requires auth)
         $response = $this->get(route('checkout', ['plan_id' => 1, 'billing' => 'monthly']));
-        $response->assertRedirect(route('login')); // Should redirect to login
+        $response->assertRedirect(route('landing.login')); // Should redirect to login
 
         // Act: Login with valid credentials
         $loginResponse = $this->post(route('login.post'), [
