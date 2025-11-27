@@ -279,3 +279,4 @@ class CoffeeShopProductVariantSeeder extends Seeder
     }
 }
 
+
