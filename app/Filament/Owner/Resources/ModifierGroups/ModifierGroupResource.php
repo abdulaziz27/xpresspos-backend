@@ -14,6 +14,8 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 
 class ModifierGroupResource extends Resource
 {
@@ -55,6 +57,46 @@ class ModifierGroupResource extends Resource
             'create' => CreateModifierGroup::route('/create'),
             'edit' => EditModifierGroup::route('/{record}/edit'),
         ];
+    }
+
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return false;
+        }
+
+        return Gate::forUser($user)->allows('viewAny', static::$model);
+    }
+
+    public static function canCreate(): bool
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return false;
+        }
+
+        return Gate::forUser($user)->allows('create', static::$model);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return false;
+        }
+
+        return Gate::forUser($user)->allows('update', $record);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return false;
+        }
+
+        return Gate::forUser($user)->allows('delete', $record);
     }
 }
 
