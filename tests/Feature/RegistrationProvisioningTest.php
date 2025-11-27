@@ -136,7 +136,7 @@ class RegistrationProvisioningTest extends TestCase
         ];
 
         // Act: Call register endpoint
-        $response = $this->post(route('register.post'), $registrationData);
+        $response = $this->post(route('landing.register.post'), $registrationData);
 
         // Assert: User was created and redirected
         $response->assertRedirect(); // Should redirect to owner panel or intended URL
@@ -183,7 +183,7 @@ class RegistrationProvisioningTest extends TestCase
             'password_confirmation' => 'password123',
         ];
 
-        $this->post(route('register.post'), $registrationData);
+        $this->post(route('landing.register.post'), $registrationData);
 
         $user = User::where('email', 'paneltest@example.com')->first();
         $this->assertNotNull($user);
@@ -226,7 +226,7 @@ class RegistrationProvisioningTest extends TestCase
         $response->assertRedirect(route('landing.login')); // Should redirect to login
 
         // Act: Login with valid credentials
-        $loginResponse = $this->post(route('login.post'), [
+        $loginResponse = $this->post(route('landing.login.post'), [
             'email' => 'logintest@example.com',
             'password' => 'password',
         ]);

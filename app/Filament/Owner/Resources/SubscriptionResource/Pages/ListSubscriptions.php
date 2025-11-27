@@ -21,7 +21,7 @@ class ListSubscriptions extends ListRecords
                 ->label('Upgrade Plan')
                 ->icon('heroicon-o-arrow-up-circle')
                 ->color('success')
-                ->url(fn (): string => route('pricing')) // Use fallback route 'pricing' instead of 'landing.home'
+                ->url(fn (): string => route('landing.pricing'))
                 ->openUrlInNewTab()
                 ->visible(fn (): bool => $this->hasActiveSubscription()),
             

@@ -15,7 +15,7 @@
     </p>
 </div>
 
-<form class="space-y-6" action="{{ route('login.post') }}" method="POST">
+        <form class="space-y-6" action="{{ route('landing.login.post') }}" method="POST">
     @csrf
     
     <div>

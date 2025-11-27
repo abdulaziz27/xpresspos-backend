@@ -144,7 +144,8 @@ class LandingController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('landing.home');
+        // Redirect to login page with success message
+        return redirect()->route('login')->with('success', 'Anda telah berhasil logout.');
     }
 
     /**
