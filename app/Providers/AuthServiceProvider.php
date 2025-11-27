@@ -38,7 +38,6 @@ use App\Policies\RecipePolicy;
 use App\Policies\RefundPolicy;
 use App\Policies\StorePolicy;
 use App\Policies\StoreUserAssignmentPolicy;
-use App\Policies\StoreUserPermissionPolicy;
 use App\Policies\SupplierPolicy;
 use App\Policies\TablePolicy;
 use App\Policies\UserPolicy;
@@ -69,7 +68,7 @@ class AuthServiceProvider extends ServiceProvider
         Recipe::class => RecipePolicy::class,
         Refund::class => RefundPolicy::class,
         Store::class => StorePolicy::class,
-        StoreUserAssignment::class => StoreUserPermissionPolicy::class,
+        StoreUserAssignment::class => StoreUserAssignmentPolicy::class,
         Supplier::class => SupplierPolicy::class,
         Table::class => TablePolicy::class,
         User::class => UserPolicy::class,

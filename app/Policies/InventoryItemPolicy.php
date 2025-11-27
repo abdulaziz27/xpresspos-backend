@@ -15,7 +15,7 @@ class InventoryItemPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view');
+        return $user->hasPermissionTo('inventory_items.view');
     }
 
     /**
@@ -25,7 +25,7 @@ class InventoryItemPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view') && 
+        return $user->hasPermissionTo('inventory_items.view') && 
                $user->currentTenant()?->id === $inventoryItem->tenant_id;
     }
 
@@ -36,7 +36,7 @@ class InventoryItemPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view');
+        return $user->hasPermissionTo('inventory_items.create');
     }
 
     /**
@@ -46,7 +46,7 @@ class InventoryItemPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view') && 
+        return $user->hasPermissionTo('inventory_items.update') && 
                $user->currentTenant()?->id === $inventoryItem->tenant_id;
     }
 
@@ -57,7 +57,7 @@ class InventoryItemPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view') && 
+        return $user->hasPermissionTo('inventory_items.delete') && 
                $user->currentTenant()?->id === $inventoryItem->tenant_id;
     }
 }

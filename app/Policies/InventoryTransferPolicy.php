@@ -15,7 +15,7 @@ class InventoryTransferPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view');
+        return $user->hasPermissionTo('inventory_transfers.view');
     }
 
     /**
@@ -27,7 +27,7 @@ class InventoryTransferPolicy
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
         // User can view if they have access to either from_store or to_store
         $userStoreIds = $user->stores()->pluck('stores.id')->toArray();
-        return $user->hasPermissionTo('inventory.view') && 
+        return $user->hasPermissionTo('inventory_transfers.view') && 
                (in_array($inventoryTransfer->from_store_id, $userStoreIds) || 
                 in_array($inventoryTransfer->to_store_id, $userStoreIds));
     }
@@ -39,7 +39,7 @@ class InventoryTransferPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.transfer');
+        return $user->hasPermissionTo('inventory_transfers.create');
     }
 
     /**
@@ -54,7 +54,7 @@ class InventoryTransferPolicy
             return false;
         }
         $userStoreIds = $user->stores()->pluck('stores.id')->toArray();
-        return $user->hasPermissionTo('inventory.transfer') && 
+        return $user->hasPermissionTo('inventory_transfers.update') && 
                in_array($inventoryTransfer->from_store_id, $userStoreIds);
     }
 
@@ -70,7 +70,7 @@ class InventoryTransferPolicy
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
         $userStoreIds = $user->stores()->pluck('stores.id')->toArray();
-        return $user->hasPermissionTo('inventory.transfer') && 
+        return $user->hasPermissionTo('inventory_transfers.delete') && 
                in_array($inventoryTransfer->from_store_id, $userStoreIds);
     }
 }

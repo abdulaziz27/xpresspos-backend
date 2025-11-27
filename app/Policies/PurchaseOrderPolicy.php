@@ -15,7 +15,7 @@ class PurchaseOrderPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view');
+        return $user->hasPermissionTo('purchase_orders.view');
     }
 
     /**
@@ -25,7 +25,7 @@ class PurchaseOrderPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view') && 
+        return $user->hasPermissionTo('purchase_orders.view') && 
                $user->stores()->where('stores.id', $purchaseOrder->store_id)->exists();
     }
 
@@ -36,7 +36,7 @@ class PurchaseOrderPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view');
+        return $user->hasPermissionTo('purchase_orders.create');
     }
 
     /**
@@ -50,7 +50,7 @@ class PurchaseOrderPolicy
         if (!in_array($purchaseOrder->status, [PurchaseOrder::STATUS_DRAFT, PurchaseOrder::STATUS_APPROVED])) {
             return false;
         }
-        return $user->hasPermissionTo('inventory.view') && 
+        return $user->hasPermissionTo('purchase_orders.update') && 
                $user->stores()->where('stores.id', $purchaseOrder->store_id)->exists();
     }
 

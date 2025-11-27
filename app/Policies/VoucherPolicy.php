@@ -15,7 +15,7 @@ class VoucherPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('discounts.view');
+        return $user->hasPermissionTo('vouchers.view');
     }
 
     /**
@@ -25,7 +25,7 @@ class VoucherPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('discounts.view') && 
+        return $user->hasPermissionTo('vouchers.view') && 
                $user->currentTenant()?->id === $voucher->tenant_id;
     }
 
@@ -36,7 +36,7 @@ class VoucherPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('discounts.create');
+        return $user->hasPermissionTo('vouchers.create');
     }
 
     /**
@@ -46,7 +46,7 @@ class VoucherPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('discounts.update') && 
+        return $user->hasPermissionTo('vouchers.update') && 
                $user->currentTenant()?->id === $voucher->tenant_id;
     }
 
@@ -57,7 +57,7 @@ class VoucherPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('discounts.delete') && 
+        return $user->hasPermissionTo('vouchers.delete') && 
                $user->currentTenant()?->id === $voucher->tenant_id;
     }
 }

@@ -15,7 +15,7 @@ class RecipePolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('products.view');
+        return $user->hasPermissionTo('recipes.view');
     }
 
     /**
@@ -25,7 +25,7 @@ class RecipePolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('products.view') && 
+        return $user->hasPermissionTo('recipes.view') && 
                $user->currentTenant()?->id === $recipe->tenant_id;
     }
 
@@ -36,7 +36,7 @@ class RecipePolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('products.create');
+        return $user->hasPermissionTo('recipes.create');
     }
 
     /**
@@ -46,7 +46,7 @@ class RecipePolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('products.update') && 
+        return $user->hasPermissionTo('recipes.update') && 
                $user->currentTenant()?->id === $recipe->tenant_id;
     }
 
@@ -57,7 +57,7 @@ class RecipePolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('products.delete') && 
+        return $user->hasPermissionTo('recipes.delete') && 
                $user->currentTenant()?->id === $recipe->tenant_id;
     }
 }

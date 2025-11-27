@@ -10,7 +10,6 @@ use App\Filament\Owner\Resources\Members\RelationManagers\OrdersRelationManager;
 use App\Filament\Owner\Resources\Members\Schemas\MemberForm;
 use App\Filament\Owner\Resources\Members\Tables\MembersTable;
 use App\Models\Member;
-use App\Services\GlobalFilterService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -96,24 +95,6 @@ class MemberResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        // Start with base query (TenantScope will be applied automatically)
-        // TenantScope ensures we only see members from current tenant
-        $query = parent::getEloquentQuery();
-
-        // Debug logging
-        $user = auth()->user();
-        $tenantId = $user?->currentTenant()?->id;
-        $count = $query->count();
-        
-        \Log::info('MemberResource::getEloquentQuery', [
-            'user_id' => $user?->id,
-            'user_email' => $user?->email,
-            'tenant_id' => $tenantId,
-            'query_count' => $count,
-            'sql' => $query->toSql(),
-            'bindings' => $query->getBindings(),
-        ]);
-
-        return $query;
+        return parent::getEloquentQuery();
     }
 }

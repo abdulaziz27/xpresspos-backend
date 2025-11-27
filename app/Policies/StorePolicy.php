@@ -15,8 +15,7 @@ class StorePolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        // All users can view stores they have access to
-        return true;
+        return $user->hasPermissionTo('stores.view');
     }
 
     /**
@@ -26,9 +25,9 @@ class StorePolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        // User can view store if they have access to it
-        return $user->stores()->where('stores.id', $store->id)->exists() ||
-               $user->currentTenant()?->id === $store->tenant_id;
+        return $user->hasPermissionTo('stores.view') &&
+               ($user->stores()->where('stores.id', $store->id)->exists() ||
+                $user->currentTenant()?->id === $store->tenant_id);
     }
 
     /**
@@ -37,8 +36,8 @@ class StorePolicy
     public function create(User $user): bool
     {
         if ($user->hasRole('admin_sistem')) return true;
-        // Only owners can create stores
-        return $user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists();
+        if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
+        return $user->hasPermissionTo('stores.create');
     }
 
     /**
@@ -47,11 +46,11 @@ class StorePolicy
     public function update(User $user, Store $store): bool
     {
         if ($user->hasRole('admin_sistem')) return true;
-        // Only owners can update stores
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) {
             return $user->currentTenant()?->id === $store->tenant_id;
         }
-        return false;
+        return $user->hasPermissionTo('stores.update') &&
+               $user->currentTenant()?->id === $store->tenant_id;
     }
 
     /**
@@ -60,11 +59,11 @@ class StorePolicy
     public function delete(User $user, Store $store): bool
     {
         if ($user->hasRole('admin_sistem')) return true;
-        // Only owners can delete stores, and only if store has no critical data
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) {
             return $user->currentTenant()?->id === $store->tenant_id;
         }
-        return false;
+        return $user->hasPermissionTo('stores.delete') &&
+               $user->currentTenant()?->id === $store->tenant_id;
     }
 }
 

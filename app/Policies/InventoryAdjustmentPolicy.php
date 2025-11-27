@@ -15,7 +15,7 @@ class InventoryAdjustmentPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view');
+        return $user->hasPermissionTo('inventory_adjustments.view');
     }
 
     /**
@@ -25,7 +25,7 @@ class InventoryAdjustmentPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view') && 
+        return $user->hasPermissionTo('inventory_adjustments.view') && 
                $user->stores()->where('stores.id', $inventoryAdjustment->store_id)->exists();
     }
 
@@ -36,7 +36,7 @@ class InventoryAdjustmentPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.adjust');
+        return $user->hasPermissionTo('inventory_adjustments.create');
     }
 
     /**
@@ -50,7 +50,7 @@ class InventoryAdjustmentPolicy
         if ($inventoryAdjustment->status !== InventoryAdjustment::STATUS_DRAFT) {
             return false;
         }
-        return $user->hasPermissionTo('inventory.adjust') && 
+        return $user->hasPermissionTo('inventory_adjustments.update') && 
                $user->stores()->where('stores.id', $inventoryAdjustment->store_id)->exists();
     }
 
@@ -65,7 +65,7 @@ class InventoryAdjustmentPolicy
         }
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.adjust') && 
+        return $user->hasPermissionTo('inventory_adjustments.delete') && 
                $user->stores()->where('stores.id', $inventoryAdjustment->store_id)->exists();
     }
 }

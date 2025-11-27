@@ -15,7 +15,7 @@ class PromotionPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('discounts.view');
+        return $user->hasPermissionTo('promotions.view');
     }
 
     /**
@@ -28,7 +28,7 @@ class PromotionPolicy
         $hasStoreAccess = $promotion->store_id 
             ? $user->stores()->where('stores.id', $promotion->store_id)->exists()
             : true; // Global promotion
-        return $user->hasPermissionTo('discounts.view') && 
+        return $user->hasPermissionTo('promotions.view') && 
                $user->currentTenant()?->id === $promotion->tenant_id &&
                $hasStoreAccess;
     }
@@ -40,7 +40,7 @@ class PromotionPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('discounts.create');
+        return $user->hasPermissionTo('promotions.create');
     }
 
     /**
@@ -53,7 +53,7 @@ class PromotionPolicy
         $hasStoreAccess = $promotion->store_id 
             ? $user->stores()->where('stores.id', $promotion->store_id)->exists()
             : true; // Global promotion
-        return $user->hasPermissionTo('discounts.update') && 
+        return $user->hasPermissionTo('promotions.update') && 
                $user->currentTenant()?->id === $promotion->tenant_id &&
                $hasStoreAccess;
     }
@@ -68,7 +68,7 @@ class PromotionPolicy
         $hasStoreAccess = $promotion->store_id 
             ? $user->stores()->where('stores.id', $promotion->store_id)->exists()
             : true; // Global promotion
-        return $user->hasPermissionTo('discounts.delete') && 
+        return $user->hasPermissionTo('promotions.delete') && 
                $user->currentTenant()?->id === $promotion->tenant_id &&
                $hasStoreAccess;
     }

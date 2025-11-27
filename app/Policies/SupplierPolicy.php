@@ -15,7 +15,7 @@ class SupplierPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view');
+        return $user->hasPermissionTo('suppliers.view');
     }
 
     /**
@@ -25,7 +25,7 @@ class SupplierPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view') && 
+        return $user->hasPermissionTo('suppliers.view') && 
                $user->currentTenant()?->id === $supplier->tenant_id;
     }
 
@@ -36,7 +36,7 @@ class SupplierPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view');
+        return $user->hasPermissionTo('suppliers.create');
     }
 
     /**
@@ -46,7 +46,7 @@ class SupplierPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view') && 
+        return $user->hasPermissionTo('suppliers.update') && 
                $user->currentTenant()?->id === $supplier->tenant_id;
     }
 
@@ -57,7 +57,7 @@ class SupplierPolicy
     {
         if ($user->hasRole('admin_sistem')) return true;
         if ($user->hasRole('owner') || $user->storeAssignments()->where('assignment_role', AssignmentRoleEnum::OWNER->value)->exists()) return true;
-        return $user->hasPermissionTo('inventory.view') && 
+        return $user->hasPermissionTo('suppliers.delete') && 
                $user->currentTenant()?->id === $supplier->tenant_id;
     }
 }

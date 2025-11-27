@@ -8,7 +8,8 @@ use App\Filament\Owner\Resources\Discounts\Pages\ListDiscounts;
 use App\Filament\Owner\Resources\Discounts\Schemas\DiscountForm;
 use App\Filament\Owner\Resources\Discounts\Tables\DiscountsTable;
 use App\Models\Discount;
-use App\Services\GlobalFilterService;
+use App\Models\Store;
+use App\Enums\AssignmentRoleEnum;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -16,6 +17,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 
 class DiscountResource extends Resource
@@ -83,32 +85,66 @@ class DiscountResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->with('store');
+        $user = Auth::user();
+        $tenantId = $user?->currentTenant()?->id;
 
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
-
-        if (! empty($storeIds)) {
-            // Include global discounts (store_id is null) and store-specific discounts
-            $query->where(function (Builder $query) use ($storeIds) {
-                $query
-                    ->whereNull('store_id') // Global discounts
-                    ->orWhereIn('store_id', $storeIds); // Store-specific discounts
-            });
+        if (! $tenantId) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
         }
 
-        return $query;
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->with('store')
+            ->where('tenant_id', $tenantId);
+
+        $isOwner = $user->hasRole('owner') || $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
+
+        if ($isOwner) {
+            return $query;
+        }
+
+        $storeIds = $user->stores()->pluck('stores.id')->toArray();
+
+        if (empty($storeIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $subQuery) use ($storeIds) {
+            $subQuery
+                ->whereNull('store_id')
+                ->orWhereIn('store_id', $storeIds);
+        });
     }
 
     public static function storeOptions(): array
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
+        $user = Auth::user();
 
-        return $globalFilter->getAvailableStores(auth()->user())
-            ->pluck('name', 'id')
+        if (! $user) {
+            return [];
+        }
+
+        $isOwner = $user->hasRole('owner') || $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
+
+        if ($isOwner) {
+            $tenantId = $user->currentTenant()?->id;
+            if (! $tenantId) {
+                return [];
+            }
+
+            return \App\Models\Store::where('tenant_id', $tenantId)
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+
+        return $user->stores()
+            ->pluck('stores.name', 'stores.id')
             ->toArray();
     }
 }
