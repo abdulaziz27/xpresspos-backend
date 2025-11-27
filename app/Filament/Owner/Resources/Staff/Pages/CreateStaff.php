@@ -4,6 +4,7 @@ namespace App\Filament\Owner\Resources\Staff\Pages;
 
 use App\Filament\Owner\Resources\Staff\StaffResource;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -41,6 +42,18 @@ class CreateStaff extends CreateRecord
                 ]);
             }
         }
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
+    protected function getCreatedNotification(): ?Notification
+    {
+        return Notification::make()
+            ->success()
+            ->title('Staff ditambahkan');
     }
 }
 
