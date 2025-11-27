@@ -7,18 +7,6 @@
                     Status Subscription
                 </h3>
             </div>
-            @if(!empty($filterContext))
-                @php
-                    $parts = explode(' • ', $filterContext);
-                @endphp
-                <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-                    @foreach($parts as $index => $part)
-                        <div style="flex: 1; padding: 8px; border: 1px solid #e5e7eb; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; text-align: center; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
-                            {{ $part }}
-                        </div>
-                    @endforeach
-                </div>
-            @endif
             @if($activeSubscription)
                 @php
                     $now = now();
