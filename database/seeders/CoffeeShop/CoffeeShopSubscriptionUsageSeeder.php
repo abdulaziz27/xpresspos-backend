@@ -96,7 +96,7 @@ class CoffeeShopSubscriptionUsageSeeder extends Seeder
             } elseif ($featureType === 'stores') {
                 $currentUsage = \App\Models\Store::where('tenant_id', $tenantId)->count();
             } elseif ($featureType === 'staff') {
-                $currentUsage = \App\Models\User::whereHas('storeUserAssignments', function ($q) use ($tenantId) {
+                $currentUsage = \App\Models\User::whereHas('storeAssignments', function ($q) use ($tenantId) {
                     $q->whereHas('store', function ($storeQ) use ($tenantId) {
                         $storeQ->where('tenant_id', $tenantId);
                     });
