@@ -133,7 +133,7 @@ class LandingController extends Controller
         // Auto-provision tenant + store for new user
         app(RegistrationProvisioningService::class)->provisionFor($user);
 
-        return redirect()->route('login')
+        return redirect()->route('landing.login')
             ->with('success', 'Akun berhasil dibuat. Silakan login untuk melanjutkan.');
     }
 
@@ -145,7 +145,7 @@ class LandingController extends Controller
         $request->session()->regenerateToken();
 
         // Redirect to login page with success message
-        return redirect()->route('login')->with('success', 'Anda telah berhasil logout.');
+        return redirect()->route('landing.login')->with('success', 'Anda telah berhasil logout.');
     }
 
     /**

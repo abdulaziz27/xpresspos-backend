@@ -59,7 +59,7 @@
         </div>
 
         <div class="text-sm">
-            <a href="{{ route('forgot-password') }}" class="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-300">
+            <a href="{{ route('landing.forgot-password') }}" class="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-300">
                 Lupa password?
             </a>
         </div>
