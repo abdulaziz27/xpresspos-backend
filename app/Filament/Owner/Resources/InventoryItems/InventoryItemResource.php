@@ -5,8 +5,10 @@ namespace App\Filament\Owner\Resources\InventoryItems;
 use App\Filament\Owner\Resources\InventoryItems\Pages;
 use App\Models\InventoryItem;
 use App\Models\Uom;
+use App\Enums\AssignmentRoleEnum;
 use BackedEnum;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -16,7 +18,6 @@ use Filament\Forms\Components\Toggle;
 use App\Filament\Owner\Resources\InventoryItems\RelationManagers\LotsRelationManager;
 use App\Filament\Owner\Resources\InventoryItems\RelationManagers\StockLevelsRelationManager;
 use App\Filament\Owner\Resources\InventoryItems\RelationManagers\InventoryMovementsRelationManager;
-use App\Filament\Traits\HasPlanBasedNavigation;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -24,11 +25,11 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 
 class InventoryItemResource extends Resource
 {
-    use HasPlanBasedNavigation;
     protected static ?string $model = InventoryItem::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBox;
@@ -313,6 +314,40 @@ class InventoryItemResource extends Resource
             LotsRelationManager::class,
             InventoryMovementsRelationManager::class,
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $user = Auth::user();
+        $tenantId = $user?->currentTenant()?->id;
+
+        if (! $tenantId) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
+        }
+
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $tenantId);
+
+        $isOwner = $user->hasRole('owner') || $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
+
+        if ($isOwner) {
+            return $query;
+        }
+
+        $storeIds = $user->stores()->pluck('stores.id')->toArray();
+
+        if (empty($storeIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('stockLevels', fn (Builder $stockQuery) =>
+            $stockQuery->whereIn('store_id', $storeIds)
+        );
     }
 }
 

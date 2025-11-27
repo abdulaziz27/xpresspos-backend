@@ -6,7 +6,8 @@ use App\Filament\Owner\Resources\InventoryTransfers\Pages;
 use App\Filament\Owner\Resources\InventoryTransfers\RelationManagers\ItemsRelationManager;
 use App\Models\InventoryTransfer;
 use App\Filament\Traits\HasPlanBasedNavigation;
-use App\Services\GlobalFilterService;
+use App\Enums\AssignmentRoleEnum;
+use App\Models\Store;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -25,6 +26,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 
 class InventoryTransferResource extends Resource
@@ -41,21 +43,20 @@ class InventoryTransferResource extends Resource
     protected static ?int $navigationSort = 40; // 4. Transfer Antar Toko
 
     /**
-     * Hide from navigation if tenant doesn't have inventory feature or only has 1 store.
+     * Hide from navigation if tenant doesn't have inventory feature or lacks multi-store access.
      */
     public static function shouldRegisterNavigation(): bool
     {
-        // First check if tenant has inventory feature
-        if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
+        if (! static::hasPlanFeature('ALLOW_INVENTORY')) {
             return false;
         }
 
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $stores = $globalFilter->getAvailableStores();
-        
-        // Hide if tenant has only 1 store or less (no need for transfers)
-        return $stores->count() > 1;
+        $user = Auth::user();
+        if (! $user) {
+            return false;
+        }
+
+        return count(static::accessibleStoreIds($user)) > 1;
     }
 
     public static function form(Schema $schema): Schema
@@ -282,25 +283,20 @@ class InventoryTransferResource extends Resource
      */
     public static function canCreate(): bool
     {
-        // First check if tenant has inventory feature
         if (!static::hasPlanFeature('ALLOW_INVENTORY')) {
             return false;
         }
 
         $user = auth()->user();
-        if (!$user) return false;
-
-        // Check permission first
-        if (!Gate::forUser($user)->allows('create', static::$model)) {
+        if (! $user) {
             return false;
         }
 
-        /** @var \App\Services\GlobalFilterService $globalFilter */
-        $globalFilter = app(\App\Services\GlobalFilterService::class);
-        $stores = $globalFilter->getAvailableStores();
-        
-        // Can create if tenant has more than 1 store
-        return $stores->count() > 1;
+        if (! Gate::forUser($user)->allows('create', static::$model)) {
+            return false;
+        }
+
+        return count(static::accessibleStoreIds($user)) > 1;
     }
 
     /**
@@ -363,40 +359,129 @@ class InventoryTransferResource extends Resource
 
     protected static function storeOptions(): array
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
+        $user = Auth::user();
 
-        return $globalFilter->getAvailableStores(auth()->user())
-            ->pluck('name', 'id')
+        if (! $user) {
+            return [];
+        }
+
+        $tenantId = $user->currentTenant()?->id;
+        if (! $tenantId) {
+            return [];
+        }
+
+        $isOwner = static::isOwnerContext($user);
+
+        if ($isOwner) {
+            return Store::where('tenant_id', $tenantId)
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+
+        return $user->stores()
+            ->where('stores.tenant_id', $tenantId)
+            ->pluck('stores.name', 'stores.id')
             ->toArray();
     }
 
     protected static function getDefaultStoreId(): ?string
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
+        $user = Auth::user();
 
-        return $globalFilter->getCurrentStoreId()
-            ?? ($globalFilter->getStoreIdsForCurrentTenant()[0] ?? null);
+        if (! $user) {
+            return null;
+        }
+
+        $primaryStore = $user->primaryStore();
+        if ($primaryStore) {
+            return $primaryStore->id;
+        }
+
+        $tenantId = $user->currentTenant()?->id;
+
+        if (! $tenantId) {
+            return $user->stores()->first()?->id;
+        }
+
+        if (static::isOwnerContext($user)) {
+            return Store::where('tenant_id', $tenantId)->orderBy('name')->value('id');
+        }
+
+        return $user->stores()
+            ->where('stores.tenant_id', $tenantId)
+            ->orderBy('stores.name')
+            ->value('stores.id');
     }
 
     public static function getEloquentQuery(): Builder
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $tenantId = $globalFilter->getCurrentTenantId();
+        $user = Auth::user();
+        $tenantId = $user?->currentTenant()?->id;
+
+        if (! $tenantId) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
+        }
 
         $query = parent::getEloquentQuery()
             ->withoutGlobalScopes()
-            ->with(['fromStore', 'toStore']);
+            ->with(['fromStore', 'toStore'])
+            ->where('tenant_id', $tenantId);
 
-        // Only filter by tenant - store filtering is handled by table filters
-        // This ensures page independence from dashboard store filter
-        if ($tenantId) {
-            $query->where('tenant_id', $tenantId);
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
         }
 
-        return $query;
+        if (static::isOwnerContext($user)) {
+            return $query;
+        }
+
+        $storeIds = static::accessibleStoreIds($user);
+
+        if (empty($storeIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $builder) use ($storeIds) {
+            $builder
+                ->whereIn('from_store_id', $storeIds)
+                ->orWhereIn('to_store_id', $storeIds);
+        });
+    }
+
+    protected static function accessibleStoreIds($user): array
+    {
+        $tenantId = $user?->currentTenant()?->id;
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        if (static::isOwnerContext($user)) {
+            return Store::where('tenant_id', $tenantId)->pluck('id')->toArray();
+        }
+
+        return $user->stores()->pluck('stores.id')->toArray();
+    }
+
+    protected static function isOwnerContext($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasRole('owner')) {
+            return true;
+        }
+
+        if (! method_exists($user, 'storeAssignments')) {
+            return false;
+        }
+
+        return $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
     }
 }
 

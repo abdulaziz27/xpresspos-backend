@@ -6,7 +6,8 @@ use App\Filament\Owner\Resources\StockLevels\Pages;
 use App\Filament\Traits\HasPlanBasedNavigation;
 use App\Models\StockLevel;
 use App\Models\InventoryItem;
-use App\Services\StoreContext;
+use App\Models\Store;
+use App\Enums\AssignmentRoleEnum;
 use App\Support\Currency;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -16,6 +17,7 @@ use Filament\Tables\Table;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 
 class StockLevelResource extends Resource
@@ -306,46 +308,95 @@ class StockLevelResource extends Resource
 
     protected static function storeOptions(): array
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         if (! $user) {
             return [];
         }
 
-        return StoreContext::instance()
-            ->accessibleStores($user)
+        $tenantId = $user->currentTenant()?->id;
+        if (! $tenantId) {
+            return [];
+        }
+
+        return static::accessibleStores($user, $tenantId)
             ->pluck('name', 'id')
             ->toArray();
     }
 
     public static function getEloquentQuery(): Builder
     {
-        /** @var Builder $query */
-        $query = StockLevel::query()->forAllStores()->with(['inventoryItem.uom', 'store']);
-        $user = auth()->user();
+        $query = StockLevel::query()
+            ->forAllStores()
+            ->with(['inventoryItem.uom', 'store']);
+
+        $user = Auth::user();
 
         if (! $user) {
             return $query->whereRaw('1 = 0');
         }
 
         if ($user->hasRole('admin_sistem')) {
+            $query->leftJoin('stores', 'stock_levels.store_id', '=', 'stores.id')
+                ->leftJoin('inventory_items', 'stock_levels.inventory_item_id', '=', 'inventory_items.id')
+                ->select('stock_levels.*');
+
             return $query;
         }
 
-        $storeIds = StoreContext::instance()
-            ->accessibleStores($user)
-            ->pluck('id');
-
-        if ($storeIds->isEmpty()) {
+        $tenantId = $user->currentTenant()?->id;
+        if (! $tenantId) {
             return $query->whereRaw('1 = 0');
         }
 
-        // Join stores and inventory_items for sorting (will be used in modifyQueryUsing)
+        $storeIds = static::accessibleStoreIds($user, $tenantId);
+
+        if (empty($storeIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
         $query->leftJoin('stores', 'stock_levels.store_id', '=', 'stores.id')
-              ->leftJoin('inventory_items', 'stock_levels.inventory_item_id', '=', 'inventory_items.id')
-              ->select('stock_levels.*');
+            ->leftJoin('inventory_items', 'stock_levels.inventory_item_id', '=', 'inventory_items.id')
+            ->select('stock_levels.*');
 
         return $query->whereIn('stock_levels.store_id', $storeIds);
+    }
+
+    protected static function accessibleStores($user, string $tenantId)
+    {
+        if (static::isOwnerContext($user)) {
+            return Store::where('tenant_id', $tenantId)->get();
+        }
+
+        return $user->stores()
+            ->where('stores.tenant_id', $tenantId)
+            ->get();
+    }
+
+    protected static function accessibleStoreIds($user, string $tenantId): array
+    {
+        return static::accessibleStores($user, $tenantId)
+            ->pluck('id')
+            ->toArray();
+    }
+
+    protected static function isOwnerContext($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasRole('owner')) {
+            return true;
+        }
+
+        if (! method_exists($user, 'storeAssignments')) {
+            return false;
+        }
+
+        return $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
     }
 }
 

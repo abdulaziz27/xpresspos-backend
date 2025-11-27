@@ -5,8 +5,9 @@ namespace App\Filament\Owner\Resources\InventoryAdjustments;
 use App\Filament\Owner\Resources\InventoryAdjustments\Pages;
 use App\Filament\Owner\Resources\InventoryAdjustments\RelationManagers\ItemsRelationManager;
 use App\Models\InventoryAdjustment;
+use App\Models\Store;
+use App\Enums\AssignmentRoleEnum;
 use App\Filament\Traits\HasPlanBasedNavigation;
-use App\Services\GlobalFilterService;
 use App\Support\Currency;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
@@ -27,6 +28,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 
 class InventoryAdjustmentResource extends Resource
@@ -300,37 +302,79 @@ class InventoryAdjustmentResource extends Resource
 
     protected static function storeOptions(): array
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
+        $user = Auth::user();
 
-        return $globalFilter->getAvailableStores(auth()->user())
-            ->pluck('name', 'id')
+        if (! $user) {
+            return [];
+        }
+
+        $isOwner = $user->hasRole('owner') || $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
+
+        if ($isOwner) {
+            $tenantId = $user->currentTenant()?->id;
+            if (! $tenantId) {
+                return [];
+            }
+
+            return \App\Models\Store::where('tenant_id', $tenantId)
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+
+        return $user->stores()
+            ->pluck('stores.name', 'stores.id')
             ->toArray();
     }
 
     protected static function getDefaultStoreId(): ?string
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
+        $user = Auth::user();
 
-        return $globalFilter->getCurrentStoreId()
-            ?? ($globalFilter->getStoreIdsForCurrentTenant()[0] ?? null);
+        if (! $user) {
+            return null;
+        }
+
+        $primaryStore = $user->primaryStore();
+        if ($primaryStore) {
+            return $primaryStore->id;
+        }
+
+        return $user->stores()->first()?->id;
     }
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->with(['store', 'user']);
+        $user = Auth::user();
+        $tenantId = $user?->currentTenant()?->id;
 
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
-
-        if (! empty($storeIds)) {
-            $query->whereIn('store_id', $storeIds);
+        if (! $tenantId) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
         }
 
-        return $query;
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->with(['store', 'user'])
+            ->whereHas('store', fn (Builder $storeQuery) => $storeQuery->where('tenant_id', $tenantId));
+
+        $isOwner = $user->hasRole('owner') || $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
+
+        if ($isOwner) {
+            return $query;
+        }
+
+        $storeIds = $user->stores()->pluck('stores.id')->toArray();
+
+        if (empty($storeIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereIn('store_id', $storeIds);
     }
 }
 
