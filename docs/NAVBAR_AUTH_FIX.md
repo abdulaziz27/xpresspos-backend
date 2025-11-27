@@ -18,7 +18,7 @@ Update navbar untuk menampilkan:
 #### Desktop Menu (line 17-54)
 **Before**:
 ```html
-<a href="{{ route('login') }}" class="...">
+<a href="{{ route('landing.login') }}" class="...">
     Login
 </a>
 ```
@@ -38,7 +38,7 @@ Update navbar untuk menampilkan:
     </form>
 @else
     <!-- Guest: Show Login -->
-    <a href="{{ route('login') }}" class="...">
+    <a href="{{ route('landing.login') }}" class="...">
         Login
     </a>
 @endauth
@@ -104,7 +104,7 @@ Same logic applied to mobile menu for consistency.
 - **Color**: Blue gradient (`from-blue-600 to-blue-700`)
 - **Hover**: Darker blue
 - **Effect**: Scale up + shadow
-- **Link**: `route('login')` → `/login`
+- **Link**: `route('landing.login')` → `/login`
 
 ---
 

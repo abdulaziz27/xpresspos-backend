@@ -45,6 +45,10 @@ $landingRoutes = function () {
     Route::get('/payment/failed', [LandingController::class, 'paymentFailed'])->name('landing.payment.failed');
     Route::get('/payment/addon/success', AddOnPaymentRedirectController::class)->name('payment.addon.success');
     Route::post('/trial/start', [LandingController::class, 'startTrial'])->name('landing.trial.start');
+    Route::get('/customer-dashboard', [LandingController::class, 'customerDashboard'])->name('landing.customer.dashboard');
+    Route::get('/customer-login', function () {
+        return view('landing.customer-login');
+    })->name('landing.customer.login');
     
     // Legacy payment routes (keep for backward compatibility)
     Route::get('/payment', [LandingController::class, 'showPayment'])->name('landing.payment');
