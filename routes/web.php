@@ -4,8 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\AddOnPaymentRedirectController;
 
-// Main domain routing (xpresspos.id)
-Route::domain(config('domains.main'))->group(function () {
+$landingRoutes = function () {
     Route::get('/', [LandingController::class, 'index'])->name('landing.home');
     Route::get('/', [LandingController::class, 'index'])->name('landing.main'); // Alias for compatibility
     
@@ -66,7 +65,14 @@ Route::domain(config('domains.main'))->group(function () {
     
     // Coupon validation for checkout (public route)
     Route::post('/checkout/validate-coupon', [\App\Http\Controllers\SubscriptionCouponController::class, 'validateCoupon'])->name('landing.checkout.validate-coupon');
-});
+};
+
+// Main domain routing (xpresspos.id) or local fallback
+if (app()->environment('local')) {
+    Route::group([], $landingRoutes);
+} else {
+    Route::domain(config('domains.main'))->group($landingRoutes);
+}
 
 // Local development domains
 if (app()->environment('local')) {
@@ -106,60 +112,80 @@ Route::domain(config('domains.api'))->group(function () {
 // Include landing routes for localhost development
 // require __DIR__.'/landing.php'; // Commented out to avoid route conflicts
 
-// Localhost fallback routes (for development without domain setup)
-Route::get('/', [LandingController::class, 'index'])->name('home');
-Route::get('/', [LandingController::class, 'index'])->name('landing.home'); // Fallback untuk localhost
-Route::get('/pricing', [LandingController::class, 'showPricing'])->name('pricing');
-Route::post('/trial/start', [LandingController::class, 'startTrial'])->name('landing.trial.start');
+if (app()->environment('local')) {
+    // Localhost fallback routes (for development without domain setup)
+    Route::get('/', [LandingController::class, 'index'])->name('home');
+    Route::get('/', [LandingController::class, 'index'])->name('landing.home'); // Fallback untuk localhost
+    Route::get('/pricing', [LandingController::class, 'showPricing'])->name('pricing');
+    Route::post('/trial/start', [LandingController::class, 'startTrial'])->name('landing.trial.start');
 
-// Checkout (auth required)
-Route::middleware('auth')->group(function () {
-    Route::get('/checkout', [LandingController::class, 'showCheckout'])->name('checkout');
-});
+    // Checkout (auth required)
+    Route::middleware('auth')->group(function () {
+        Route::get('/checkout', [LandingController::class, 'showCheckout'])->name('checkout');
+    });
 
-// Auth routes for localhost fallback (also works as global fallback)
-Route::middleware('guest')->group(function () {
-    Route::get('/login', [LandingController::class, 'showLogin'])->name('login');
-    Route::post('/login', [LandingController::class, 'login'])->name('login.post');
-    Route::get('/register', [LandingController::class, 'showRegister'])->name('register');
-    Route::post('/register', [LandingController::class, 'register'])->name('register.post');
-});
+    // Auth routes for localhost fallback (also works as global fallback)
+    Route::middleware('guest')->group(function () {
+        Route::get('/login', [LandingController::class, 'showLogin'])->name('login');
+        Route::post('/login', [LandingController::class, 'login'])->name('login.post');
+        Route::get('/register', [LandingController::class, 'showRegister'])->name('register');
+        Route::post('/register', [LandingController::class, 'register'])->name('register.post');
+    });
 
-Route::get('/forgot-password', function () {
-    return view('landing.auth.forgot-password');
-})->name('forgot-password');
+    Route::get('/forgot-password', function () {
+        return view('landing.auth.forgot-password');
+    })->name('forgot-password');
 
-// Redirect /home to login (Laravel default redirect)
-Route::get('/home', function () {
-    return redirect()->route('login');
-})->name('home.redirect');
+    // Redirect /home to login (Laravel default redirect)
+    Route::get('/home', function () {
+        return redirect()->route('login');
+    })->name('home.redirect');
 
-Route::get('/company', function () {
-    return view('company', [
-        'title' => 'Company - XpressPOS'
-    ]);
-})->name('company.fallback');
-
-// Policy pages (fallback for localhost)
-Route::get('/privacy-policy', [LandingController::class, 'showPrivacyPolicy'])->name('privacy-policy');
-Route::get('/terms-and-conditions', [LandingController::class, 'showTermsAndConditions'])->name('terms-and-conditions');
-Route::get('/cookie-policy', [LandingController::class, 'showCookiePolicy'])->name('cookie-policy');
-
-// Coupon validation for checkout (fallback for localhost)
-Route::post('/checkout/validate-coupon', [\App\Http\Controllers\SubscriptionCouponController::class, 'validateCoupon'])->name('checkout.validate-coupon');
-
-// Local development prefix routes (alternative access method)
-Route::prefix('main')->group(function () {
-    Route::get('/', function () {
-        return view('landing.xpresspos', [
-            'title' => 'XpressPOS - AI Maksimalkan Bisnismu'
+    Route::get('/company', function () {
+        return view('company', [
+            'title' => 'Company - XpressPOS'
         ]);
-    })->name('main.home');
-    
-    Route::get('/cart', function () {
-        return view('landing.cart');
-    })->name('main.cart');
-});
+    })->name('company.fallback');
+
+    // Policy pages (fallback for localhost)
+    Route::get('/privacy-policy', [LandingController::class, 'showPrivacyPolicy'])->name('privacy-policy');
+    Route::get('/terms-and-conditions', [LandingController::class, 'showTermsAndConditions'])->name('terms-and-conditions');
+    Route::get('/cookie-policy', [LandingController::class, 'showCookiePolicy'])->name('cookie-policy');
+
+    // Coupon validation for checkout (fallback for localhost)
+    Route::post('/checkout/validate-coupon', [\App\Http\Controllers\SubscriptionCouponController::class, 'validateCoupon'])->name('checkout.validate-coupon');
+
+    // Local development prefix routes (alternative access method)
+    Route::prefix('main')->group(function () {
+        Route::get('/', function () {
+            return view('landing.xpresspos', [
+                'title' => 'XpressPOS - AI Maksimalkan Bisnismu'
+            ]);
+        })->name('main.home');
+        
+        Route::get('/cart', function () {
+            return view('landing.cart');
+        })->name('main.cart');
+    });
+
+    // API prefix routes for local development
+    Route::prefix('api-demo')->group(function () {
+        Route::get('/', function () {
+            return response()->json([
+                'message' => 'XpressPOS API Demo',
+                'version' => '1.0',
+                'status' => 'active',
+                'note' => 'This is local development API demo',
+                'endpoints' => [
+                    'health' => '/api/v1/health',
+                    'auth' => '/api/v1/auth/*',
+                    'products' => '/api/v1/products/*',
+                    'orders' => '/api/v1/orders/*',
+                ]
+            ]);
+        })->name('api.demo');
+    });
+}
 
 // Health check endpoint for Docker healthcheck
 Route::get('/healthz', function () {
@@ -168,21 +194,3 @@ Route::get('/healthz', function () {
         'timestamp' => now()->toISOString(),
     ]);
 })->name('healthz');
-
-// API prefix routes for local development
-Route::prefix('api-demo')->group(function () {
-    Route::get('/', function () {
-        return response()->json([
-            'message' => 'XpressPOS API Demo',
-            'version' => '1.0',
-            'status' => 'active',
-            'note' => 'This is local development API demo',
-            'endpoints' => [
-                'health' => '/api/v1/health',
-                'auth' => '/api/v1/auth/*',
-                'products' => '/api/v1/products/*',
-                'orders' => '/api/v1/orders/*',
-            ]
-        ]);
-    })->name('api.demo');
-});
