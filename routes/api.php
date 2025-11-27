@@ -107,6 +107,7 @@ Route::prefix('v1')
             Route::get('/', [SubscriptionController::class, 'index'])->name('api.v1.subscription.show');
             Route::get('status', [SubscriptionController::class, 'status'])->name('api.v1.subscription.status');
             Route::get('usage', [SubscriptionController::class, 'usage'])->name('api.v1.subscription.usage');
+            Route::get('check-limit', [SubscriptionController::class, 'checkLimit'])->name('api.v1.subscription.check-limit');
             Route::post('upgrade', [SubscriptionController::class, 'upgrade'])->name('api.v1.subscription.upgrade');
             Route::post('downgrade', [SubscriptionController::class, 'downgrade'])->name('api.v1.subscription.downgrade');
             Route::post('cancel', [SubscriptionController::class, 'cancel'])->name('api.v1.subscription.cancel');

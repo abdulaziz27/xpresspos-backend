@@ -169,6 +169,127 @@ class SubscriptionController extends Controller
     }
 
     /**
+     * Check transaction limit status before creating order
+     * Returns current usage, limit, and whether user can create order
+     */
+    public function checkLimit(Request $request): JsonResponse
+    {
+        $user = Auth::user() ?? request()->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UNAUTHENTICATED',
+                    'message' => 'User not authenticated',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1',
+                    'request_id' => $request->header('X-Request-ID', uniqid()),
+                ]
+            ], 401);
+        }
+
+        $store = $user->store;
+
+        if (!$store) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'STORE_NOT_FOUND',
+                    'message' => 'User is not associated with any store',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1',
+                    'request_id' => $request->header('X-Request-ID', uniqid()),
+                ]
+            ], 404);
+        }
+
+        $tenant = $user->currentTenant();
+
+        if (!$tenant) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'TENANT_NOT_FOUND',
+                    'message' => 'No tenant context found for this store',
+                ],
+                'meta' => [
+                    'timestamp' => now()->toISOString(),
+                    'version' => 'v1',
+                    'request_id' => $request->header('X-Request-ID', uniqid()),
+                ]
+            ], 404);
+        }
+
+        // Get current month transaction count
+        $currentMonthStart = now()->startOfMonth();
+        $currentMonthEnd = now()->endOfMonth();
+        
+        $currentTransactionCount = \App\Models\Order::where('tenant_id', $tenant->id)
+            ->whereBetween('created_at', [$currentMonthStart, $currentMonthEnd])
+            ->count();
+
+        // Check limit using PlanLimitService
+        $planLimitService = app(\App\Services\PlanLimitService::class);
+        $limitCheck = $planLimitService->canPerformAction($tenant, 'create_transaction', $currentTransactionCount);
+
+        $limit = $limitCheck['limit'] ?? 0;
+        $isUnlimited = $limit <= 0;
+        $canCreateOrder = $limitCheck['allowed'] ?? false;
+        
+        // Calculate percentage (0-100)
+        $usagePercentage = $isUnlimited ? 0 : ($currentTransactionCount / $limit * 100);
+        $usagePercentage = min(100, max(0, $usagePercentage));
+
+        // Determine warning level
+        $warningLevel = 'none';
+        if (!$canCreateOrder) {
+            $warningLevel = 'exceeded';
+        } elseif ($usagePercentage >= 90) {
+            $warningLevel = 'critical';
+        } elseif ($usagePercentage >= 80) {
+            $warningLevel = 'warning';
+        }
+
+        // Get subscription info
+        $subscription = $store->subscriptions()->where('status', 'active')->first();
+        $planName = $subscription?->plan?->name ?? 'Free';
+        $recommendedPlan = 'Pro'; // Default recommendation
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'can_create_order' => $canCreateOrder,
+                'current_count' => $currentTransactionCount,
+                'limit' => $isUnlimited ? null : $limit,
+                'is_unlimited' => $isUnlimited,
+                'usage_percentage' => round($usagePercentage, 2),
+                'warning_level' => $warningLevel,
+                'plan' => [
+                    'name' => $planName,
+                    'slug' => $subscription?->plan?->slug ?? 'free',
+                ],
+                'recommended_plan' => $recommendedPlan,
+                'message' => $limitCheck['message'] ?? null,
+                'period' => [
+                    'start' => $currentMonthStart->toISOString(),
+                    'end' => $currentMonthEnd->toISOString(),
+                    'type' => 'monthly',
+                ],
+            ],
+            'meta' => [
+                'timestamp' => now()->toISOString(),
+                'version' => 'v1',
+                'request_id' => $request->header('X-Request-ID', uniqid()),
+            ]
+        ]);
+    }
+
+    /**
      * Get subscription status
      */
     public function status(Request $request): JsonResponse
