@@ -45,6 +45,7 @@ class StaffForm
                         TextInput::make('password')
                             ->label('Password')
                             ->password()
+                            ->revealable()
                             ->dehydrated(fn ($state) => filled($state))
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
                             ->required(fn ($livewire) => $livewire instanceof \App\Filament\Owner\Resources\Staff\Pages\CreateStaff)

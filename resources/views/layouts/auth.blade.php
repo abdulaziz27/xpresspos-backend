@@ -81,6 +81,117 @@
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
+        
+        /* Notification Popup Styles */
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+        }
+        
+        .notification-popup {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideInRight 0.5s ease-out, fadeOut 0.5s ease-out 4.7s forwards;
+            border-left: 5px solid;
+            min-width: 300px;
+        }
+        
+        .notification-popup.success {
+            border-left-color: #10b981;
+        }
+        
+        .notification-popup.error {
+            border-left-color: #ef4444;
+        }
+        
+        .notification-popup.warning {
+            border-left-color: #f59e0b;
+        }
+        
+        .notification-popup.info {
+            border-left-color: #3b82f6;
+        }
+        
+        .notification-icon {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+        }
+        
+        .notification-content {
+            flex: 1;
+        }
+        
+        .notification-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        
+        .notification-message {
+            font-size: 13px;
+            color: #6b7280;
+        }
+        
+        .notification-close {
+            flex-shrink: 0;
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+            transition: color 0.2s;
+        }
+        
+        .notification-close:hover {
+            color: #374151;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .notification-container {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+            
+            .notification-popup {
+                min-width: auto;
+            }
+        }
     </style>
 </head>
 <body class="h-full font-sf antialiased">
@@ -97,8 +208,7 @@
                 <!-- Logo -->
                 <div class="text-center animate-fade-in-up">
                     <a href="{{ config('app.url') }}" class="inline-block">
-                        <h1 class="text-3xl font-bold text-blue-600">XpressPOS</h1>
-                        <p class="text-sm text-gray-600 mt-1">Smart POS System</p>
+                        <img src="{{ asset('logo/logo-1-(ori-blue-ver).png') }}" alt="XpressPOS" class="h-18 w-auto mx-auto mb-3">
                     </a>
                 </div>
             </div>
@@ -117,5 +227,98 @@
             </div>
         </div>
     </div>
+    
+    <!-- Notification Container -->
+    <div id="notification-container" class="notification-container"></div>
+    
+    <script>
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const eyeIcon = document.getElementById(inputId + '-eye');
+            const eyeOffIcon = document.getElementById(inputId + '-eye-off');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                eyeIcon.classList.add('hidden');
+                eyeOffIcon.classList.remove('hidden');
+            } else {
+                input.type = 'password';
+                eyeIcon.classList.remove('hidden');
+                eyeOffIcon.classList.add('hidden');
+            }
+        }
+        
+        // Notification Popup Function
+        function showNotification(message, type = 'success', duration = 5000) {
+            const container = document.getElementById('notification-container');
+            const notification = document.createElement('div');
+            notification.className = `notification-popup ${type}`;
+            
+            const icons = {
+                success: '<svg class="notification-icon text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>',
+                error: '<svg class="notification-icon text-red-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>',
+                warning: '<svg class="notification-icon text-yellow-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>',
+                info: '<svg class="notification-icon text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>'
+            };
+            
+            notification.innerHTML = `
+                ${icons[type] || icons.success}
+                <div class="notification-content">
+                    <div class="notification-message">${message}</div>
+                </div>
+                <button class="notification-close" onclick="this.parentElement.remove()">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+            `;
+            
+            container.appendChild(notification);
+            
+            // Auto remove after duration
+            setTimeout(() => {
+                notification.style.animation = 'fadeOut 0.3s ease-out forwards';
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 300);
+            }, duration);
+        }
+        
+        // Show notifications from session flash messages
+        @if(session('success'))
+            document.addEventListener('DOMContentLoaded', function() {
+                showNotification({!! json_encode(session('success')) !!}, 'success');
+            });
+        @endif
+        
+        @if(session('error'))
+            document.addEventListener('DOMContentLoaded', function() {
+                showNotification({!! json_encode(session('error')) !!}, 'error');
+            });
+        @endif
+        
+        @if(session('warning'))
+            document.addEventListener('DOMContentLoaded', function() {
+                showNotification({!! json_encode(session('warning')) !!}, 'warning');
+            });
+        @endif
+        
+        @if(session('info'))
+            document.addEventListener('DOMContentLoaded', function() {
+                showNotification({!! json_encode(session('info')) !!}, 'info');
+            });
+        @endif
+        
+        // Show validation errors
+        @if(isset($errors) && $errors->any())
+            document.addEventListener('DOMContentLoaded', function() {
+                @foreach($errors->all() as $error)
+                    showNotification({!! json_encode($error) !!}, 'error');
+                @endforeach
+            });
+        @endif
+    </script>
 </body>
 </html>

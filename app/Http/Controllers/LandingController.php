@@ -59,6 +59,10 @@ class LandingController extends Controller
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+        ], [
+            'email.required' => 'Email wajib diisi.',
+            'email.email' => 'Format email tidak valid.',
+            'password.required' => 'Password wajib diisi.',
         ]);
 
         if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
@@ -72,7 +76,8 @@ class LandingController extends Controller
             // Check role tanpa team context karena ini adalah global roles
             if ($user->hasRole(['admin_sistem', 'super_admin'])) {
                 // Use relative URL to respect current request port
-                return redirect()->intended('/admin');
+                return redirect()->intended('/admin')
+                    ->with('success', 'Login berhasil! Selamat datang kembali.');
             }
 
             if ($tenant && ! $tenant->plan_id) {
@@ -82,11 +87,12 @@ class LandingController extends Controller
             
             // Owner dan role lainnya -> Owner panel atau intended URL (e.g., checkout)
             // Use relative URL to respect current request port
-            return redirect()->intended('/owner');
+            return redirect()->intended('/owner')
+                ->with('success', 'Login berhasil! Selamat datang kembali.');
         }
 
         throw ValidationException::withMessages([
-            'email' => __('auth.failed'),
+            'email' => 'Email atau password yang Anda masukkan salah.',
         ]);
     }
 
@@ -101,6 +107,17 @@ class LandingController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
+        ], [
+            'name.required' => 'Nama lengkap wajib diisi.',
+            'name.string' => 'Nama lengkap harus berupa teks.',
+            'name.max' => 'Nama lengkap maksimal 255 karakter.',
+            'email.required' => 'Email wajib diisi.',
+            'email.email' => 'Format email tidak valid.',
+            'email.max' => 'Email maksimal 255 karakter.',
+            'email.unique' => 'Email ini sudah terdaftar. Silakan gunakan email lain atau login.',
+            'password.required' => 'Password wajib diisi.',
+            'password.min' => 'Password minimal 8 karakter.',
+            'password.confirmed' => 'Konfirmasi password tidak cocok.',
         ]);
 
         $user = User::create([
@@ -116,10 +133,8 @@ class LandingController extends Controller
         // Auto-provision tenant + store for new user
         app(RegistrationProvisioningService::class)->provisionFor($user);
 
-        Auth::login($user);
-
-        return redirect()->route('landing.pricing')
-            ->with('success', 'Akun berhasil dibuat. Pilih paket untuk memulai trial 30 hari.');
+        return redirect()->route('login')
+            ->with('success', 'Akun berhasil dibuat. Silakan login untuk melanjutkan.');
     }
 
     public function logout(Request $request)
