@@ -32,7 +32,7 @@
     </div>
 
     <div class="text-center">
-        <a href="{{ route('login') }}" class="text-sm text-blue-600 hover:text-blue-500 transition-colors duration-300">
+        <a href="{{ route('landing.login') }}" class="text-sm text-blue-600 hover:text-blue-500 transition-colors duration-300">
             ← Kembali ke halaman masuk
         </a>
     </div>

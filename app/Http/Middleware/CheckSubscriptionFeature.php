@@ -16,7 +16,7 @@ class CheckSubscriptionFeature
         $user = $request->user();
 
         if (!$user) {
-            return redirect()->route('login');
+            return redirect()->route('landing.login');
         }
 
         if (!$user->hasFeature($feature)) {

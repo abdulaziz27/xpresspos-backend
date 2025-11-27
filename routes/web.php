@@ -14,6 +14,9 @@ $landingRoutes = function () {
         Route::post('/login', [LandingController::class, 'login'])->name('landing.login.post');
         Route::get('/register', [LandingController::class, 'showRegister'])->name('landing.register');
         Route::post('/register', [LandingController::class, 'register'])->name('landing.register.post');
+        Route::get('/forgot-password', function () {
+            return view('landing.auth.forgot-password');
+        })->name('landing.forgot-password');
     });
 
     Route::middleware('auth')->group(function () {
@@ -113,48 +116,6 @@ Route::domain(config('domains.api'))->group(function () {
 // require __DIR__.'/landing.php'; // Commented out to avoid route conflicts
 
 if (app()->environment('local')) {
-    // Localhost fallback routes (for development without domain setup)
-    Route::get('/', [LandingController::class, 'index'])->name('home');
-    Route::get('/', [LandingController::class, 'index'])->name('landing.home'); // Fallback untuk localhost
-    Route::get('/pricing', [LandingController::class, 'showPricing'])->name('pricing');
-    Route::post('/trial/start', [LandingController::class, 'startTrial'])->name('landing.trial.start');
-
-    // Checkout (auth required)
-    Route::middleware('auth')->group(function () {
-        Route::get('/checkout', [LandingController::class, 'showCheckout'])->name('checkout');
-    });
-
-    // Auth routes for localhost fallback (also works as global fallback)
-    Route::middleware('guest')->group(function () {
-        Route::get('/login', [LandingController::class, 'showLogin'])->name('login');
-        Route::post('/login', [LandingController::class, 'login'])->name('login.post');
-        Route::get('/register', [LandingController::class, 'showRegister'])->name('register');
-        Route::post('/register', [LandingController::class, 'register'])->name('register.post');
-    });
-
-    Route::get('/forgot-password', function () {
-        return view('landing.auth.forgot-password');
-    })->name('forgot-password');
-
-    // Redirect /home to login (Laravel default redirect)
-    Route::get('/home', function () {
-        return redirect()->route('login');
-    })->name('home.redirect');
-
-    Route::get('/company', function () {
-        return view('company', [
-            'title' => 'Company - XpressPOS'
-        ]);
-    })->name('company.fallback');
-
-    // Policy pages (fallback for localhost)
-    Route::get('/privacy-policy', [LandingController::class, 'showPrivacyPolicy'])->name('privacy-policy');
-    Route::get('/terms-and-conditions', [LandingController::class, 'showTermsAndConditions'])->name('terms-and-conditions');
-    Route::get('/cookie-policy', [LandingController::class, 'showCookiePolicy'])->name('cookie-policy');
-
-    // Coupon validation for checkout (fallback for localhost)
-    Route::post('/checkout/validate-coupon', [\App\Http\Controllers\SubscriptionCouponController::class, 'validateCoupon'])->name('checkout.validate-coupon');
-
     // Local development prefix routes (alternative access method)
     Route::prefix('main')->group(function () {
         Route::get('/', function () {

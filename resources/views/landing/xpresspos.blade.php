@@ -701,7 +701,7 @@
                     </svg>
                     Mulai Gratis Sekarang
                 </a>
-                <a href="{{ route('login') }}" 
+                <a href="{{ route('landing.login') }}" 
                    class="inline-flex items-center px-8 py-4 text-lg font-semibold text-white border-2 border-white rounded-full hover:bg-white hover:text-blue-600 transition-all duration-300 btn-magnetic">
                     Login
                 </a>
@@ -2365,7 +2365,7 @@
                         <span class="w-1.5 h-1.5 bg-blue-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                         Testimoni
                     </a></li>
-                    <li><a href="{{ route('login') }}" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm flex items-center group">
+                    <li><a href="{{ route('landing.login') }}" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm flex items-center group">
                         <span class="w-1.5 h-1.5 bg-blue-500 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                         Login
                     </a></li>

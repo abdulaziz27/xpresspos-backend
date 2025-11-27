@@ -32,7 +32,7 @@ class PlanGateMiddleware
                 ], 401);
             }
 
-            return redirect()->guest(route('login'));
+            return redirect()->guest(route('landing.login'));
         }
 
         $user = auth()->user();
