@@ -83,7 +83,7 @@ class MenuService
                     'icon' => 'heroicon-o-archive-box',
                     'url' => '/admin/inventory-dashboard',
                     'active' => request()->is('admin/inventory*'),
-                    'visible' => $user->store->subscription->plan->hasFeature('inventory_tracking'),
+                    'visible' => $user->hasFeature('ALLOW_INVENTORY'),
                 ],
                 'reports' => [
                     'label' => 'Reports',
@@ -125,7 +125,7 @@ class MenuService
                     'icon' => 'heroicon-o-archive-box',
                     'url' => '/admin/inventory-dashboard',
                     'active' => request()->is('admin/inventory*'),
-                    'visible' => $user->store->subscription->plan->hasFeature('inventory_tracking'),
+                    'visible' => $user->hasFeature('ALLOW_INVENTORY'),
                 ],
                 'reports' => [
                     'label' => 'Reports',

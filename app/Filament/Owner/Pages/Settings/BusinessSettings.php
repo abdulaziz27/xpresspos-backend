@@ -34,6 +34,11 @@ class BusinessSettings extends Page implements HasForms
 
     public ?array $data = [];
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole('owner');
+    }
+
     public function mount(): void
     {
         $tenant = $this->resolveTenant();
@@ -170,7 +175,13 @@ class BusinessSettings extends Page implements HasForms
         /** @var GlobalFilterService $globalFilter */
         $globalFilter = app(GlobalFilterService::class);
         
-        return $globalFilter->getCurrentTenant();
+        $tenant = $globalFilter->getCurrentTenant();
+
+        if (!$tenant) {
+            $tenant = auth()->user()?->currentTenant();
+        }
+
+        return $tenant;
     }
 }
 

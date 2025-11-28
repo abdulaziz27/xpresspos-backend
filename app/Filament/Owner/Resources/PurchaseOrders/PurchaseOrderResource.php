@@ -4,10 +4,12 @@ namespace App\Filament\Owner\Resources\PurchaseOrders;
 
 use App\Filament\Owner\Resources\PurchaseOrders\Pages;
 use App\Filament\Owner\Resources\PurchaseOrders\RelationManagers\ItemsRelationManager;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use App\Models\PurchaseOrder;
+use App\Models\Store;
 use App\Models\Supplier;
-use App\Services\GlobalFilterService;
 use App\Support\Currency;
+use App\Enums\AssignmentRoleEnum;
 use BackedEnum;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -26,10 +28,12 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 
 class PurchaseOrderResource extends Resource
 {
+    use HasPlanBasedNavigation;
     protected static ?string $model = PurchaseOrder::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;
@@ -255,8 +259,16 @@ class PurchaseOrderResource extends Resource
             ->paginated([10, 25, 50, 100]);
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::hasPlanFeature('ALLOW_INVENTORY');
+    }
+
     public static function canViewAny(): bool
     {
+        if (! static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('viewAny', static::$model);
@@ -267,6 +279,9 @@ class PurchaseOrderResource extends Resource
      */
     public static function canCreate(): bool
     {
+        if (! static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('create', static::$model);
@@ -277,6 +292,9 @@ class PurchaseOrderResource extends Resource
      */
     public static function canEdit(Model $record): bool
     {
+        if (! static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
         if (in_array($record->status, [PurchaseOrder::STATUS_RECEIVED, PurchaseOrder::STATUS_CLOSED, PurchaseOrder::STATUS_CANCELLED])) {
             return false;
         }
@@ -329,37 +347,109 @@ class PurchaseOrderResource extends Resource
 
     protected static function storeOptions(): array
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
+        $user = Auth::user();
 
-        return $globalFilter->getAvailableStores(auth()->user())
-            ->pluck('name', 'id')
+        if (! $user) {
+            return [];
+        }
+
+        $tenantId = $user->currentTenant()?->id;
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        if (static::isOwnerContext($user)) {
+            return Store::where('tenant_id', $tenantId)
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+
+        return $user->stores()
+            ->where('stores.tenant_id', $tenantId)
+            ->orderBy('stores.name')
+            ->pluck('stores.name', 'stores.id')
             ->toArray();
     }
 
     protected static function getDefaultStoreId(): ?string
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
+        $user = Auth::user();
 
-        return $globalFilter->getCurrentStoreId()
-            ?? ($globalFilter->getStoreIdsForCurrentTenant()[0] ?? null);
+        if (! $user) {
+            return null;
+        }
+
+        $primaryStore = $user->primaryStore();
+        if ($primaryStore) {
+            return $primaryStore->id;
+        }
+
+        $tenantId = $user->currentTenant()?->id;
+        if (! $tenantId) {
+            return $user->stores()->first()?->id;
+        }
+
+        if (static::isOwnerContext($user)) {
+            return Store::where('tenant_id', $tenantId)->orderBy('name')->value('id');
+        }
+
+        return $user->stores()
+            ->where('stores.tenant_id', $tenantId)
+            ->orderBy('stores.name')
+            ->value('stores.id');
     }
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->with(['store', 'supplier']);
+        $user = Auth::user();
+        $tenantId = $user?->currentTenant()?->id;
 
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
-
-        if (! empty($storeIds)) {
-            $query->whereIn('store_id', $storeIds);
+        if (! $tenantId) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
         }
 
-        return $query;
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->with(['store', 'supplier'])
+            ->whereHas('store', fn (Builder $storeQuery) => $storeQuery->where('tenant_id', $tenantId));
+
+        if (static::isOwnerContext($user)) {
+            return $query;
+        }
+
+        $storeIds = $user->stores()
+            ->where('stores.tenant_id', $tenantId)
+            ->pluck('stores.id')
+            ->toArray();
+
+        if (empty($storeIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereIn('store_id', $storeIds);
+    }
+
+    protected static function isOwnerContext($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasRole('owner')) {
+            return true;
+        }
+
+        if (! method_exists($user, 'storeAssignments')) {
+            return false;
+        }
+
+        return $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
     }
 }
 

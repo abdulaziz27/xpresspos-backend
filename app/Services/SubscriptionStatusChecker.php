@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Store;
 use App\Models\Subscription;
+use App\Support\PlanFeatureResolver;
 use Illuminate\Database\Eloquent\Collection;
 
 class SubscriptionStatusChecker
@@ -141,8 +142,11 @@ class SubscriptionStatusChecker
             ];
         }
         
-        if (!$subscription->plan->hasFeature($feature)) {
-            $requiredPlan = $subscription->plan->getRequiredPlanFor($feature);
+        $planLimitService = app(PlanLimitService::class);
+        $featureCode = PlanFeatureResolver::normalizeFeatureCode($feature) ?? $feature;
+
+        if (!$planLimitService->hasFeature($store, $featureCode)) {
+            $requiredPlan = $subscription->plan?->getRequiredPlanFor($feature) ?? 'Pro';
             
             return [
                 'can_access' => false,
@@ -170,13 +174,24 @@ class SubscriptionStatusChecker
             return ['status' => 'no_subscription'];
         }
         
-        $plan = $subscription->plan;
-        $limits = $plan->limits ?? [];
         $violations = [];
         $warnings = [];
         
-        foreach ($limits as $feature => $limit) {
+        $planLimitService = app(PlanLimitService::class);
+        $featureMap = [
+            'products' => 'MAX_PRODUCTS',
+            'users' => 'MAX_STAFF',
+            'outlets' => 'MAX_STORES',
+        ];
+
+        foreach ($featureMap as $feature => $featureCode) {
+            $limit = $planLimitService->limit($store, $featureCode);
             $currentUsage = $store->getCurrentUsage($feature);
+
+            if ($limit === null || $limit === -1) {
+                continue;
+            }
+
             $usagePercentage = $limit > 0 ? ($currentUsage / $limit) * 100 : 0;
             
             if ($currentUsage >= $limit) {

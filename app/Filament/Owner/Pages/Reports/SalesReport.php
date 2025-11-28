@@ -6,12 +6,14 @@ use App\Filament\Owner\Pages\Concerns\HasLocalReportFilterForm;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Livewire\Attributes\On;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use BackedEnum;
 use UnitEnum;
 
 class SalesReport extends Page
 {
     use HasLocalReportFilterForm;
+    use HasPlanBasedNavigation;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBarSquare;
 
@@ -21,10 +23,20 @@ class SalesReport extends Page
 
     protected static ?int $navigationSort = 10;
 
-    protected static bool $shouldRegisterNavigation = true;
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::hasPlanFeature('ALLOW_ADVANCED_REPORTS');
+    }
+
+    public function mount(): void
+    {
+        if (!static::hasPlanFeature('ALLOW_ADVANCED_REPORTS')) {
+            abort(403, 'Upgrade plan required.');
+        }
+        $this->initializeLocalFilters();
+    }
 
     protected string $view = 'filament.owner.pages.reports.sales-report';
-
 
     protected function getHeaderWidgets(): array
     {
@@ -44,11 +56,6 @@ class SalesReport extends Page
             \App\Filament\Owner\Pages\Reports\Widgets\SalesSummaryCard::class,
             \App\Filament\Owner\Pages\Reports\Widgets\TransactionControlCard::class,
         ];
-    }
-
-    public function mount(): void
-    {
-        $this->initializeLocalFilters();
     }
 
     #[On('sales-report-filter-updated')]

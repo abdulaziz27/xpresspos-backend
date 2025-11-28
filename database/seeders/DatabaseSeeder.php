@@ -30,11 +30,6 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
         ]);
 
-        // Create users
-        $this->call([
-            UserSeeder::class,
-        ]);
-
         // Create stores and subscriptions
         $this->call([
             StoreSeeder::class,
@@ -43,6 +38,11 @@ class DatabaseSeeder extends Seeder
         // Then seed roles and permissions (after stores are created)
         $this->call([
             PermissionsAndRolesSeeder::class,
+        ]);
+
+        // Create users (Moved after Store and Permissions seeders to ensure correct role assignment)
+        $this->call([
+            UserSeeder::class,
         ]);
 
         // NOTE: Manager dan Staff tidak dibuat untuk demo

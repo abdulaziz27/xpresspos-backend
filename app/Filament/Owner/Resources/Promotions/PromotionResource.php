@@ -7,8 +7,10 @@ use App\Filament\Owner\Resources\Promotions\Pages\EditPromotion;
 use App\Filament\Owner\Resources\Promotions\Pages\ListPromotions;
 use App\Filament\Owner\Resources\Promotions\RelationManagers\ConditionsRelationManager;
 use App\Filament\Owner\Resources\Promotions\RelationManagers\RewardsRelationManager;
-use App\Models\Promotion;
-use App\Services\GlobalFilterService;
+    use App\Filament\Traits\HasPlanBasedNavigation;
+    use App\Models\Promotion;
+use App\Models\Store;
+use App\Enums\AssignmentRoleEnum;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Actions\BulkActionGroup;
@@ -29,10 +31,12 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 
 class PromotionResource extends Resource
 {
+    use HasPlanBasedNavigation;
     protected static ?string $model = Promotion::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedGift;
@@ -47,8 +51,16 @@ class PromotionResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Promo & Kampanye';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::hasPlanFeature('ALLOW_PROMO');
+    }
+
     public static function canViewAny(): bool
     {
+        if (!static::hasPlanFeature('ALLOW_PROMO')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('viewAny', static::$model);
@@ -56,6 +68,9 @@ class PromotionResource extends Resource
 
     public static function canCreate(): bool
     {
+        if (!static::hasPlanFeature('ALLOW_PROMO')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('create', static::$model);
@@ -63,6 +78,9 @@ class PromotionResource extends Resource
 
     public static function canEdit(Model $record): bool
     {
+        if (!static::hasPlanFeature('ALLOW_PROMO')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('update', $record);
@@ -70,6 +88,9 @@ class PromotionResource extends Resource
 
     public static function canDelete(Model $record): bool
     {
+        if (!static::hasPlanFeature('ALLOW_PROMO')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('delete', $record);
@@ -302,32 +323,94 @@ class PromotionResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->with('store');
+        $user = Auth::user();
+        $tenantId = $user?->currentTenant()?->id;
 
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
-        $storeIds = $globalFilter->getStoreIdsForCurrentTenant();
-
-        if (! empty($storeIds)) {
-            $query->where(function (Builder $query) use ($storeIds) {
-                $query
-                    ->whereNull('store_id')
-                    ->orWhereIn('store_id', $storeIds);
-            });
+        if (! $tenantId) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
         }
 
-        return $query;
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->with('store')
+            ->where('tenant_id', $tenantId);
+
+        if (static::isOwnerContext($user)) {
+            return $query;
+        }
+
+        $storeIds = static::accessibleStoreIds($user, $tenantId);
+
+        if (empty($storeIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $builder) use ($storeIds) {
+            $builder
+                ->whereNull('store_id')
+                ->orWhereIn('store_id', $storeIds);
+        });
     }
 
     protected static function storeOptions(): array
     {
-        /** @var GlobalFilterService $globalFilter */
-        $globalFilter = app(GlobalFilterService::class);
+        $user = Auth::user();
 
-        return $globalFilter->getAvailableStores(auth()->user())
-            ->pluck('name', 'id')
+        if (! $user) {
+            return [];
+        }
+
+        $tenantId = $user->currentTenant()?->id;
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        if (static::isOwnerContext($user)) {
+            return Store::where('tenant_id', $tenantId)
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+
+        return $user->stores()
+            ->where('stores.tenant_id', $tenantId)
+            ->orderBy('stores.name')
+            ->pluck('stores.name', 'stores.id')
             ->toArray();
+    }
+
+    protected static function accessibleStoreIds($user, string $tenantId): array
+    {
+        if (static::isOwnerContext($user)) {
+            return Store::where('tenant_id', $tenantId)->pluck('id')->toArray();
+        }
+
+        return $user->stores()
+            ->where('stores.tenant_id', $tenantId)
+            ->pluck('stores.id')
+            ->toArray();
+    }
+
+    protected static function isOwnerContext($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasRole('owner')) {
+            return true;
+        }
+
+        if (! method_exists($user, 'storeAssignments')) {
+            return false;
+        }
+
+        return $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
     }
 
 }

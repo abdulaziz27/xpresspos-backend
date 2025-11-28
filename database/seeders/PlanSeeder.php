@@ -46,10 +46,18 @@ class PlanSeeder extends Seeder
                     ['feature_code' => 'MAX_PRODUCTS', 'limit_value' => '20', 'is_enabled' => true],
                     ['feature_code' => 'MAX_STAFF', 'limit_value' => '2', 'is_enabled' => true],
                     ['feature_code' => 'MAX_TRANSACTIONS_PER_YEAR', 'limit_value' => '12000', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_TRANSACTIONS_PER_MONTH', 'limit_value' => '1000', 'is_enabled' => true],
                     // Feature Flags (ALLOW_*)
+                    ['feature_code' => 'ALLOW_PROMO', 'limit_value' => '0', 'is_enabled' => false], // No promo for Basic
                     ['feature_code' => 'ALLOW_LOYALTY', 'limit_value' => '1', 'is_enabled' => false],
                     ['feature_code' => 'ALLOW_MULTI_STORE', 'limit_value' => '0', 'is_enabled' => false],
                     ['feature_code' => 'ALLOW_API_ACCESS', 'limit_value' => '0', 'is_enabled' => false],
+                    ['feature_code' => 'ALLOW_INVENTORY', 'limit_value' => '0', 'is_enabled' => false],
+                    ['feature_code' => 'ALLOW_ADVANCED_REPORTS', 'limit_value' => '0', 'is_enabled' => false],
+                    ['feature_code' => 'ALLOW_REPORT_EXPORT', 'limit_value' => '0', 'is_enabled' => false],
+                    ['feature_code' => 'ALLOW_MONTHLY_EMAIL_REPORTS', 'limit_value' => '0', 'is_enabled' => false],
+                    ['feature_code' => 'ALLOW_AI_ANALYTICS', 'limit_value' => '0', 'is_enabled' => false],
+                    ['feature_code' => 'ALLOW_COGS_CALCULATION', 'limit_value' => '0', 'is_enabled' => false],
                 ],
             ],
             [
@@ -86,10 +94,17 @@ class PlanSeeder extends Seeder
                     ['feature_code' => 'MAX_PRODUCTS', 'limit_value' => '300', 'is_enabled' => true],
                     ['feature_code' => 'MAX_STAFF', 'limit_value' => '10', 'is_enabled' => true],
                     ['feature_code' => 'MAX_TRANSACTIONS_PER_YEAR', 'limit_value' => '120000', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_TRANSACTIONS_PER_MONTH', 'limit_value' => '10000', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_INVENTORY', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_PROMO', 'limit_value' => '1', 'is_enabled' => true], // Yes promo for Pro
                     // Feature Flags (ALLOW_*)
                     ['feature_code' => 'ALLOW_LOYALTY', 'limit_value' => '1', 'is_enabled' => true],
                     ['feature_code' => 'ALLOW_MULTI_STORE', 'limit_value' => '0', 'is_enabled' => false],
                     ['feature_code' => 'ALLOW_API_ACCESS', 'limit_value' => '0', 'is_enabled' => false],
+                    ['feature_code' => 'ALLOW_ADVANCED_REPORTS', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_REPORT_EXPORT', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_MONTHLY_EMAIL_REPORTS', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_COGS_CALCULATION', 'limit_value' => '1', 'is_enabled' => true],
                 ],
             ],
             [
@@ -130,13 +145,20 @@ class PlanSeeder extends Seeder
                     ['feature_code' => 'MAX_PRODUCTS', 'limit_value' => '500', 'is_enabled' => true],
                     ['feature_code' => 'MAX_STAFF', 'limit_value' => '25', 'is_enabled' => true],
                     ['feature_code' => 'MAX_TRANSACTIONS_PER_YEAR', 'limit_value' => '180000', 'is_enabled' => true],
+                    ['feature_code' => 'MAX_TRANSACTIONS_PER_MONTH', 'limit_value' => '15000', 'is_enabled' => true],
                     // Feature Flags (ALLOW_*)
+                    ['feature_code' => 'ALLOW_PROMO', 'limit_value' => '1', 'is_enabled' => true], // Yes promo for Enterprise
                     ['feature_code' => 'ALLOW_LOYALTY', 'limit_value' => '1', 'is_enabled' => true],
                     ['feature_code' => 'ALLOW_MULTI_STORE', 'limit_value' => '1', 'is_enabled' => true],
                     ['feature_code' => 'ALLOW_API_ACCESS', 'limit_value' => '1', 'is_enabled' => true],
                     ['feature_code' => 'ALLOW_TABLE_MANAGEMENT', 'limit_value' => '1', 'is_enabled' => true],
                     ['feature_code' => 'ALLOW_INVENTORY', 'limit_value' => '1', 'is_enabled' => true],
                     ['feature_code' => 'ALLOW_PAYMENT_GATEWAY', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_ADVANCED_REPORTS', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_REPORT_EXPORT', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_MONTHLY_EMAIL_REPORTS', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_AI_ANALYTICS', 'limit_value' => '1', 'is_enabled' => true],
+                    ['feature_code' => 'ALLOW_COGS_CALCULATION', 'limit_value' => '1', 'is_enabled' => true],
                 ],
             ],
         ];

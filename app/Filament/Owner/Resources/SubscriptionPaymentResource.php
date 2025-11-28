@@ -322,7 +322,7 @@ class SubscriptionPaymentResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return true;
+        return auth()->user()?->hasRole('owner');
     }
 
     public static function canCreate(): bool

@@ -9,6 +9,7 @@ use App\Filament\Owner\Resources\Staff\RelationManagers\StoreUserAssignmentsRela
 use App\Filament\Owner\Resources\Staff\RelationManagers\UserTenantAccessRelationManager;
 use App\Filament\Owner\Resources\Staff\Schemas\StaffForm;
 use App\Filament\Owner\Resources\Staff\Tables\StaffTable;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\Gate;
 
 class StaffResource extends Resource
 {
+    use HasPlanBasedNavigation;
     protected static ?string $model = User::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
@@ -74,7 +76,22 @@ class StaffResource extends Resource
     {
         $user = auth()->user();
         if (!$user) return false;
-        return Gate::forUser($user)->allows('create', static::$model);
+        if (! Gate::forUser($user)->allows('create', static::$model)) {
+            return false;
+        }
+
+        $tenantId = $user->currentTenant()?->id;
+        if (! $tenantId) {
+            return false;
+        }
+
+        $currentStaffCount = DB::table('user_tenant_access')
+            ->where('tenant_id', $tenantId)
+            ->count();
+
+        $planCheck = static::canPerformPlanAction('create_staff', $currentStaffCount);
+
+        return $planCheck['allowed'];
     }
 
     public static function canEdit(Model $record): bool
@@ -140,7 +157,12 @@ class StaffResource extends Resource
                 $query->whereHas('tenants', function ($q) use ($tenantId) {
                     $q->where('tenants.id', $tenantId);
                 });
+            } else {
+                // If no tenant context, return empty result for safety
+                $query->whereRaw('1 = 0');
             }
+        } else {
+            $query->whereRaw('1 = 0');
         }
 
         return $query;

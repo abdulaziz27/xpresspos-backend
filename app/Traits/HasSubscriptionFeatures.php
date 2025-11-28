@@ -54,15 +54,13 @@ trait HasSubscriptionFeatures
      */
     public function hasFeature(string $feature): bool
     {
-        $plan = $this->getSubscriptionPlan();
-        
-        if (!$plan) {
+        $tenant = $this->currentTenant();
+
+        if (!$tenant) {
             return false;
         }
-        
-        $features = is_array($plan->features) ? $plan->features : json_decode($plan->features, true);
-        
-        return in_array($feature, $features ?? []);
+
+        return app(\App\Services\PlanLimitService::class)->hasFeature($tenant, $feature);
     }
 
     /**
@@ -70,15 +68,19 @@ trait HasSubscriptionFeatures
      */
     public function getLimit(string $key): int
     {
-        $plan = $this->getSubscriptionPlan();
-        
-        if (!$plan) {
+        $tenant = $this->currentTenant();
+
+        if (!$tenant) {
             return 0;
         }
-        
-        $limits = is_array($plan->limits) ? $plan->limits : json_decode($plan->limits, true);
-        
-        return $limits[$key] ?? 0;
+
+        $limit = app(\App\Services\PlanLimitService::class)->limit($tenant, $key);
+
+        if ($limit === null) {
+            return 0;
+        }
+
+        return $limit === -1 ? 0 : $limit;
     }
 
     /**
@@ -88,7 +90,7 @@ trait HasSubscriptionFeatures
     {
         $limit = $this->getLimit($key);
         
-        // 0 or negative means unlimited
+        // 0 berarti unlimited (representasi fallback di atas).
         if ($limit <= 0) {
             return true;
         }

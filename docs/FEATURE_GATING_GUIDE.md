@@ -197,25 +197,7 @@ auth()->user()->getCurrentCount('staff'); // int
 auth()->user()->getCurrentCount('stores'); // int
 ```
 
-### SubscriptionFeatureService Methods
-
-```php
-$service = app(SubscriptionFeatureService::class);
-
-// Check feature availability
-$service->isFeatureAvailable($user, 'advanced_analytics'); // bool
-
-// Get upgrade message
-$service->getUpgradeMessage('advanced_analytics'); 
-// Returns: "Upgrade to Pro to unlock Advanced Analytics"
-
-// Get features comparison for pricing page
-$service->getFeaturesComparison(); // array
-
-// Check if upgrade needed
-$service->needsUpgrade($user, 'create_store');
-// Returns: ['needs_upgrade' => true, 'message' => '...', 'recommended_tier' => 'Pro']
-```
+> **Catatan:** Untuk pengecekan fitur/limit terbaru gunakan `PlanLimitService` (melalui helper `auth()->user()->hasFeature()` atau trait `ChecksPlanLimits`). Service legacy `SubscriptionFeatureService` sudah dipensiunkan.
 
 ## 🎨 UI Components
 
@@ -274,7 +256,7 @@ $this->assertTrue($user->fresh()->hasFeature('advanced_analytics'));
 ## 🎯 Implementation Checklist
 
 - [x] Trait `HasSubscriptionFeatures` created
-- [x] Service `SubscriptionFeatureService` created
+- [x] Plan limits dialihkan ke `PlanLimitService`
 - [x] Middleware `CheckSubscriptionFeature` created
 - [x] User model updated with trait
 - [x] Middleware registered in bootstrap/app.php

@@ -17,8 +17,6 @@ class ExpenseController extends Controller
     public function __construct()
     {
         $this->middleware(['auth:sanctum', 'tenant.scope']);
-        // Remove strict permission middleware for MVP testing
-        // Owner role should have access to all expense operations
     }
 
     /**
@@ -26,6 +24,8 @@ class ExpenseController extends Controller
      */
     public function index(IndexExpenseRequest $request): JsonResponse
     {
+        $this->authorize('viewAny', Expense::class);
+
         $validated = $request->validated();
         
         $query = Expense::with(['user:id,name,email', 'cashSession:id,opened_at,closed_at,status'])
@@ -83,6 +83,8 @@ class ExpenseController extends Controller
      */
     public function store(StoreExpenseRequest $request): JsonResponse
     {
+        $this->authorize('create', Expense::class);
+
         try {
             DB::beginTransaction();
 
@@ -160,6 +162,8 @@ class ExpenseController extends Controller
     {
         $expense = Expense::with(['user:id,name,email', 'cashSession:id,opened_at,closed_at,status'])->findOrFail($id);
 
+        $this->authorize('view', $expense);
+
         return response()->json([
             'success' => true,
             'data' => $expense,
@@ -173,6 +177,9 @@ class ExpenseController extends Controller
     public function update(UpdateExpenseRequest $request, string $id): JsonResponse
     {
         $expense = Expense::findOrFail($id);
+        
+        $this->authorize('update', $expense);
+
         try {
             DB::beginTransaction();
 
@@ -226,6 +233,8 @@ class ExpenseController extends Controller
     public function destroy(string $id): JsonResponse
     {
         $expense = Expense::findOrFail($id);
+        $this->authorize('delete', $expense);
+
         try {
             DB::beginTransaction();
 
@@ -348,6 +357,8 @@ class ExpenseController extends Controller
      */
     public function storeForSession(Request $request, string $sessionId): JsonResponse
     {
+        $this->authorize('create', Expense::class);
+
         $request->validate([
             'amount' => 'required|numeric|min:0',
             'description' => 'required|string|max:255',

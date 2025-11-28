@@ -96,6 +96,8 @@ class RolePermissionSeeder extends Seeder
             'suppliers.create',
             'suppliers.update',
             'suppliers.delete',
+            'stock_levels.view',
+            'stock_levels.adjust',
 
             // Reports
             'reports.view',
@@ -141,6 +143,13 @@ class RolePermissionSeeder extends Seeder
             'stores.update',
             'stores.delete',
 
+            // Staff
+            'staff.view',
+            'staff.create',
+            'staff.update',
+            'staff.delete',
+            'staff.assign_role',
+
             // Subscription management (system admin only)
             'subscription.view',
             'subscription.manage',
@@ -152,18 +161,21 @@ class RolePermissionSeeder extends Seeder
         ];
 
         foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission]);
+            Permission::firstOrCreate(
+                ['name' => $permission, 'guard_name' => 'web'],
+                []
+            );
         }
 
         // Create roles and assign permissions
         
         // System Admin - Global access to everything
-        $adminSistem = Role::create(['name' => 'admin_sistem']);
-        $adminSistem->givePermissionTo(Permission::all());
+        $adminSistem = Role::firstOrCreate(['name' => 'admin_sistem', 'guard_name' => 'web']);
+        $adminSistem->syncPermissions(Permission::all());
 
         // Store Owner - Full access to their store
-        $owner = Role::create(['name' => 'owner']);
-        $owner->givePermissionTo([
+        $owner = Role::firstOrCreate(['name' => 'owner', 'guard_name' => 'web']);
+        $owner->syncPermissions([
             'users.view', 'users.create', 'users.update', 'users.delete', 'users.manage_roles',
             'products.view', 'products.create', 'products.update', 'products.delete', 'products.manage_categories',
             'discounts.view', 'discounts.create', 'discounts.update', 'discounts.delete',
@@ -178,6 +190,7 @@ class RolePermissionSeeder extends Seeder
             'inventory_transfers.view', 'inventory_transfers.create', 'inventory_transfers.update', 'inventory_transfers.delete',
             'purchase_orders.view', 'purchase_orders.create', 'purchase_orders.update', 'purchase_orders.delete',
             'suppliers.view', 'suppliers.create', 'suppliers.update', 'suppliers.delete',
+            'stock_levels.view', 'stock_levels.adjust',
             'reports.view', 'reports.export', 'reports.email',
             'cash_sessions.open', 'cash_sessions.close', 'cash_sessions.view', 'cash_sessions.create', 'cash_sessions.update', 'cash_sessions.delete', 'cash_sessions.manage',
             'expenses.view', 'expenses.create', 'expenses.update', 'expenses.delete',
@@ -185,12 +198,13 @@ class RolePermissionSeeder extends Seeder
             'vouchers.view', 'vouchers.create', 'vouchers.update', 'vouchers.delete',
             'promotions.view', 'promotions.create', 'promotions.update', 'promotions.delete',
             'stores.view', 'stores.create', 'stores.update', 'stores.delete',
+            'staff.view', 'staff.create', 'staff.update', 'staff.delete', 'staff.assign_role',
             'subscription.view',
         ]);
 
         // Manager - Operational management
-        $manager = Role::create(['name' => 'manager']);
-        $manager->givePermissionTo([
+        $manager = Role::firstOrCreate(['name' => 'manager', 'guard_name' => 'web']);
+        $manager->syncPermissions([
             'products.view', 'products.create', 'products.update', 'products.manage_categories',
             'discounts.view', 'discounts.create', 'discounts.update', 'discounts.delete',
             'orders.view', 'orders.create', 'orders.update', 'orders.refund',
@@ -204,6 +218,7 @@ class RolePermissionSeeder extends Seeder
             'inventory_transfers.view', 'inventory_transfers.create', 'inventory_transfers.update',
             'purchase_orders.view', 'purchase_orders.create', 'purchase_orders.update',
             'suppliers.view', 'suppliers.create', 'suppliers.update',
+            'stock_levels.view', 'stock_levels.adjust',
             'reports.view', 'reports.export',
             'cash_sessions.open', 'cash_sessions.close', 'cash_sessions.view', 'cash_sessions.create', 'cash_sessions.update',
             'expenses.view', 'expenses.create', 'expenses.update',
@@ -211,11 +226,12 @@ class RolePermissionSeeder extends Seeder
             'vouchers.view', 'vouchers.create', 'vouchers.update',
             'promotions.view', 'promotions.create', 'promotions.update',
             'stores.view',
+            'staff.view', 'staff.create', 'staff.update', 'staff.delete', 'staff.assign_role',
         ]);
 
         // Cashier - POS operations only
-        $cashier = Role::create(['name' => 'cashier']);
-        $cashier->givePermissionTo([
+        $cashier = Role::firstOrCreate(['name' => 'cashier', 'guard_name' => 'web']);
+        $cashier->syncPermissions([
             'products.view',
             'discounts.view',
             'orders.view', 'orders.create', 'orders.update',

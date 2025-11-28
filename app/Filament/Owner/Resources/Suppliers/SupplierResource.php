@@ -4,6 +4,7 @@ namespace App\Filament\Owner\Resources\Suppliers;
 
 use App\Filament\Owner\Resources\Suppliers\Pages;
 use App\Filament\Owner\Resources\Suppliers\RelationManagers\PurchaseOrdersRelationManager;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use App\Models\Supplier;
 use BackedEnum;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,7 @@ use Illuminate\Support\Facades\Gate;
 
 class SupplierResource extends Resource
 {
+    use HasPlanBasedNavigation;
     protected static ?string $model = Supplier::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;
@@ -171,8 +173,16 @@ class SupplierResource extends Resource
             ->paginated([10, 25, 50, 100]);
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::hasPlanFeature('ALLOW_INVENTORY');
+    }
+
     public static function canViewAny(): bool
     {
+        if (! static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('viewAny', static::$model);
@@ -183,6 +193,9 @@ class SupplierResource extends Resource
      */
     public static function canCreate(): bool
     {
+        if (! static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('create', static::$model);
@@ -193,6 +206,9 @@ class SupplierResource extends Resource
      */
     public static function canEdit(Model $record): bool
     {
+        if (! static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('update', $record);
@@ -204,6 +220,9 @@ class SupplierResource extends Resource
      */
     public static function canDelete(Model $record): bool
     {
+        if (! static::hasPlanFeature('ALLOW_INVENTORY')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('delete', $record);

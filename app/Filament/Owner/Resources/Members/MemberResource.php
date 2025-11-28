@@ -95,6 +95,7 @@ class MemberResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery();
+        $tenantId = auth()->user()?->currentTenant()?->id;
+        return parent::getEloquentQuery()->where('tenant_id', $tenantId);
     }
 }

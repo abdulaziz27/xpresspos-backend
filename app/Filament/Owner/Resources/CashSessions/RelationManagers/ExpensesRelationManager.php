@@ -12,12 +12,36 @@ use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 
+use App\Models\Expense;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
+
 class ExpensesRelationManager extends RelationManager
 {
     use HasCurrencyInput;
     protected static string $relationship = 'expenses';
 
     protected static ?string $title = 'Pengeluaran Tunai';
+
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
+
+    protected function canCreate(): bool
+    {
+        return Gate::allows('create', Expense::class);
+    }
+
+    protected function canEdit(Model $record): bool
+    {
+        return Gate::allows('update', $record);
+    }
+
+    protected function canDelete(Model $record): bool
+    {
+        return Gate::allows('delete', $record);
+    }
 
     public function form(Schema $schema): Schema
     {

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Category;
 use App\Models\CashSession;
 use App\Models\Discount;
+use App\Models\Expense;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransfer;
@@ -25,6 +26,7 @@ use App\Models\Voucher;
 use App\Policies\CategoryPolicy;
 use App\Policies\CashSessionPolicy;
 use App\Policies\DiscountPolicy;
+use App\Policies\ExpensePolicy;
 use App\Policies\InventoryAdjustmentPolicy;
 use App\Policies\InventoryItemPolicy;
 use App\Policies\InventoryTransferPolicy;
@@ -56,6 +58,7 @@ class AuthServiceProvider extends ServiceProvider
         Category::class => CategoryPolicy::class,
         CashSession::class => CashSessionPolicy::class,
         Discount::class => DiscountPolicy::class,
+        Expense::class => ExpensePolicy::class,
         InventoryAdjustment::class => InventoryAdjustmentPolicy::class,
         InventoryItem::class => InventoryItemPolicy::class,
         InventoryTransfer::class => InventoryTransferPolicy::class,

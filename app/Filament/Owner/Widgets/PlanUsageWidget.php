@@ -105,19 +105,19 @@ class PlanUsageWidget extends BaseWidget
             ->chart($isUnlimited ? [] : [$storeUsage]);
 
         // Transactions Usage (Monthly)
-        $currentMonthStart = Carbon::now()->startOfMonth();
-        $currentMonthEnd = Carbon::now()->endOfMonth();
+        $yearStart = Carbon::now()->startOfYear();
+        $yearEnd = Carbon::now()->endOfYear();
         $currentTransactions = Order::where('tenant_id', $tenantId)
-            ->whereBetween('created_at', [$currentMonthStart, $currentMonthEnd])
+            ->whereBetween('created_at', [$yearStart, $yearEnd])
             ->count();
         
-        $transactionLimit = $planLimitService->limit($tenant, 'MAX_TRANSACTIONS_PER_MONTH');
+        $transactionLimit = $planLimitService->limit($tenant, 'MAX_TRANSACTIONS_PER_YEAR');
         $isUnlimited = $transactionLimit === -1 || $transactionLimit === null;
-        $transactionUsage = !$isUnlimited && $transactionLimit > 0 ? ($currentTransactions / $transactionLimit) * 100 : 0;
+        $transactionUsage = !$isUnlimited && $transactionLimit > 0 ? ($currentTransactions / max(1, $transactionLimit)) * 100 : 0;
         $transactionColor = $isUnlimited ? 'success' : ($transactionUsage >= 90 ? 'danger' : ($transactionUsage >= 75 ? 'warning' : 'success'));
 
-        $stats[] = Stat::make('Transaksi Bulan Ini', $isUnlimited ? "{$currentTransactions} / Unlimited" : "{$currentTransactions} / {$transactionLimit}")
-            ->description($isUnlimited ? 'Unlimited' : number_format($transactionUsage, 1) . '% digunakan')
+        $stats[] = Stat::make('Transaksi (YTD)', $isUnlimited ? "{$currentTransactions} / Unlimited" : "{$currentTransactions} / {$transactionLimit}")
+            ->description($isUnlimited ? 'Unlimited' : number_format($transactionUsage, 1) . '% dari kuota tahunan')
             ->descriptionIcon($isUnlimited ? 'heroicon-m-check-circle' : ($transactionUsage >= 90 ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-check-circle'))
             ->color($transactionColor)
             ->chart($isUnlimited ? [] : [$transactionUsage]);

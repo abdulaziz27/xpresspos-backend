@@ -8,6 +8,7 @@ use App\Filament\Owner\Resources\Stores\Pages\ListStores;
 use App\Filament\Owner\Resources\Stores\RelationManagers\StoreUserAssignmentsRelationManager;
 use App\Filament\Owner\Resources\Stores\Schemas\StoreForm;
 use App\Filament\Owner\Resources\Stores\Tables\StoresTable;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use App\Models\Store;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\Gate;
 
 class StoreResource extends Resource
 {
+    use HasPlanBasedNavigation;
     protected static ?string $model = Store::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
@@ -69,9 +71,21 @@ class StoreResource extends Resource
 
     public static function canCreate(): bool
     {
+        $tenantId = auth()->user()?->currentTenant()?->id;
+        if (! $tenantId) {
+            return false;
+        }
+
         $user = auth()->user();
         if (!$user) return false;
-        return Gate::forUser($user)->allows('create', static::$model);
+        if (! Gate::forUser($user)->allows('create', static::$model)) {
+            return false;
+        }
+
+        $currentStoreCount = Store::where('tenant_id', $tenantId)->count();
+        $planCheck = static::canPerformPlanAction('create_store', $currentStoreCount);
+
+        return $planCheck['allowed'];
     }
 
     public static function canEdit(Model $record): bool
@@ -111,7 +125,12 @@ class StoreResource extends Resource
             $tenantId = $user->currentTenant()?->id;
             if ($tenantId) {
                 $query->where('tenant_id', $tenantId);
+            } else {
+                // If no tenant context, return empty result for safety
+                $query->whereRaw('1 = 0');
             }
+        } else {
+            $query->whereRaw('1 = 0');
         }
 
         return $query;

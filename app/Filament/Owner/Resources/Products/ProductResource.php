@@ -18,9 +18,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use App\Filament\Traits\HasPlanBasedNavigation;
 
 class ProductResource extends Resource
 {
+    use HasPlanBasedNavigation;
+
     protected static ?string $model = Product::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCube;
@@ -56,7 +59,8 @@ class ProductResource extends Resource
         }
 
         // Check plan limit first
-        if (! $user->canCreate('products')) {
+        $check = static::canPerformPlanAction('create_product', static::$model::count());
+        if (!$check['allowed']) {
             return false;
         }
 

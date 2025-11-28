@@ -221,7 +221,14 @@ class InventoryItemResource extends Resource
                 Tables\Filters\SelectFilter::make('category')
                     ->label('Kategori')
                     ->options(function () {
+                        // Explicit tenant scope for clarity, though TenantScope handles it globally
+                        $user = Auth::user();
+                        $tenantId = $user?->currentTenant()?->id;
+
+                        if (!$tenantId) return [];
+
                         return InventoryItem::query()
+                            ->where('tenant_id', $tenantId)
                             ->whereNotNull('category')
                             ->distinct()
                             ->pluck('category', 'category');

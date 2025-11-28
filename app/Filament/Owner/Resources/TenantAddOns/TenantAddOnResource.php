@@ -378,9 +378,14 @@ class TenantAddOnResource extends Resource
             ->with(['addOn', 'latestPayment']);
     }
 
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->hasRole('owner');
+    }
+
     public static function canCreate(): bool
     {
-        return true; // Tenant can purchase add-ons
+        return auth()->user()?->hasRole('owner');
     }
 
     public static function canEdit(Model $record): bool

@@ -6,12 +6,14 @@ use App\Filament\Owner\Pages\Concerns\HasLocalReportFilterForm;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Livewire\Attributes\On;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use BackedEnum;
 use UnitEnum;
 
 class ProfitLossReport extends Page
 {
     use HasLocalReportFilterForm;
+    use HasPlanBasedNavigation;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBar;
 
@@ -21,12 +23,18 @@ class ProfitLossReport extends Page
 
     protected static ?int $navigationSort = 15;
 
-    protected static bool $shouldRegisterNavigation = false;
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::hasPlanFeature('ALLOW_ADVANCED_REPORTS');
+    }
 
     protected string $view = 'filament.owner.pages.reports.profit-loss-report';
 
     public function mount(): void
     {
+        if (!static::hasPlanFeature('ALLOW_ADVANCED_REPORTS')) {
+            abort(403, 'Upgrade plan required.');
+        }
         $this->initializeLocalFilters();
     }
 

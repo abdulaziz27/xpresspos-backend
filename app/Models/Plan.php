@@ -51,6 +51,16 @@ class Plan extends Model
      */
     public function hasFeature(string $feature): bool
     {
+        $featureCode = \App\Support\PlanFeatureResolver::normalizeFeatureCode($feature);
+
+        if ($featureCode) {
+            return $this->planFeatures()
+                ->where('feature_code', $featureCode)
+                ->where('is_enabled', true)
+                ->exists();
+        }
+
+        // Fallback to legacy JSON column for features that belum dinormalisasi.
         return in_array($feature, $this->features ?? []);
     }
 
@@ -59,6 +69,27 @@ class Plan extends Model
      */
     public function getLimit(string $feature): ?int
     {
+        $featureCode = \App\Support\PlanFeatureResolver::normalizeLimitCode($feature);
+
+        if ($featureCode) {
+            $planFeature = $this->planFeatures()
+                ->where('feature_code', $featureCode)
+                ->first();
+
+            if (!$planFeature || !$planFeature->is_enabled) {
+                return null;
+            }
+
+            if (is_null($planFeature->limit_value)) {
+                return -1;
+            }
+
+            $limit = (int) $planFeature->limit_value;
+
+            return $limit <= 0 ? -1 : $limit;
+        }
+
+        // Fallback ke legacy JSON limit.
         return $this->limits[$feature] ?? null;
     }
 

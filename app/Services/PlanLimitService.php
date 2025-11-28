@@ -10,6 +10,7 @@ use App\Models\PlanFeature;
 use App\Models\SubscriptionUsage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Support\PlanFeatureResolver;
 
 /**
  * Service untuk handle plan limits dan feature gating.
@@ -29,6 +30,8 @@ class PlanLimitService
      */
     public function hasFeature(Tenant|Store $entity, string $featureCode): bool
     {
+        $featureCode = PlanFeatureResolver::normalizeFeatureCode($featureCode) ?? $featureCode;
+
         $tenant = $this->resolveTenant($entity);
         $plan = $this->getActivePlan($tenant);
 
@@ -58,6 +61,8 @@ class PlanLimitService
      */
     public function limit(Tenant|Store $entity, string $featureCode): ?int
     {
+        $featureCode = PlanFeatureResolver::normalizeLimitCode($featureCode) ?? $featureCode;
+
         $tenant = $this->resolveTenant($entity);
         $plan = $this->getActivePlan($tenant);
 

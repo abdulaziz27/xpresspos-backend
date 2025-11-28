@@ -40,6 +40,11 @@ class StoreSettings extends Page implements HasForms
 
     public ?string $selectedStoreId = null;
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole('owner');
+    }
+
     public function mount(): void
     {
         $this->loadStoreData();
@@ -269,7 +274,13 @@ class StoreSettings extends Page implements HasForms
         /** @var GlobalFilterService $globalFilter */
         $globalFilter = app(GlobalFilterService::class);
         
-        return $globalFilter->getCurrentTenantId();
+        $tenantId = $globalFilter->getCurrentTenantId();
+
+        if (!$tenantId) {
+            $tenantId = auth()->user()?->currentTenant()?->id;
+        }
+
+        return $tenantId;
     }
 
     protected function defaultSettings(): array

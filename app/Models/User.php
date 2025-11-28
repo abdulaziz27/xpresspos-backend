@@ -217,9 +217,9 @@ class User extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         // Set team context first to avoid SQL ambiguity
-        $storeId = $this->primaryStore()?->id ?? StoreContext::instance()->current($this);
-        if ($storeId) {
-            setPermissionsTeamId($storeId);
+        $tenantId = $this->currentTenantId();
+        if ($tenantId) {
+            setPermissionsTeamId($tenantId);
         }
 
         // Admin panel - only admin_sistem and super_admin
@@ -239,14 +239,14 @@ class User extends Authenticatable implements FilamentUser
                 return false;
             }
 
-            // Check if user has store
-            if (!$storeId) {
+            // Check if user has tenant access
+            if (!$tenantId) {
                 return false;
             }
 
-            // Check if store is active
-            $store = Store::find($storeId);
-            if ($store && $store->status !== 'active') {
+            // Check if tenant is active
+            $tenant = Tenant::find($tenantId);
+            if ($tenant && $tenant->status !== 'active') {
                 return false;
             }
 

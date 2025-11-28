@@ -8,7 +8,8 @@ use App\Filament\Owner\Resources\Vouchers\Pages\ListVouchers;
 use App\Filament\Owner\Resources\Vouchers\RelationManagers\RedemptionsRelationManager;
 use App\Models\Promotion;
 use App\Models\Voucher;
-use App\Services\GlobalFilterService;
+use App\Models\Store;
+use App\Enums\AssignmentRoleEnum;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Actions\BulkActionGroup;
@@ -26,12 +27,15 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
+use App\Filament\Traits\HasPlanBasedNavigation;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 
 class VoucherResource extends Resource
 {
+    use HasPlanBasedNavigation;
     protected static ?string $model = Voucher::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTicket;
@@ -46,8 +50,16 @@ class VoucherResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Promo & Kampanye';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::hasPlanFeature('ALLOW_PROMO');
+    }
+
     public static function canViewAny(): bool
     {
+        if (!static::hasPlanFeature('ALLOW_PROMO')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('viewAny', static::$model);
@@ -55,6 +67,9 @@ class VoucherResource extends Resource
 
     public static function canCreate(): bool
     {
+        if (!static::hasPlanFeature('ALLOW_PROMO')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('create', static::$model);
@@ -62,6 +77,9 @@ class VoucherResource extends Resource
 
     public static function canEdit(Model $record): bool
     {
+        if (!static::hasPlanFeature('ALLOW_PROMO')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('update', $record);
@@ -69,6 +87,9 @@ class VoucherResource extends Resource
 
     public static function canDelete(Model $record): bool
     {
+        if (!static::hasPlanFeature('ALLOW_PROMO')) {
+            return false;
+        }
         $user = auth()->user();
         if (!$user) return false;
         return Gate::forUser($user)->allows('delete', $record);
@@ -105,9 +126,7 @@ class VoucherResource extends Resource
                         ]),
                     Select::make('promotion_id')
                         ->label('Promo Terkait')
-                        ->options(fn () => Promotion::query()
-                            ->where('tenant_id', auth()->user()?->currentTenant()?->id)
-                            ->pluck('name', 'id'))
+                        ->options(fn () => self::promotionOptions())
                         ->searchable()
                         ->native(false)
                         ->placeholder('Tidak terhubung (opsional)')
@@ -218,9 +237,7 @@ class VoucherResource extends Resource
                     }),
                 Tables\Filters\SelectFilter::make('promotion_id')
                     ->label('Promo Terkait')
-                    ->options(fn () => Promotion::query()
-                        ->where('tenant_id', auth()->user()?->currentTenant()?->id)
-                        ->pluck('name', 'id'))
+                    ->options(fn () => self::promotionOptions())
                     ->placeholder('Semua Promo'),
                 Filter::make('period')
                     ->label('Periode')
@@ -271,17 +288,105 @@ class VoucherResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->with(['promotion', 'redemptions']);
+        $user = Auth::user();
+        $tenantId = $user?->currentTenant()?->id;
 
-        // Tenant scope sudah otomatis via TenantScope di model
-        // Tapi kita pastikan juga filter promotion sesuai tenant
-        $tenantId = auth()->user()?->currentTenant()?->id;
-        if ($tenantId) {
-            $query->where('tenant_id', $tenantId);
+        if (! $tenantId) {
+            return parent::getEloquentQuery()
+                ->withoutGlobalScopes()
+                ->whereRaw('1 = 0');
         }
 
-        return $query;
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes()
+            ->with(['promotion', 'redemptions'])
+            ->where('tenant_id', $tenantId);
+
+        if (static::isOwnerContext($user)) {
+            return $query;
+        }
+
+        $storeIds = static::accessibleStoreIds($user, $tenantId);
+
+        if (empty($storeIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $builder) use ($storeIds) {
+            $builder
+                ->whereNull('promotion_id')
+                ->orWhereHas('promotion', function (Builder $promotionQuery) use ($storeIds) {
+                    $promotionQuery
+                        ->whereNull('store_id')
+                        ->orWhereIn('store_id', $storeIds);
+                });
+        });
+    }
+
+    protected static function promotionOptions(): array
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            return [];
+        }
+
+        $tenantId = $user->currentTenant()?->id;
+
+        if (! $tenantId) {
+            return [];
+        }
+
+        $query = Promotion::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $tenantId);
+
+        if (! static::isOwnerContext($user)) {
+            $storeIds = static::accessibleStoreIds($user, $tenantId);
+
+            if (empty($storeIds)) {
+                return [];
+            }
+
+            $query->where(function (Builder $builder) use ($storeIds) {
+                $builder
+                    ->whereNull('store_id')
+                    ->orWhereIn('store_id', $storeIds);
+            });
+        }
+
+        return $query->orderBy('name')->pluck('name', 'id')->toArray();
+    }
+
+    protected static function accessibleStoreIds($user, string $tenantId): array
+    {
+        if (static::isOwnerContext($user)) {
+            return Store::where('tenant_id', $tenantId)->pluck('id')->toArray();
+        }
+
+        return $user->stores()
+            ->where('stores.tenant_id', $tenantId)
+            ->pluck('stores.id')
+            ->toArray();
+    }
+
+    protected static function isOwnerContext($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasRole('owner')) {
+            return true;
+        }
+
+        if (! method_exists($user, 'storeAssignments')) {
+            return false;
+        }
+
+        return $user->storeAssignments()
+            ->where('assignment_role', AssignmentRoleEnum::OWNER->value)
+            ->exists();
     }
 }
 
