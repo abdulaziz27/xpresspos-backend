@@ -39,6 +39,8 @@ class SalesReport extends Page
             \App\Filament\Owner\Pages\Reports\Widgets\SalesTrendChart::class,
             \App\Filament\Owner\Pages\Reports\Widgets\SalesPerDayChart::class,
             \App\Filament\Owner\Pages\Reports\Widgets\SalesPerHourChart::class,
+            \App\Filament\Owner\Pages\Reports\Widgets\SalesAndProductsPerDayChart::class,
+            \App\Filament\Owner\Pages\Reports\Widgets\PaymentMethodPieChart::class,
             \App\Filament\Owner\Pages\Reports\Widgets\SalesSummaryCard::class,
             \App\Filament\Owner\Pages\Reports\Widgets\TransactionControlCard::class,
         ];
